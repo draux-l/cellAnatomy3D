@@ -7,6 +7,12 @@
       name="description"
       content="Interactive 3D comparison of an animal cell and a plant cell, built with procedural geometry."
     />
+    <!--
+      Without a declared icon the browser probes /favicon.ico, which 404s and logs a console
+      error on every load. The app ships no image assets, so an empty data URI is the honest
+      declaration: no request, no error, no asset.
+    -->
+    <link rel="icon" href="data:," />
     <title>3D Cell Anatomy Explorer</title>
   </head>
   <body>
