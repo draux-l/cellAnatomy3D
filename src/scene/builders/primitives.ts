@@ -76,6 +76,7 @@ export type OrganelleMaterialKey =
   | 'outerMembrane'
   | 'innerMembrane'
   | 'membrane'
+  | 'cytoplasm'
   | 'nuclearEnvelope'
   | 'nucleolus'
   | 'nuclearPore'
@@ -93,6 +94,7 @@ export const ORGANELLE_MATERIAL_KEYS = [
   'outerMembrane',
   'innerMembrane',
   'membrane',
+  'cytoplasm',
   'nuclearEnvelope',
   'nucleolus',
   'nuclearPore',

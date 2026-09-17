@@ -1,6 +1,7 @@
 import type { BuilderId } from '../../catalog/types';
 import { buildCellWall } from './cell-wall';
 import { buildChloroplast } from './chloroplast';
+import { buildCytoplasm } from './cytoplasm';
 import { buildEndoplasmicReticulum } from './er';
 import { buildGolgi } from './golgi';
 import { buildLysosome } from './lysosome';
@@ -34,6 +35,7 @@ export type OrganelleBuilder = (params?: Record<string, number | string | boolea
 
 export const BUILDER_REGISTRY: Partial<Record<BuilderId, OrganelleBuilder>> = {
   membrane: buildMembrane,
+  cytoplasm: buildCytoplasm,
   nucleus: buildNucleus,
   mitochondrion: buildMitochondrion,
   'endoplasmic-reticulum': buildEndoplasmicReticulum,

@@ -1,6 +1,6 @@
 {
   "milestone": "M1d (PR 5a)",
-  "measuredAt": "2026-09-17T16:45:32.203Z",
+  "measuredAt": "2026-09-17T18:36:19.625Z",
   "fixture": "/?fixture=organelle&id=mitochondrion",
   "environment": {
     "platform": "win32 x64",
@@ -15,8 +15,8 @@
     "warmUpMs": 1500,
     "steadyStateWindowMs": 2000,
     "steadyStateWindows": 3,
-    "frameSamples": 273,
-    "framesObserved": 93
+    "frameSamples": 254,
+    "framesObserved": 86
   },
   "organelle": {
     "id": "mitochondrion",
@@ -28,42 +28,42 @@
     "fixture": "/?fixture=cell&view=animal",
     "cell": "animal",
     "records": 7,
-    "triangles": 39308,
-    "drawCalls": 22,
+    "triangles": 49906,
+    "drawCalls": 24,
     "qualityTier": "high",
     "note": "The pick hit volumes are not counted: they live on a non-rendered layer and cost no draw calls."
   },
   "sizes": [
     {
-      "file": "assets/CellViewer-Bvlu1F6e.js",
+      "file": "assets/CellViewer-CMlO5ouN.js",
       "role": "lazy",
-      "rawBytes": 1020775,
-      "gzipBytes": 281577
+      "rawBytes": 1023927,
+      "gzipBytes": 282615
     },
     {
-      "file": "assets/index--HI6e-x-.css",
-      "role": "entry-css",
-      "rawBytes": 1360,
-      "gzipBytes": 656
-    },
-    {
-      "file": "assets/index-BXOz3wS6.js",
+      "file": "assets/index-CtaQnwNy.js",
       "role": "entry-js",
-      "rawBytes": 210713,
-      "gzipBytes": 67447
+      "rawBytes": 212421,
+      "gzipBytes": 68047
+    },
+    {
+      "file": "assets/index-DyG_l-Cb.css",
+      "role": "entry-css",
+      "rawBytes": 2208,
+      "gzipBytes": 872
     },
     {
       "file": "index.html",
       "role": "html",
       "rawBytes": 851,
-      "gzipBytes": 503
+      "gzipBytes": 501
     }
   ],
   "budgets": [
     {
       "id": "draw-calls-per-cell",
       "target": "<= 150 calls",
-      "measured": 22,
+      "measured": 24,
       "unit": "calls",
       "gate": "hard",
       "status": "pass",
@@ -72,7 +72,7 @@
     {
       "id": "triangles-per-cell",
       "target": "<= 150000 triangles",
-      "measured": 39308,
+      "measured": 49906,
       "unit": "triangles",
       "gate": "hard",
       "status": "pass",
@@ -90,7 +90,7 @@
     {
       "id": "first-3d-paint",
       "target": "<= 3000 ms",
-      "measured": 797,
+      "measured": 826,
       "unit": "ms",
       "gate": "advisory-local",
       "status": "pass",
@@ -99,7 +99,7 @@
     {
       "id": "steady-state-fps-p50",
       "target": ">= 60 fps",
-      "measured": 53.8,
+      "measured": 59.9,
       "unit": "fps",
       "gate": "advisory-local",
       "status": "miss",
@@ -108,7 +108,7 @@
     {
       "id": "steady-state-fps-p95",
       "target": ">= 55 fps",
-      "measured": 28.3,
+      "measured": 18.3,
       "unit": "fps",
       "gate": "advisory-local",
       "status": "miss",
@@ -117,7 +117,7 @@
     {
       "id": "shell-gzip",
       "target": "<= 350.0 KB gzipped",
-      "measured": 67447,
+      "measured": 68047,
       "unit": "bytes",
       "gate": "hard",
       "status": "pass",
@@ -126,7 +126,7 @@
     {
       "id": "initial-payload-gzip",
       "target": "<= 2.50 MB gzipped",
-      "measured": 68606,
+      "measured": 69420,
       "unit": "bytes",
       "gate": "hard",
       "status": "pass",
@@ -135,7 +135,7 @@
     {
       "id": "single-file-cap",
       "target": "<= 25.00 MB per file",
-      "measured": 1020775,
+      "measured": 1023927,
       "unit": "bytes",
       "gate": "hard",
       "status": "pass",
@@ -143,29 +143,29 @@
     }
   ],
   "misses": [
-    "steady-state-fps-p50: measured 53.8fps against >= 60 fps",
-    "steady-state-fps-p95: measured 28.3fps against >= 55 fps"
+    "steady-state-fps-p50: measured 59.9fps against >= 60 fps",
+    "steady-state-fps-p95: measured 18.3fps against >= 55 fps"
   ],
   "stability": {
     "windows": [
       {
-        "samples": 87,
-        "fpsP50": 46.51162790697674,
-        "fpsP95": 28.296547817109182
+        "samples": 80,
+        "fpsP50": 59.880239510272034,
+        "fpsP95": 12.230171834382338
       },
       {
-        "samples": 93,
-        "fpsP50": 53.76344087744382,
-        "fpsP95": 30.413625297520223
+        "samples": 88,
+        "fpsP50": 59.701492537313435,
+        "fpsP95": 19.142419601073247
       },
       {
-        "samples": 93,
-        "fpsP50": 54.34782606935118,
-        "fpsP95": 27.777777775478217
+        "samples": 86,
+        "fpsP50": 59.880239510272034,
+        "fpsP95": 18.29826166564074
       }
     ],
     "windowMs": 2000,
-    "fpsP50SpreadPct": 14.6
+    "fpsP50SpreadPct": 0.3
   },
   "pageErrors": [],
   "ratification": {

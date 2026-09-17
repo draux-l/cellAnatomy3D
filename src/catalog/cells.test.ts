@@ -17,6 +17,7 @@ const SHARED_IDS = [
   'ribosome',
   'lysosome',
   'membrane',
+  'cytoplasm',
 ];
 
 const PLANT_ONLY_IDS = ['cell-wall', 'chloroplast', 'vacuole'];

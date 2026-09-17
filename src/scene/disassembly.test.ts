@@ -73,11 +73,15 @@ describe('disassemblyOffset', () => {
   });
 
   it('keeps a part that never separates exactly where it is', () => {
-    // The membrane and the wall declare a zero vector with zero distance: the outer envelope is
-    // what the others leave behind.
+    // The cytoplasm, the membrane and the wall declare a zero vector with zero distance: the
+    // envelope and the volume it encloses are what the others leave behind.
     const anchored = ORGANELLE_RECORDS.filter((record) => record.disassembly.distance === 0);
 
-    expect(anchored.map((record) => record.id).sort()).toEqual(['cell-wall', 'membrane']);
+    expect(anchored.map((record) => record.id).sort()).toEqual([
+      'cell-wall',
+      'cytoplasm',
+      'membrane',
+    ]);
 
     for (const record of anchored) {
       for (const progress of [0, 25, 57, 100]) {

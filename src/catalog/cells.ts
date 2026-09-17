@@ -208,6 +208,47 @@ const CATALOG: readonly OrganelleRecord[] = [
     pickable: true,
   },
   {
+    id: 'cytoplasm',
+    name: { es: 'Citoplasma', en: 'Cytoplasm' },
+    func: {
+      es: 'Es el medio interno de la célula: un gel acuoso donde están suspendidos los orgánulos. En él ocurren muchas reacciones químicas y por él se mueven las sustancias.',
+      en: 'The internal medium of the cell: a watery gel in which the organelles are suspended. Many chemical reactions happen in it, and substances move through it.',
+    },
+    size: { value: 20, unit: 'µm' },
+    funFact: {
+      es: 'Cerca del 70-80% del citoplasma es agua. El citoplasma es todo lo que hay dentro de la membrana menos el núcleo; la parte líquida, sin los orgánulos, se llama citosol.',
+      en: 'Roughly 70-80% of the cytoplasm is water. It is everything inside the membrane except the nucleus; the liquid part on its own, without the organelles, is the cytosol.',
+    },
+    // The palette's `cytoplasm` role, which had no consumer until this record existed.
+    paletteRole: 'cytoplasm',
+    /*
+     * Centred on the origin, because the cytoplasm *is* the interior volume rather than a body
+     * placed inside it. Its `size` is 0.94 against the membrane's 1.0, so the membrane stays the
+     * boundary and this is the fill just inside it.
+     *
+     * The plant override gives it the wall's rounded-octagon silhouette, the same way the membrane
+     * record does: a round fill inside an angular boundary would be two unrelated shapes claiming
+     * to be one cell, which is the defect the composition slice already fixed once.
+     */
+    position: [0, 0, 0],
+    geometry: {
+      builder: 'cytoplasm',
+      params: { size: 0.94, detail: 1, count: 0, noiseAmplitude: 0.018 },
+      seed: 'cytoplasm/v1',
+    },
+    perCell: {
+      plant: { geometryParams: { sides: 8, cornerRounding: 0.4 } },
+    },
+    /*
+     * Explicit "this part never separates": like the membrane and the wall, the cytoplasm is what
+     * the other parts leave behind. `distance: 0` at the origin also makes `isOuterEnvelope` treat
+     * its hit box as an envelope, so it can never swallow a click meant for an organelle inside it.
+     */
+    disassembly: { direction: [0, 0, 0], distance: 0 },
+    cells: ['animal', 'plant'],
+    pickable: true,
+  },
+  {
     id: 'membrane',
     name: { es: 'Membrana plasmática', en: 'Cell membrane' },
     func: {

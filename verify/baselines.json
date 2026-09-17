@@ -15,30 +15,30 @@
   "fixtures": {
     "organelle:mitochondrion": {
       "screenshot": "artifacts/screens/organelle/mitochondrion.png",
-      "coverage": 0.283439,
-      "occupiedAreaPx": 290242,
-      "regionColor": "#784932",
+      "coverage": 0.283298,
+      "occupiedAreaPx": 290097,
+      "regionColor": "#603c29",
       "measuredAt": "2026-09-17",
       "measuredWith": "playwright chromium 153 / three 0.186.0",
       "notes": "Frozen organelle fixture (seed-locked, clock-frozen). Draw calls 13, triangles 11424; the per-organelle cost report lives in artifacts/perf/report.json."
     },
     "organelle:membrane": {
       "screenshot": "artifacts/screens/organelle/membrane.png",
-      "coverage": 0.492437,
-      "occupiedAreaPx": 504256,
-      "regionColor": "#263643",
+      "coverage": 0.481405,
+      "occupiedAreaPx": 492727,
+      "regionColor": "#19232c",
       "measuredAt": "2026-09-17",
       "measuredWith": "playwright chromium 153 / three 0.186.0",
       "notes": "Frozen organelle fixture (seed-locked, clock-frozen). Draw calls 1, triangles 5040; the per-organelle cost report lives in artifacts/perf/report.json."
     },
     "organelle:nucleus": {
       "screenshot": "artifacts/screens/organelle/nucleus.png",
-      "coverage": 0.304755,
-      "occupiedAreaPx": 312069,
-      "regionColor": "#51426b",
+      "coverage": 0.304398,
+      "occupiedAreaPx": 311694,
+      "regionColor": "#46395c",
       "measuredAt": "2026-09-17",
       "measuredWith": "playwright chromium 153 / three 0.186.0",
-      "notes": "Frozen organelle fixture (seed-locked, clock-frozen). Draw calls 3, triangles 8244; the per-organelle cost report lives in artifacts/perf/report.json."
+      "notes": "Frozen organelle fixture (seed-locked, clock-frozen). Draw calls 3, triangles 12500; the per-organelle cost report lives in artifacts/perf/report.json."
     },
     "organelle:endoplasmic-reticulum": {
       "screenshot": "artifacts/screens/organelle/endoplasmic-reticulum.png",
@@ -69,111 +69,120 @@
     },
     "organelle:lysosome": {
       "screenshot": "artifacts/screens/organelle/lysosome.png",
-      "coverage": 0.112026,
-      "occupiedAreaPx": 114715,
-      "regionColor": "#a55f3e",
+      "coverage": 0.116368,
+      "occupiedAreaPx": 119161,
+      "regionColor": "#a7603e",
       "measuredAt": "2026-09-17",
       "measuredWith": "playwright chromium 153 / three 0.186.0",
-      "notes": "Frozen organelle fixture (seed-locked, clock-frozen). Draw calls 1, triangles 320; the per-organelle cost report lives in artifacts/perf/report.json."
+      "notes": "Frozen organelle fixture (seed-locked, clock-frozen). Draw calls 1, triangles 1620; the per-organelle cost report lives in artifacts/perf/report.json."
     },
     "organelle:chloroplast": {
       "screenshot": "artifacts/screens/organelle/chloroplast.png",
-      "coverage": 0.259892,
-      "occupiedAreaPx": 266129,
-      "regionColor": "#3b5e35",
+      "coverage": 0.259318,
+      "occupiedAreaPx": 265540,
+      "regionColor": "#2e4a2b",
       "measuredAt": "2026-09-17",
       "measuredWith": "playwright chromium 153 / three 0.186.0",
       "notes": "Frozen organelle fixture (seed-locked, clock-frozen). Draw calls 2, triangles 6504; the per-organelle cost report lives in artifacts/perf/report.json."
     },
     "organelle:vacuole": {
       "screenshot": "artifacts/screens/organelle/vacuole.png",
-      "coverage": 0.467841,
-      "occupiedAreaPx": 479069,
-      "regionColor": "#2b413e",
+      "coverage": 0.462194,
+      "occupiedAreaPx": 473278,
+      "regionColor": "#1d2a29",
       "measuredAt": "2026-09-17",
       "measuredWith": "playwright chromium 153 / three 0.186.0",
       "notes": "Frozen organelle fixture (seed-locked, clock-frozen). Draw calls 1, triangles 2304; the per-organelle cost report lives in artifacts/perf/report.json."
     },
     "organelle:cell-wall": {
       "screenshot": "artifacts/screens/organelle/cell-wall.png",
-      "coverage": 0.560406,
-      "occupiedAreaPx": 573856,
-      "regionColor": "#6b634b",
+      "coverage": 0.560561,
+      "occupiedAreaPx": 574014,
+      "regionColor": "#4a4536",
       "measuredAt": "2026-09-17",
       "measuredWith": "playwright chromium 153 / three 0.186.0",
-      "notes": "Frozen organelle fixture (seed-locked, clock-frozen). Draw calls 1, triangles 448; the per-organelle cost report lives in artifacts/perf/report.json."
+      "notes": "Frozen organelle fixture (seed-locked, clock-frozen). Draw calls 1, triangles 960; the per-organelle cost report lives in artifacts/perf/report.json."
     },
     "disassembly:0": {
       "screenshot": "artifacts/screens/disassembly/0.png",
-      "coverage": 0.1375,
-      "occupiedAreaPx": 134779,
-      "regionColor": "#414b51",
+      "coverage": 0.134932,
+      "occupiedAreaPx": 132139,
+      "regionColor": "#38434b",
       "measuredAt": "2026-09-17",
       "measuredWith": "playwright chromium 153 / three 0.186.0",
       "notes": "Disassembly frozen at 0%."
     },
     "disassembly:25": {
       "screenshot": "artifacts/screens/disassembly/25.png",
-      "coverage": 0.138023,
-      "occupiedAreaPx": 135059,
-      "regionColor": "#444d53",
+      "coverage": 0.135481,
+      "occupiedAreaPx": 132446,
+      "regionColor": "#3b464e",
       "measuredAt": "2026-09-17",
       "measuredWith": "playwright chromium 153 / three 0.186.0",
       "notes": "Disassembly frozen at 25%."
     },
     "disassembly:57": {
       "screenshot": "artifacts/screens/disassembly/57.png",
-      "coverage": 0.147444,
-      "occupiedAreaPx": 144713,
-      "regionColor": "#454e51",
+      "coverage": 0.145087,
+      "occupiedAreaPx": 142292,
+      "regionColor": "#3d474b",
       "measuredAt": "2026-09-17",
       "measuredWith": "playwright chromium 153 / three 0.186.0",
       "notes": "Disassembly frozen at 57%."
     },
     "disassembly:100": {
       "screenshot": "artifacts/screens/disassembly/100.png",
-      "coverage": 0.173228,
-      "occupiedAreaPx": 160573,
-      "regionColor": "#404b50",
+      "coverage": 0.171037,
+      "occupiedAreaPx": 158237,
+      "regionColor": "#394548",
       "measuredAt": "2026-09-17",
       "measuredWith": "playwright chromium 153 / three 0.186.0",
       "notes": "Disassembly frozen at 100%."
     },
     "disassembly:57-plant": {
       "screenshot": "artifacts/screens/disassembly/57-plant.png",
-      "coverage": 0.307917,
-      "occupiedAreaPx": 309037,
-      "regionColor": "#63665a",
+      "coverage": 0.307738,
+      "occupiedAreaPx": 308854,
+      "regionColor": "#4b4f48",
       "measuredAt": "2026-09-17",
       "measuredWith": "playwright chromium 153 / three 0.186.0",
       "notes": "Disassembly frozen at 57% in the plant cell."
     },
     "cell:animal": {
       "screenshot": "artifacts/screens/cell/animal.png",
-      "coverage": 0.196395,
-      "occupiedAreaPx": 195087,
-      "regionColor": "#414b51",
+      "coverage": 0.193207,
+      "occupiedAreaPx": 191810,
+      "regionColor": "#37434b",
       "measuredAt": "2026-09-17",
       "measuredWith": "playwright chromium 153 / three 0.186.0",
-      "notes": "Composed animal cell, frozen fixture. Draw calls 22, triangles 39308."
+      "notes": "Composed animal cell, frozen fixture. Draw calls 23, triangles 49904."
     },
     "cell:plant": {
       "screenshot": "artifacts/screens/cell/plant.png",
-      "coverage": 0.44417,
-      "occupiedAreaPx": 449968,
-      "regionColor": "#636559",
+      "coverage": 0.44372,
+      "occupiedAreaPx": 449507,
+      "regionColor": "#494d46",
       "measuredAt": "2026-09-17",
       "measuredWith": "playwright chromium 153 / three 0.186.0",
-      "notes": "Composed plant cell, frozen fixture. Draw calls 26, triangles 48564."
+      "notes": "Composed plant cell, frozen fixture. Draw calls 27, triangles 59672."
     },
     "interaction:isolate-golgi": {
       "screenshot": "artifacts/screens/interaction/isolate-golgi.png",
-      "coverage": 0.301311,
-      "occupiedAreaPx": 267419,
-      "regionColor": "#72655e",
+      "coverage": 0.314281,
+      "occupiedAreaPx": 260123,
+      "regionColor": "#73665f",
       "measuredAt": "2026-09-17",
       "measuredWith": "playwright chromium 153 / three 0.186.0",
-      "notes": "Isolated golgi fixture, camera framed from the catalog. Draw calls 22."
+      "notes": "Isolated golgi fixture, camera framed from the catalog. Draw calls 23."
+    },
+    "organelle:cytoplasm": {
+      "screenshot": "artifacts/screens/organelle/cytoplasm.png",
+      "coverage": 0.319654,
+      "occupiedAreaPx": 327322,
+      "regionColor": "#0f1923",
+      "measuredAt": "2026-09-17",
+      "measuredWith": "playwright chromium 153 / three 0.186.0",
+      "notes": "Frozen organelle fixture (seed-locked, clock-frozen). Draw calls 1, triangles 5040; the per-organelle cost report lives in artifacts/perf/report.json."
     }
   }
 }

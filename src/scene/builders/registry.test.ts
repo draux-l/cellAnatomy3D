@@ -25,6 +25,7 @@ const PER_CELL_DRAW_CALL_BUDGET = 150;
 const EXPECTED_BUILDER_IDS = [
   'cell-wall',
   'chloroplast',
+  'cytoplasm',
   'endoplasmic-reticulum',
   'golgi',
   'lysosome',

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildCellWall } from './cell-wall';
 import { buildChloroplast } from './chloroplast';
+import { buildCytoplasm } from './cytoplasm';
 import { buildMembrane } from './membrane';
 import { buildMitochondrion } from './mitochondrion';
 import { buildNucleus } from './nucleus';
@@ -25,6 +26,7 @@ import { buildVacuole } from './vacuole';
 describe('boundary shell closure', () => {
   const shells: [string, () => OrganelleBuild][] = [
     ['membrane', () => buildMembrane()],
+    ['cytoplasm', () => buildCytoplasm()],
     ['nucleus', () => buildNucleus()],
     ['mitochondrion', () => buildMitochondrion()],
     ['chloroplast', () => buildChloroplast()],
@@ -36,6 +38,7 @@ describe('boundary shell closure', () => {
   const SINGLE_SIDED_KEYS = [
     'outerMembrane',
     'membrane',
+    'cytoplasm',
     'nuclearEnvelope',
     'chloroplast',
     'cellWall',
@@ -48,12 +51,12 @@ describe('boundary shell closure', () => {
       .map((part) => ({ label, part })),
   );
 
-  it('covers exactly the six shell surfaces', () => {
+  it('covers exactly the seven shell surfaces', () => {
     // A vacuous test is worse than no test: if the builders above stopped producing these keys, the
     // closure assertions below would silently stop checking anything. Six is the roster today —
-    // membrane, nuclear envelope, mitochondrial outer membrane, chloroplast envelope, vacuole, wall.
-    // A new shell is expected to fail here and update this number on purpose.
-    expect(singleSidedParts.length).toBe(6);
+    // membrane, cytoplasm, nuclear envelope, mitochondrial outer membrane, chloroplast envelope,
+    // vacuole, wall. A new shell is expected to fail here and update this number on purpose.
+    expect(singleSidedParts.length).toBe(7);
   });
 
   it.each(singleSidedParts.map(({ label, part }) => [label, part.name, part] as const))(

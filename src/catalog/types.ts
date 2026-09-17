@@ -35,6 +35,7 @@ export const PALETTE_ROLES = ['membrane', 'cytoplasm', 'nucleus', 'organelles'] 
  */
 export type BuilderId =
   | 'membrane'
+  | 'cytoplasm'
   | 'nucleus'
   | 'mitochondrion'
   | 'endoplasmic-reticulum'
@@ -47,6 +48,7 @@ export type BuilderId =
 
 export const BUILDER_IDS = [
   'membrane',
+  'cytoplasm',
   'nucleus',
   'mitochondrion',
   'endoplasmic-reticulum',

@@ -29,6 +29,15 @@ export const M0_COLORS = {
 
   /** `membrane` palette role: the cell's own thin boundary. */
   membrane: '#7fa8cc',
+  /**
+   * `cytoplasm` palette role: the cytosol the organelles sit in.
+   *
+   * The first and only consumer of the `cytoplasm` role. Both user references label the cytoplasm
+   * explicitly, and in the animal cell the blue interior fill *is* the cytoplasm — so the colour is
+   * a blue related to the membrane's but deeper, because it is read through the membrane rather
+   * than as a boundary.
+   */
+  cytoplasm: '#4f7ea8',
   /** `nucleus` palette role, outer layer. Translucent so the nucleolus reads through it. */
   nuclearEnvelope: '#9b7fc4',
   /** `nucleus` palette role, the dense body. Opaque and dark: it must be unmistakable. */
@@ -123,6 +132,10 @@ export function createOrganelleMaterials(): OrganelleMaterials {
       side: DoubleSide,
     }),
     membrane: createShell(M0_COLORS.membrane, 0.22),
+    // The cytosol fill. The lowest opacity of the boundary surfaces on purpose: it covers the whole
+    // cell, and every organelle is *inside* it, so the shell's near hemisphere tints them. Higher
+    // than this and the cell reads as a solid blue ball with shapes lost in it.
+    cytoplasm: createShell(M0_COLORS.cytoplasm, 0.17),
     nuclearEnvelope: createShell(M0_COLORS.nuclearEnvelope, 0.3),
     nucleolus: createBody(M0_COLORS.nucleolus),
     nuclearPore: createBody(M0_COLORS.nuclearPore),
