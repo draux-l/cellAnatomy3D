@@ -33,6 +33,8 @@ describe('createOrganelleMaterials', () => {
       ['vesicle', M0_COLORS.vesicle],
       ['chloroplast', M0_COLORS.chloroplast],
       ['grana', M0_COLORS.grana],
+      ['cellWall', M0_COLORS.cellWall],
+      ['vacuole', M0_COLORS.vacuole],
     ];
 
     for (const [key, hex] of pairs) {
@@ -51,8 +53,10 @@ describe('createOrganelleMaterials', () => {
     expect(shell.side).toBe(DoubleSide);
   });
 
-  it('keeps both boundary shells translucent and depth-write-free', () => {
-    for (const key of ['membrane', 'nuclearEnvelope'] as const) {
+  it('keeps every boundary shell translucent and depth-write-free', () => {
+    // Every surface that encloses something else: the cell membrane, the nuclear envelope and the
+    // three plant boundaries. All of them must be `transparent` + `opacity`, never `transmission`.
+    for (const key of ['membrane', 'nuclearEnvelope', 'chloroplast', 'cellWall', 'vacuole'] as const) {
       const shell = materials[key] as MeshPhysicalMaterial;
 
       expect(shell.transparent).toBe(true);

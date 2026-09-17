@@ -49,6 +49,10 @@ export const M0_COLORS = {
   chloroplast: '#6f9e5a',
   /** `organelles` palette role, the stacked thylakoid discs — the photosynthesis teaching object. */
   grana: '#3f7a45',
+  /** `membrane` palette role, the rigid cellulose wall around the plant cell. */
+  cellWall: '#c9b98f',
+  /** `organelles` palette role, the large fluid body that fills the plant cell. */
+  vacuole: '#7fb3a6',
 } as const satisfies Record<string, string>;
 
 export type OrganelleMaterials = Record<OrganelleMaterialKey, Material> & {
@@ -105,6 +109,12 @@ export function createOrganelleMaterials(): OrganelleMaterials {
     // and must stay legible straight through the stroma.
     chloroplast: createShell(M0_COLORS.chloroplast, 0.4),
     grana: createBody(M0_COLORS.grana),
+    // The wall is the more opaque of the two plant boundaries: it is the cell's rigid outer layer,
+    // and the band has to stay readable where its own front, back and inner faces overlap.
+    cellWall: createShell(M0_COLORS.cellWall, 0.45),
+    // The vacuole is the largest surface in the cell, so it is the lower opacity of the two:
+    // overdraw, not `transmission`, is the cost that matters here.
+    vacuole: createShell(M0_COLORS.vacuole, 0.26),
   };
 
   return {

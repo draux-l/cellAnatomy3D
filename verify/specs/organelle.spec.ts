@@ -43,6 +43,8 @@ const ORGANELLES = [
   'ribosome',
   'lysosome',
   'chloroplast',
+  'vacuole',
+  'cell-wall',
 ] as const;
 
 /** The organelle the byte-identical determinism check runs on. */

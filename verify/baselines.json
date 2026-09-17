@@ -84,6 +84,24 @@
       "measuredAt": "2026-09-17",
       "measuredWith": "playwright chromium 153 / three 0.186.0",
       "notes": "Frozen organelle fixture (seed-locked, clock-frozen). Draw calls 2, triangles 6504; the per-organelle cost report lives in artifacts/perf/report.json."
+    },
+    "organelle:vacuole": {
+      "screenshot": "artifacts/screens/organelle/vacuole.png",
+      "coverage": 0.467841,
+      "occupiedAreaPx": 479069,
+      "regionColor": "#2b413e",
+      "measuredAt": "2026-09-17",
+      "measuredWith": "playwright chromium 153 / three 0.186.0",
+      "notes": "Frozen organelle fixture (seed-locked, clock-frozen). Draw calls 1, triangles 2304; the per-organelle cost report lives in artifacts/perf/report.json."
+    },
+    "organelle:cell-wall": {
+      "screenshot": "artifacts/screens/organelle/cell-wall.png",
+      "coverage": 0.560406,
+      "occupiedAreaPx": 573856,
+      "regionColor": "#6b634b",
+      "measuredAt": "2026-09-17",
+      "measuredWith": "playwright chromium 153 / three 0.186.0",
+      "notes": "Frozen organelle fixture (seed-locked, clock-frozen). Draw calls 1, triangles 448; the per-organelle cost report lives in artifacts/perf/report.json."
     }
   }
 }

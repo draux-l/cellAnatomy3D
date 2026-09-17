@@ -40,12 +40,12 @@ export interface IntegrityIssue {
  * Declared builders the catalog already references but that no registry entry serves *yet*.
  *
  * M1b left the plant three here so the catalog could reference builders that had not landed. M1c
- * buys them; the chloroplast has registered (task 3.9), so the list is down to the two builders
- * tasks 3.10 owes. It stays in the code on purpose — a **shrinking allowlist, not a permanent
- * hole** — and a test asserts it is exactly the declared-but-unregistered gap, which is what
- * forces each registration to shrink it in the same change.
+ * built them, so the list is now **empty**: every declared builder resolves. It stays in the code
+ * on purpose — a **shrinking allowlist, not a permanent hole** — and a test asserts it is exactly
+ * the declared-but-unregistered gap, which is what forced the registration and the emptying to
+ * happen in the same slice.
  */
-export const PENDING_BUILDER_IDS = ['cell-wall', 'vacuole'] as const;
+export const PENDING_BUILDER_IDS: readonly string[] = [];
 
 export interface BuilderResolutionOptions {
   /**

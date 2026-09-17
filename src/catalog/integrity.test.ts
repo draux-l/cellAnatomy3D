@@ -66,7 +66,8 @@ describe('catalog integrity — builder resolution (D3, task 3.2)', () => {
     // shrinks it in the same change: a builder left pending after it ships fails here.
     const gaps = BUILDER_IDS.filter((id) => !REGISTERED_BUILDER_IDS.includes(id));
 
-    expect([...PENDING_BUILDER_IDS]).toEqual([...gaps]);
+    expect(gaps).toEqual([]);
+    expect([...PENDING_BUILDER_IDS]).toEqual([]);
     expect(validateBuilderResolution(ORGANELLE_RECORDS, RESOLUTION)).toEqual([]);
   });
 

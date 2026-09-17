@@ -85,7 +85,9 @@ export type OrganelleMaterialKey =
   | 'golgi'
   | 'vesicle'
   | 'chloroplast'
-  | 'grana';
+  | 'grana'
+  | 'cellWall'
+  | 'vacuole';
 
 export const ORGANELLE_MATERIAL_KEYS = [
   'outerMembrane',
@@ -101,6 +103,8 @@ export const ORGANELLE_MATERIAL_KEYS = [
   'vesicle',
   'chloroplast',
   'grana',
+  'cellWall',
+  'vacuole',
 ] as const satisfies readonly OrganelleMaterialKey[];
 
 /** One geometry, one draw call. */

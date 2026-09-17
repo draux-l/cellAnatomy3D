@@ -1,4 +1,5 @@
 import type { BuilderId } from '../../catalog/types';
+import { buildCellWall } from './cell-wall';
 import { buildChloroplast } from './chloroplast';
 import { buildEndoplasmicReticulum } from './er';
 import { buildGolgi } from './golgi';
@@ -7,6 +8,7 @@ import { buildMembrane } from './membrane';
 import { buildMitochondrion } from './mitochondrion';
 import { buildNucleus } from './nucleus';
 import { buildRibosome } from './ribosome';
+import { buildVacuole } from './vacuole';
 import type { OrganelleBuild } from './primitives';
 
 /**
@@ -21,9 +23,9 @@ import type { OrganelleBuild } from './primitives';
  * the result. Same extension point, testable side.
  *
  * `BuilderId` is the catalog's declared vocabulary (`src/catalog/types.ts`), not a local type.
- * M1b registered the seven shared organelles; M1c / PR 4 registers the plant three (chloroplast,
- * vacuole, cell wall) and empties the pending allowlist `catalog/integrity.ts` used to tolerate
- * the gap. Add an organelle here and the catalog can reference it immediately.
+ * M1b registered the seven shared organelles and M1c / PR 4 registered the plant three
+ * (chloroplast, vacuole, cell wall), so this map now covers the **whole declared vocabulary** and
+ * `catalog/integrity.ts`'s pending allowlist is empty.
  */
 
 export type { BuilderId };
@@ -39,6 +41,8 @@ export const BUILDER_REGISTRY: Partial<Record<BuilderId, OrganelleBuilder>> = {
   ribosome: buildRibosome,
   lysosome: buildLysosome,
   chloroplast: buildChloroplast,
+  vacuole: buildVacuole,
+  'cell-wall': buildCellWall,
 };
 
 /**
