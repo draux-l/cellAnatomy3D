@@ -1,6 +1,6 @@
 import type { BufferGeometry } from 'three';
 import { describe, expect, it, vi } from 'vitest';
-import { hashGeometryPositions } from './primitives';
+import { countTriangles, hashGeometryPositions } from './primitives';
 import {
   CRISTA_HEIGHT_RATIO,
   CRISTA_INNER_RADIUS,
@@ -10,7 +10,6 @@ import {
   MITOCHONDRION_RADIUS_PER_SIZE,
   buildMitochondrion,
   capsuleProfile,
-  countTriangles,
   cristaPath,
   cristaShape,
 } from './mitochondrion';

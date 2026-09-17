@@ -1,8 +1,10 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { ContactShadows, Environment, Lightformer, OrbitControls } from '@react-three/drei';
+import { Matrix4, type InstancedMesh, type Material } from 'three';
 import type { FixtureConfig } from '../app/fixture';
 import { getBuilder } from './builders/registry';
+import type { InstancedPart, OrganellePart } from './builders/primitives';
 import { M0_COLORS, createOrganelleMaterials } from './materials';
 import { DPR_CAP, ENVIRONMENT_RESOLUTION, RENDERER_SETTINGS } from './renderSettings';
 import { DebugSampler } from './useDebugSampler';
@@ -61,7 +63,7 @@ function SceneContents({ fixture }: { fixture: FixtureConfig }) {
 
       <group rotation={[0, -0.32, -Math.PI / 2]}>
         {build.parts.map((part) => (
-          <mesh key={part.name} geometry={part.geometry} material={materials[part.materialKey]} />
+          <PartMesh key={part.name} part={part} material={materials[part.materialKey]} />
         ))}
       </group>
 
@@ -85,5 +87,51 @@ function SceneContents({ fixture }: { fixture: FixtureConfig }) {
 
       <DebugSampler fixture={fixture} />
     </>
+  );
+}
+
+/**
+ * One build part, drawn the way the builder declared it.
+ *
+ * A repeated structure arrives as an `InstancedPart` — the skill's `InstancedMesh` gate means
+ * ribosomes and nuclear pores are *one* draw call each, not one per granule. The instance
+ * matrices were computed once, deterministically, by the builder; the host only uploads them.
+ */
+function PartMesh({ part, material }: { part: OrganellePart; material: Material }) {
+  if (part.kind === 'instanced') {
+    return <InstancedPartMesh part={part} material={material} />;
+  }
+
+  return <mesh geometry={part.geometry} material={material} />;
+}
+
+const INSTANCE_MATRIX = new Matrix4();
+
+function InstancedPartMesh({ part, material }: { part: InstancedPart; material: Material }) {
+  const ref = useRef<InstancedMesh>(null);
+
+  useLayoutEffect(() => {
+    const mesh = ref.current;
+
+    if (!mesh) {
+      return;
+    }
+
+    for (let index = 0; index < part.instanceCount; index += 1) {
+      INSTANCE_MATRIX.fromArray(part.matrices, index * 16);
+      mesh.setMatrixAt(index, INSTANCE_MATRIX);
+    }
+
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.computeBoundingSphere();
+  }, [part]);
+
+  return (
+    <instancedMesh
+      ref={ref}
+      args={[part.geometry, material, part.instanceCount]}
+      castShadow={false}
+      receiveShadow={false}
+    />
   );
 }

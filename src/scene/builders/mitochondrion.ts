@@ -5,11 +5,12 @@ import {
   Shape,
   Vector2,
   Vector3,
-  type BufferGeometry,
 } from 'three';
 import {
-  ORGANELLE_PARAM_DEFAULTS,
+  createBuild,
   createSeededNoise,
+  meshPart,
+  ORGANELLE_PARAM_DEFAULTS,
   type OrganelleBuild,
   type OrganelleParams,
   type OrganellePart,
@@ -56,18 +57,6 @@ export const CRISTA_INNER_RADIUS = 0.72;
 export const CRISTA_HEIGHT_RATIO = 0.5;
 /** Crista sheet thickness, as a fraction of the capsule radius. */
 export const CRISTA_THICKNESS_RATIO = 0.04;
-
-export function countTriangles(geometry: BufferGeometry): number {
-  const index = geometry.getIndex();
-
-  if (index) {
-    return Math.floor(index.count / 3);
-  }
-
-  const position = geometry.getAttribute('position');
-
-  return position ? Math.floor(position.count / 3) : 0;
-}
 
 /**
  * Capsule silhouette for `LatheGeometry`.
@@ -162,7 +151,7 @@ export function buildMitochondrion(
 
   const shell = new LatheGeometry(capsuleProfile(totalLength, radius, capSegments), radialSegments);
   shell.computeVertexNormals();
-  parts.push({ name: 'outer-membrane', materialKey: 'outerMembrane', geometry: shell });
+  parts.push(meshPart({ name: 'outer-membrane', materialKey: 'outerMembrane', geometry: shell }));
 
   const shape = cristaShape(radius);
   // Enough steps that the swept fold edge reads as a curve, not a staircase.
@@ -176,21 +165,8 @@ export function buildMitochondrion(
       bevelEnabled: false,
     });
     crista.computeVertexNormals();
-    parts.push({ name: `crista-${i}`, materialKey: 'innerMembrane', geometry: crista });
+    parts.push(meshPart({ name: `crista-${i}`, materialKey: 'innerMembrane', geometry: crista }));
   }
 
-  const triangles = parts.reduce((total, part) => total + countTriangles(part.geometry), 0);
-
-  return {
-    parts,
-    triangles,
-    drawCalls: parts.length,
-    params: { ...params, cristaeCount },
-    seed,
-    dispose: () => {
-      for (const part of parts) {
-        part.geometry.dispose();
-      }
-    },
-  };
+  return createBuild(parts, { ...params, cristaeCount }, seed);
 }
