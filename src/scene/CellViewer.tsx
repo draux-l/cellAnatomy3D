@@ -1,10 +1,12 @@
 import { useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
+import { AdaptiveDpr } from '@react-three/drei';
 import type { FixtureConfig } from '../app/fixture';
 import { useAppStore } from '../app/store';
 import type { CellId } from '../catalog/types';
 import { CellStage } from './CellStage';
 import { OrganelleStage } from './OrganelleStage';
+import { useQualityTier } from './quality';
 import { DPR_CAP, RENDERER_SETTINGS } from './renderSettings';
 
 /**
@@ -69,6 +71,7 @@ function ComposedCellView({ fixture }: { fixture: FixtureConfig }) {
   const selectedId = useAppStore((state) => state.selectedId);
   const setHovered = useAppStore((state) => state.setHovered);
   const setSelected = useAppStore((state) => state.setSelected);
+  const tier = useQualityTier(fixture.name);
   const cell = cellForFixture(fixture, activeView);
 
   useEffect(() => {
@@ -103,7 +106,7 @@ function ComposedCellView({ fixture }: { fixture: FixtureConfig }) {
       data-selected={selectedId ?? ''}
     >
       <Canvas
-        dpr={[1, DPR_CAP]}
+        dpr={[1, tier.dpr]}
         frameloop="always"
         gl={{
           antialias: true,
@@ -121,7 +124,10 @@ function ComposedCellView({ fixture }: { fixture: FixtureConfig }) {
         // "miss" in R3F's terms would be every click (the hit volumes carry no R3F handlers) and
         // would clear a selection the controller just made.
       >
-        <CellStage cell={cell} fixture={fixture} />
+        <CellStage cell={cell} fixture={fixture} tier={tier} />
+        {/* Drei's adaptive pass only in the real app: it changes resolution in response to load,
+            which would make a fixture screenshot depend on the machine. */}
+        {fixture.name === null ? <AdaptiveDpr pixelated={false} /> : null}
       </Canvas>
     </div>
   );

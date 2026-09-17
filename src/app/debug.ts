@@ -45,6 +45,13 @@ export interface CellDebug {
   firstRenderAtMs: number | null;
   /** rAF delta statistics over the ring buffer. */
   frameStats: FrameStats;
+  /**
+   * The quality tier the renderer is actually running (task 4.8).
+   *
+   * Recorded rather than derived: the perf report has to state what was applied, and a fixture
+   * pins the tier so a screenshot cannot depend on the host's core count.
+   */
+  qualityTier: 'high' | 'reduced';
   /** Read-only mirror of the transient clock, for the perf report. */
   clock: { elapsed: number; scale: number };
   /** Records one rendered frame. Both timestamps are injected so tests are deterministic. */
@@ -99,6 +106,7 @@ export function createCellDebug(options: CellDebugOptions = {}): CellDebug {
     drawCallSampleTimesMs: [],
     firstRenderAtMs: null,
     frameStats: emptyFrameStats(),
+    qualityTier: 'high',
     clock: { elapsed: 0, scale: processClock.scale },
 
     recordFrame(deltaMs, nowMs) {

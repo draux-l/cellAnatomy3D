@@ -9,6 +9,7 @@ import { DebugSampler } from './useDebugSampler';
 import { NAVIGATION_LIMITS } from './interaction/cameraModel';
 import { PickController } from './interaction/Picking';
 import { IsolateCamera, type OrbitControlsHandle } from './interaction/useIsolateCamera';
+import type { QualityTier } from './quality';
 
 /**
  * The composed-cell stage: one catalog roster, assembled and lit.
@@ -26,9 +27,11 @@ import { IsolateCamera, type OrbitControlsHandle } from './interaction/useIsolat
 export function CellStage({
   cell,
   fixture,
+  tier,
 }: {
   cell: CellId;
   fixture: FixtureConfig;
+  tier: QualityTier;
 }) {
   const materials = useMemo(() => createOrganelleMaterials(), []);
   const controlsRef = useRef<OrbitControlsHandle | null>(null);
@@ -50,15 +53,18 @@ export function CellStage({
 
       <CellGroup cell={cell} materials={materials} />
 
-      <ContactShadows
-        position={[0, -1.45, 0]}
-        opacity={0.45}
-        scale={9}
-        blur={2.6}
-        far={3}
-        resolution={512}
-        color="#000000"
-      />
+      {/* The reduced tier drops the whole contact-shadow pass (design D12). */}
+      {tier.contactShadows ? (
+        <ContactShadows
+          position={[0, -1.45, 0]}
+          opacity={0.45}
+          scale={9}
+          blur={2.6}
+          far={3}
+          resolution={512}
+          color="#000000"
+        />
+      ) : null}
 
       <OrbitControls
         // drei types the ref as its own `OrbitControls` class, which is not exported; the tween

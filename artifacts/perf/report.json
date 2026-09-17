@@ -1,6 +1,6 @@
 {
-  "milestone": "M0",
-  "measuredAt": "2026-09-17T04:58:26.434Z",
+  "milestone": "M1d (PR 5a)",
+  "measuredAt": "2026-09-17T16:45:32.203Z",
   "fixture": "/?fixture=organelle&id=mitochondrion",
   "environment": {
     "platform": "win32 x64",
@@ -15,49 +15,73 @@
     "warmUpMs": 1500,
     "steadyStateWindowMs": 2000,
     "steadyStateWindows": 3,
-    "frameSamples": 115,
-    "framesObserved": 45
+    "frameSamples": 273,
+    "framesObserved": 93
   },
   "organelle": {
     "id": "mitochondrion",
     "seed": "mitochondrion/v1",
-    "triangles": 3984,
+    "triangles": 11424,
     "drawCalls": 13
+  },
+  "cell": {
+    "fixture": "/?fixture=cell&view=animal",
+    "cell": "animal",
+    "records": 7,
+    "triangles": 39308,
+    "drawCalls": 22,
+    "qualityTier": "high",
+    "note": "The pick hit volumes are not counted: they live on a non-rendered layer and cost no draw calls."
   },
   "sizes": [
     {
-      "file": "assets/index-BhLlbTgm.js",
-      "role": "entry-js",
-      "rawBytes": 1189681,
-      "gzipBytes": 334501
+      "file": "assets/CellViewer-Bvlu1F6e.js",
+      "role": "lazy",
+      "rawBytes": 1020775,
+      "gzipBytes": 281577
     },
     {
-      "file": "assets/index-DMEXKPpy.css",
+      "file": "assets/index--HI6e-x-.css",
       "role": "entry-css",
-      "rawBytes": 790,
-      "gzipBytes": 447
+      "rawBytes": 1360,
+      "gzipBytes": 656
+    },
+    {
+      "file": "assets/index-BXOz3wS6.js",
+      "role": "entry-js",
+      "rawBytes": 210713,
+      "gzipBytes": 67447
     },
     {
       "file": "index.html",
       "role": "html",
-      "rawBytes": 559,
-      "gzipBytes": 352
+      "rawBytes": 851,
+      "gzipBytes": 503
     }
   ],
   "budgets": [
     {
       "id": "draw-calls-per-cell",
       "target": "<= 150 calls",
-      "measured": 13,
+      "measured": 22,
       "unit": "calls",
       "gate": "hard",
       "status": "pass",
-      "source": "window.__cellDebug (renderer.info for the cell scene, sampled at 1 Hz)"
+      "source": "window.__cellDebug on /?fixture=cell&view=animal (renderer.info for the cell scene, 1 Hz)"
+    },
+    {
+      "id": "triangles-per-cell",
+      "target": "<= 150000 triangles",
+      "measured": 39308,
+      "unit": "triangles",
+      "gate": "hard",
+      "status": "pass",
+      "source": "window.__cellDebug on /?fixture=cell&view=animal (renderer.info for the cell scene, 1 Hz)"
     },
     {
       "id": "triangles-per-organelle",
       "target": "<= 25000 triangles",
-      "measured": 3984,
+      "measured": 11424,
       "unit": "triangles",
       "gate": "hard",
       "status": "pass",
@@ -66,7 +90,7 @@
     {
       "id": "first-3d-paint",
       "target": "<= 3000 ms",
-      "measured": 821,
+      "measured": 797,
       "unit": "ms",
       "gate": "advisory-local",
       "status": "pass",
@@ -75,7 +99,7 @@
     {
       "id": "steady-state-fps-p50",
       "target": ">= 60 fps",
-      "measured": 28.5,
+      "measured": 53.8,
       "unit": "fps",
       "gate": "advisory-local",
       "status": "miss",
@@ -84,7 +108,7 @@
     {
       "id": "steady-state-fps-p95",
       "target": ">= 55 fps",
-      "measured": 8.6,
+      "measured": 28.3,
       "unit": "fps",
       "gate": "advisory-local",
       "status": "miss",
@@ -93,7 +117,7 @@
     {
       "id": "shell-gzip",
       "target": "<= 350.0 KB gzipped",
-      "measured": 334501,
+      "measured": 67447,
       "unit": "bytes",
       "gate": "hard",
       "status": "pass",
@@ -102,7 +126,7 @@
     {
       "id": "initial-payload-gzip",
       "target": "<= 2.50 MB gzipped",
-      "measured": 335300,
+      "measured": 68606,
       "unit": "bytes",
       "gate": "hard",
       "status": "pass",
@@ -111,7 +135,7 @@
     {
       "id": "single-file-cap",
       "target": "<= 25.00 MB per file",
-      "measured": 1189681,
+      "measured": 1020775,
       "unit": "bytes",
       "gate": "hard",
       "status": "pass",
@@ -119,29 +143,29 @@
     }
   ],
   "misses": [
-    "steady-state-fps-p50: measured 28.5fps against >= 60 fps",
-    "steady-state-fps-p95: measured 8.6fps against >= 55 fps"
+    "steady-state-fps-p50: measured 53.8fps against >= 60 fps",
+    "steady-state-fps-p95: measured 28.3fps against >= 55 fps"
   ],
   "stability": {
     "windows": [
       {
-        "samples": 41,
-        "fpsP50": 31.44654088345025,
-        "fpsP95": 8.605851980228827
+        "samples": 87,
+        "fpsP50": 46.51162790697674,
+        "fpsP95": 28.296547817109182
       },
       {
-        "samples": 29,
-        "fpsP50": 14.025245442381465,
-        "fpsP95": 8.02568218356144
+        "samples": 93,
+        "fpsP50": 53.76344087744382,
+        "fpsP95": 30.413625297520223
       },
       {
-        "samples": 45,
-        "fpsP50": 28.49002849486649,
-        "fpsP95": 8.5557837094824
+        "samples": 93,
+        "fpsP50": 54.34782606935118,
+        "fpsP95": 27.777777775478217
       }
     ],
     "windowMs": 2000,
-    "fpsP50SpreadPct": 61.1
+    "fpsP50SpreadPct": 14.6
   },
   "pageErrors": [],
   "ratification": {
@@ -170,6 +194,7 @@
   "notes": [
     "Draw calls, payload sizes and file sizes hard-fail CI: they are deterministic.",
     "Frame timing is advisory by design — CI runners share GPUs and jitter — so p50/p95 are recorded here and reviewed locally.",
-    "This report is the M0 reference every later milestone is compared against. A miss is re-ratified here, never silently accepted."
+    "Draw calls and triangles are now measured on the composed cell fixture, which is what the per-cell budget was always about; the organelle block remains the single-organelle reading.",
+    "The quality tier is read from the running app rather than inferred. Under a fixture it is pinned to high so a screenshot cannot depend on the host core count; the adaptive path is unit-tested and only runs in the real app."
   ]
 }

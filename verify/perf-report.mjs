@@ -19,6 +19,13 @@ import { BUDGETS, auditEntries, collectDistEntries, formatBytes } from './size-a
 
 const BASE_URL = process.env.CELL_BASE_URL ?? 'http://localhost:4173';
 const FIXTURE_PATH = '/?fixture=organelle&id=mitochondrion';
+/**
+ * The composed animal cell.
+ *
+ * Since M1d the per-cell budgets are measured on an assembled cell rather than summed over
+ * isolated fixtures, which is what the ≤150 draw-call number was always about.
+ */
+const CELL_FIXTURE_PATH = '/?fixture=cell&view=animal';
 const REPORT_PATH = 'artifacts/perf/report.json';
 
 /** Longest delta the clock accepts, in seconds — mirrors src/app/clock.ts. */
@@ -104,10 +111,35 @@ async function measureBrowser() {
     };
   });
 
+  // The composed cell is a second, independent reading: the per-cell budget is about an assembled
+  // cell, and a sum over isolated fixtures is not that measurement.
+  await page.goto(`${BASE_URL}${CELL_FIXTURE_PATH}`, { waitUntil: 'load' });
+  await page.waitForFunction((min) => (window.__cellDebug?.frames ?? 0) >= min, MIN_FRAMES, {
+    timeout: 90_000,
+  });
+  await page.waitForTimeout(WARM_UP_MS);
+
+  const cell = await page.evaluate(() => {
+    const d = window.__cellDebug;
+
+    return d
+      ? {
+          drawCalls: d.drawCalls,
+          triangles: d.triangles,
+          qualityTier: d.qualityTier,
+          fixture: d.fixture,
+        }
+      : null;
+  });
+
   await browser.close();
 
   if (!debug) {
     throw new Error('window.__cellDebug was unavailable; cannot record a performance baseline');
+  }
+
+  if (!cell) {
+    throw new Error('window.__cellDebug was unavailable for the composed cell');
   }
 
   if (windows.length === 0) {
@@ -129,6 +161,7 @@ async function measureBrowser() {
   return {
     rasteriser,
     firstPaint,
+    cell,
     debug: {
       ...debug,
       frameStats: {
@@ -142,18 +175,27 @@ async function measureBrowser() {
   };
 }
 
-function buildBudgetRows({ debug, firstPaint, sizes }) {
+function buildBudgetRows({ debug, cell, firstPaint, sizes }) {
   const software = isSoftwareRasteriser(debug.rasteriser);
 
   return [
     {
       id: 'draw-calls-per-cell',
       target: `<= ${TARGETS.drawCallsPerCell} calls`,
-      measured: debug.drawCalls,
+      measured: cell.drawCalls,
       unit: 'calls',
       gate: 'hard',
-      status: debug.drawCalls <= TARGETS.drawCallsPerCell ? 'pass' : 'fail',
-      source: 'window.__cellDebug (renderer.info for the cell scene, sampled at 1 Hz)',
+      status: cell.drawCalls <= TARGETS.drawCallsPerCell ? 'pass' : 'fail',
+      source: `window.__cellDebug on ${CELL_FIXTURE_PATH} (renderer.info for the cell scene, 1 Hz)`,
+    },
+    {
+      id: 'triangles-per-cell',
+      target: `<= ${TARGETS.trianglesPerCell} triangles`,
+      measured: cell.triangles,
+      unit: 'triangles',
+      gate: 'hard',
+      status: cell.triangles <= TARGETS.trianglesPerCell ? 'pass' : 'fail',
+      source: `window.__cellDebug on ${CELL_FIXTURE_PATH} (renderer.info for the cell scene, 1 Hz)`,
     },
     {
       id: 'triangles-per-organelle',
@@ -234,10 +276,11 @@ function preserveRatification() {
 async function main() {
   const entries = collectDistEntries('dist');
   const sizes = auditEntries(entries);
-  const { rasteriser, firstPaint, debug, stability, problems } = await measureBrowser();
+  const { rasteriser, firstPaint, cell, debug, stability, problems } = await measureBrowser();
 
   const budgets = buildBudgetRows({
     debug: { ...debug, rasteriser },
+    cell,
     firstPaint,
     sizes,
   });
@@ -246,7 +289,7 @@ async function main() {
     .map((row) => `${row.id}: measured ${row.measured}${row.unit === 'fps' ? 'fps' : ''} against ${row.target}`);
 
   const report = {
-    milestone: 'M0',
+    milestone: 'M1d (PR 5a)',
     measuredAt: new Date().toISOString(),
     fixture: FIXTURE_PATH,
     environment: {
@@ -271,6 +314,16 @@ async function main() {
       triangles: debug.triangles,
       drawCalls: debug.drawCalls,
     },
+    // The composed cell: the per-cell budgets are measured here, not summed over fixtures.
+    cell: {
+      fixture: CELL_FIXTURE_PATH,
+      cell: 'animal',
+      records: 7,
+      triangles: cell.triangles,
+      drawCalls: cell.drawCalls,
+      qualityTier: cell.qualityTier,
+      note: 'The pick hit volumes are not counted: they live on a non-rendered layer and cost no draw calls.',
+    },
     sizes: entries.map((entry) => ({
       file: entry.file,
       role: entry.role,
@@ -285,7 +338,8 @@ async function main() {
     notes: [
       'Draw calls, payload sizes and file sizes hard-fail CI: they are deterministic.',
       'Frame timing is advisory by design — CI runners share GPUs and jitter — so p50/p95 are recorded here and reviewed locally.',
-      'This report is the M0 reference every later milestone is compared against. A miss is re-ratified here, never silently accepted.',
+      'Draw calls and triangles are now measured on the composed cell fixture, which is what the per-cell budget was always about; the organelle block remains the single-organelle reading.',
+      'The quality tier is read from the running app rather than inferred. Under a fixture it is pinned to high so a screenshot cannot depend on the host core count; the adaptive path is unit-tested and only runs in the real app.',
     ],
   };
 
@@ -300,8 +354,10 @@ async function main() {
     `  steady state     p50 ${debug.frameStats.p50Fps.toFixed(1)} fps / p95 ${debug.frameStats.p95Fps.toFixed(1)} fps (median of ${stability.windows.length} x ${STEADY_STATE_WINDOW_MS}ms windows, p50 spread ${stability.fpsP50SpreadPct}%)`,
   );
   console.log(`                    windows: ${stability.windows.map((w) => w.fpsP50.toFixed(1)).join(' / ')} fps p50`);
-  console.log(`  draw calls       ${debug.drawCalls} (budget ${TARGETS.drawCallsPerCell})`);
-  console.log(`  triangles        ${debug.triangles} (budget ${TARGETS.trianglesPerOrganelle} per organelle)`);
+  console.log(`  quality tier     ${cell.qualityTier} (dpr cap + contact shadows)`);
+  console.log(`  cell draw calls  ${cell.drawCalls} (budget ${TARGETS.drawCallsPerCell})`);
+  console.log(`  cell triangles   ${cell.triangles} (budget ${TARGETS.trianglesPerCell})`);
+  console.log(`  organelle calls  ${debug.drawCalls} / triangles ${debug.triangles} (budget ${TARGETS.trianglesPerOrganelle} per organelle)`);
   console.log(`  shell gzip       ${formatBytes(sizes.totals.shellGzipBytes)} (budget ${formatBytes(BUDGETS.shellGzipBytes)})`);
   console.log(
     `  initial gzip     ${formatBytes(sizes.totals.initialGzipBytes)} (budget ${formatBytes(BUDGETS.initialGzipBytes)})`,
