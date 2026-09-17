@@ -31,14 +31,6 @@ import {
 const UPDATE = process.env.UPDATE_BASELINES === '1';
 const CELL_VIEW = '.cell-view';
 const STEPS = [0, 25, 57, 100] as const;
-/**
- * The known ±1 jitter of the 1 Hz draw-call sample (a shadow-pass quad caught in the sample).
- *
- * Owned by task 4.13, which counts renders against the main scene only. Until then a comparison
- * here allows one call of slack rather than pretending the sample is stable — or loosening the
- * budget, which is a hard gate and stays exact.
- */
-const DRAW_CALL_JITTER = 1;
 
 interface StepMeasurement {
   value: number;
@@ -157,15 +149,13 @@ test.describe('disassembly fixtures', () => {
     }
 
     // Disassembly is transform-only: no geometry is created, so the cost cannot grow with the
-    // value. The tolerance is ±1 rather than equality because the 1 Hz draw-call sample has a known
-    // jitter — a shadow-pass quad captured in the sample — and that is task 4.13's (PR 5b), not
-    // this slice's. The assertion below still fails on any real growth.
+    // value — and since task 4.13 the sample is exact, because a render is only counted when it
+    // presents the frame (drei's contact-shadow pass renders the main scene into a render target
+    // and used to win the 1 Hz sample on some ticks). The spread is therefore asserted at zero.
     const drawCalls = measurements.map((measurement) => measurement.drawCalls);
     const spread = Math.max(...drawCalls) - Math.min(...drawCalls);
 
-    expect(spread, `draw calls across steps: ${drawCalls.join(', ')}`).toBeLessThanOrEqual(
-      DRAW_CALL_JITTER,
-    );
+    expect(spread, `draw calls across steps: ${drawCalls.join(', ')}`).toBe(0);
     expect(Math.max(...drawCalls)).toBeLessThanOrEqual(PERFORMANCE_BUDGETS.drawCallsPerCell);
 
     for (const measurement of measurements) {

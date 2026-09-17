@@ -36,14 +36,6 @@ const UPDATE = process.env.UPDATE_BASELINES === '1';
 const CELL_VIEW = '.cell-view';
 const HOVER_SUBJECT = 'mitochondrion';
 const ISOLATE_SUBJECT = 'golgi';
-/**
- * The known ±1 jitter of the 1 Hz draw-call sample (a shadow-pass quad caught in the sample).
- * Task 4.13 (PR 5b) removes it by counting main-scene renders only; until then a comparison here
- * allows one call of slack, and the ≤150 budget itself stays exact.
- */
-const DRAW_CALL_JITTER = 1;
-/** The same artefact in the triangle sample: the shadow-pass quad is two triangles. */
-const TRIANGLE_SAMPLE_JITTER = 2;
 
 interface Measurement {
   buffer: Buffer;
@@ -196,7 +188,7 @@ test.describe('hover', () => {
     expect(
       Math.abs(hovered.drawCalls - baseline.drawCalls),
       `hover ${hovered.drawCalls} vs baseline ${baseline.drawCalls}`,
-    ).toBeLessThanOrEqual(DRAW_CALL_JITTER);
+    ).toBe(0);
 
     const diff = measureLuminanceRise(baselineFrame, hoveredFrame);
 
@@ -217,13 +209,12 @@ test.describe('hover', () => {
     const baseline = await openFixture(page, 'cell', { view: 'animal' });
     const hovered = await openFixture(page, 'hover', { organelle: HOVER_SUBJECT });
 
-    expect(Math.abs(hovered.drawCalls - baseline.drawCalls)).toBeLessThanOrEqual(DRAW_CALL_JITTER);
-    // Emphasis is a material write: it must not add geometry. The slack is the sampling artefact
-    // above, and any real geometry change is orders of magnitude larger.
-    expect(
-      Math.abs(hovered.triangles - baseline.triangles),
-      `hover ${hovered.triangles} vs baseline ${baseline.triangles}`,
-    ).toBeLessThanOrEqual(TRIANGLE_SAMPLE_JITTER);
+    // Exact, not tolerant: since task 4.13 the sample counts only the presented frame of the main
+    // scene, so `renderer.info` no longer reports the contact-shadow depth pass on some ticks.
+    expect(hovered.drawCalls).toBe(baseline.drawCalls);
+    expect(hovered.triangles, `hover ${hovered.triangles} vs baseline ${baseline.triangles}`).toBe(
+      baseline.triangles,
+    );
   });
 });
 

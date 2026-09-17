@@ -5,6 +5,7 @@ import {
   computePercentile,
   installCellDebug,
   msToFps,
+  type AnnotationMirrorEntry,
   type CellDebug,
 } from './debug';
 import { processClock } from './clock';
@@ -101,9 +102,11 @@ describe('createCellDebug', () => {
   it('clears every measurement on reset', () => {
     debug.recordFrame(16, 500);
     debug.sampleRenderer(60, 9000, 0);
+    debug.recordSceneRender();
     debug.reset();
 
     expect(debug.frames).toBe(0);
+    expect(debug.sceneRenders).toBe(0);
     expect(debug.firstRenderAtMs).toBeNull();
     expect(debug.drawCalls).toBe(0);
     expect(debug.triangles).toBe(0);
@@ -133,8 +136,15 @@ describe('attachRendererSampling', () => {
   /** Stands in for three's WebGLRenderer: each render resets the counter, then counts. */
   function createFakeRenderer() {
     const info = { render: { calls: 0, triangles: 0 } };
+    let target: unknown = null;
     const renderer = {
       info,
+      setRenderTarget(next: unknown) {
+        target = next;
+      },
+      getRenderTarget() {
+        return target;
+      },
       render(scene: string) {
         const isAuxiliary = scene.startsWith('aux');
         info.render.calls = isAuxiliary ? 1 : 11;
@@ -179,6 +189,54 @@ describe('attachRendererSampling', () => {
     detach();
   });
 
+  /**
+   * The task-4.13 fix, asserted directly.
+   *
+   * drei's `<ContactShadows>` renders the *main* scene into a render target from a `useFrame`
+   * subscriber, so it runs before the presenting render with `scene === mainScene`. Counting it
+   * sampled the depth pass — the ±1 draw call / ±2 triangle jitter the harness had been tolerating.
+   */
+  it('does not count a main-scene render that targets a render target', () => {
+    const renderer = createFakeRenderer();
+    const debug = createCellDebug();
+    const detach = attachRendererSampling(renderer, 'main', debug, () => 0);
+
+    renderer.setRenderTarget({ name: 'contact-shadow-depth' });
+    renderer.render('main');
+
+    expect(debug.sceneRenders).toBe(0);
+    expect(debug.drawCalls).toBe(0);
+
+    renderer.setRenderTarget(null);
+    renderer.render('main');
+
+    expect(debug.sceneRenders).toBe(1);
+    expect(debug.drawCalls).toBe(11);
+
+    detach();
+  });
+
+  it('counts one presented render per frame, after the auxiliary passes', () => {
+    const renderer = createFakeRenderer();
+    const debug = createCellDebug();
+    const detach = attachRendererSampling(renderer, 'main', debug, () => 0);
+
+    for (let frame = 0; frame < 3; frame += 1) {
+      // The order every frame actually runs in: shadow depth pass, post pass, presented frame.
+      renderer.setRenderTarget({ name: 'contact-shadow-depth' });
+      renderer.render('main');
+      renderer.setRenderTarget({ name: 'blur' });
+      renderer.render('aux-blur');
+      renderer.setRenderTarget(null);
+      renderer.render('main');
+    }
+
+    expect(debug.sceneRenders).toBe(3);
+    expect(debug.drawCalls).toBe(11);
+
+    detach();
+  });
+
   it('restores the original render method on detach', () => {
     const renderer = createFakeRenderer();
     const original = renderer.render;
@@ -189,5 +247,35 @@ describe('attachRendererSampling', () => {
     detach();
 
     expect(renderer.render).toBe(original);
+  });
+});
+
+describe('annotation mirror', () => {
+  it('starts empty and copies what the layer wrote, so a reader cannot mutate it', () => {
+    const debug = createCellDebug();
+    const entry: AnnotationMirrorEntry = {
+      id: 'mitochondrion',
+      column: 'right',
+      box: { x: 10, y: 20, width: 152, height: 34 },
+      leader: [
+        [400, 300],
+        [200, 320],
+        [162, 320],
+      ],
+      anchor: [400, 300],
+      opacity: 1,
+      occluded: false,
+      hovered: true,
+    };
+
+    expect(debug.annotations).toEqual([]);
+
+    debug.setAnnotations([entry]);
+    entry.box.x = 999;
+    entry.leader[0]![0] = 999;
+
+    expect(debug.annotations[0]!.box.x).toBe(10);
+    expect(debug.annotations[0]!.leader[0]![0]).toBe(400);
+    expect(debug.annotations[0]!.hovered).toBe(true);
   });
 });
