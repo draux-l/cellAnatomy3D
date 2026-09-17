@@ -3,6 +3,7 @@ import {
   BUILDER_IDS,
   CELL_IDS,
   PALETTE_ROLES,
+  PER_CELL_OVERRIDE_KEYS,
   SIZE_UNITS,
   type OrganelleRecord,
 } from './types';
@@ -252,6 +253,65 @@ export function validateRecord(record: unknown, index = 0): IntegrityIssue[] {
 
   if (!isVector3(record.position)) {
     add('position', 'is required and must be three finite scene-unit numbers');
+  }
+
+  const perCell = record.perCell;
+
+  if (perCell !== undefined) {
+    if (!isPlainObject(perCell)) {
+      add('perCell', 'must be an object keyed by cell id when present');
+    } else {
+      const declaredCells = Array.isArray(record.cells) ? record.cells : [];
+
+      if (Object.keys(perCell).length === 0) {
+        // "No silent default": an empty deviation block is an authoring mistake, not a no-op.
+        add('perCell', 'is present but empty — remove it or declare what deviates');
+      }
+
+      for (const [cell, override] of Object.entries(perCell)) {
+        const path = `perCell.${cell}`;
+
+        if (!(CELL_IDS as readonly string[]).includes(cell)) {
+          add(path, `is not one of the known cells (${CELL_IDS.join(', ')})`);
+          continue;
+        }
+
+        if (!declaredCells.includes(cell)) {
+          add(path, `overrides a cell this record is not part of (cells: ${declaredCells.join(', ') || 'none'})`);
+        }
+
+        if (!isPlainObject(override)) {
+          add(path, 'must be an object with at least one override');
+          continue;
+        }
+
+        if (Object.keys(override).length === 0) {
+          add(path, 'is an empty override — it must change position, geometryParams, or both');
+        }
+
+        for (const key of Object.keys(override)) {
+          if (!(PER_CELL_OVERRIDE_KEYS as readonly string[]).includes(key)) {
+            add(
+              `${path}.${key}`,
+              `is not an override this model supports (${PER_CELL_OVERRIDE_KEYS.join(', ')})`,
+            );
+          }
+        }
+
+        if (override.position !== undefined && !isVector3(override.position)) {
+          add(`${path}.position`, 'must be three finite scene-unit numbers');
+        }
+
+        if (override.geometryParams !== undefined) {
+          if (
+            !isPlainObject(override.geometryParams) ||
+            Object.keys(override.geometryParams).length === 0
+          ) {
+            add(`${path}.geometryParams`, 'must be a non-empty parameter object');
+          }
+        }
+      }
+    }
   }
 
   const disassembly = record.disassembly;

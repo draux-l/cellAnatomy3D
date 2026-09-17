@@ -97,6 +97,36 @@ export interface GeometrySpec {
   seed: string;
 }
 
+/**
+ * A cell-specific deviation from a record's own data (design D3, extended for composition).
+ *
+ * A record set drives both cells, and most records need no deviation at all. Two composition
+ * facts genuinely differ by cell, though:
+ *
+ * 1. **Silhouette.** The plant cell's outline is an angular rounded polygon imposed by the rigid
+ *    wall, so its membrane must share that silhouette — while the animal membrane stays a sphere.
+ *    That is a parameter, so it lands in `geometryParams`.
+ * 2. **Placement.** The plant cell's large central vacuole occupies the volume the animal cell
+ *    gives to the nucleus, so the nucleus has to sit at the periphery there. Placement is
+ *    `position`.
+ *
+ * This is deliberately **not** a free-form escape hatch: the integrity gate accepts exactly the
+ * two keys below, rejects an empty override, and rejects a cell the record is not a member of.
+ * A model that accepted arbitrary keys would stop being a data model.
+ */
+export interface PerCellOverride {
+  /** Scene-unit placement of the organelle root for this cell only. */
+  position?: [number, number, number];
+  /** Builder parameters merged over `geometry.params` for this cell only. */
+  geometryParams?: Record<string, number | string | boolean>;
+}
+
+/** The declared deviation keys, in gate order. Anything else is an integrity failure. */
+export const PER_CELL_OVERRIDE_KEYS = ['position', 'geometryParams'] as const;
+
+/** Per-cell deviations, keyed by the cells the record belongs to. */
+export type PerCellOverrides = Partial<Record<CellId, PerCellOverride>>;
+
 /** The single source of truth for one organelle. */
 export interface OrganelleRecord {
   /** Stable English identifier. Never localized (spec: Technical Identifiers Stay English). */
@@ -116,6 +146,11 @@ export interface OrganelleRecord {
   position: [number, number, number];
   geometry: GeometrySpec;
   disassembly: DisassemblyVector;
+  /**
+   * Where this record deviates from its own data in one cell. Omitted when the record composes
+   * identically in both cells, which is the common case.
+   */
+  perCell?: PerCellOverrides;
   /** Roster membership. Drives both cells from one record set. */
   cells: readonly CellId[];
   /** Participates in hover and quiz picking. */

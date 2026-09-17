@@ -16,6 +16,14 @@ import {
   type OrganelleParams,
   type SeededNoise,
 } from './primitives';
+import { SILHOUETTE_CORNER_SEGMENTS_PER_DETAIL, roundedPolygonPoints } from './silhouette';
+
+/**
+ * The silhouette generator moved to `silhouette.ts` when the membrane needed the *same* outline.
+ * It is re-exported here so every existing importer keeps working, and so this module stays the
+ * wall's public surface.
+ */
+export { roundedPolygonPoints };
 
 /**
  * Cell wall (plant).
@@ -82,64 +90,9 @@ export const CELL_WALL_PARAMS: CellWallParams = {
 };
 
 /** Corner arc samples per unit of `detail`. Enough that a rounded corner is not a chamfer. */
-export const CELL_WALL_CORNER_SEGMENTS_PER_DETAIL = 6;
+export const CELL_WALL_CORNER_SEGMENTS_PER_DETAIL = SILHOUETTE_CORNER_SEGMENTS_PER_DETAIL;
 /** Radial roughening frequency, in inverse scene units. Low enough to read as fibre, not noise. */
 export const CELL_WALL_NOISE_FREQUENCY = 4.5;
-
-/**
- * The outline of a regular `sides`-gon with rounded corners, as a closed point loop.
- *
- * `inradius` is the distance from the centre to a flat side — the number that decides how far the
- * wall's inner face sits from the cell's centre. The polygon is generated corner by corner: each
- * vertex is replaced by a quadratic arc through it whose endpoints are pulled `rounding` of the way
- * along the two adjacent sides, so the straight runs between corners stay straight.
- */
-export function roundedPolygonPoints(
-  sides: number,
-  inradius: number,
-  rounding: number,
-  cornerSegments: number,
-): [number, number][] {
-  const n = Math.max(3, Math.round(sides));
-  const circumradius = inradius / Math.cos(Math.PI / n);
-  const sideLength = 2 * circumradius * Math.sin(Math.PI / n);
-  const cut = (sideLength / 2) * Math.min(1, Math.max(0, rounding));
-  const segments = Math.max(1, Math.round(cornerSegments));
-  const at = (k: number): [number, number] => {
-    const angle = (k / n) * Math.PI * 2;
-
-    return [Math.cos(angle) * circumradius, Math.sin(angle) * circumradius];
-  };
-  const points: [number, number][] = [];
-
-  for (let k = 0; k < n; k += 1) {
-    const vertex = at(k);
-    const previous = at(k - 1);
-    const next = at(k + 1);
-    const toPrevious = Math.hypot(previous[0] - vertex[0], previous[1] - vertex[1]) || 1;
-    const toNext = Math.hypot(next[0] - vertex[0], next[1] - vertex[1]) || 1;
-    const start: [number, number] = [
-      vertex[0] + ((previous[0] - vertex[0]) / toPrevious) * cut,
-      vertex[1] + ((previous[1] - vertex[1]) / toPrevious) * cut,
-    ];
-    const end: [number, number] = [
-      vertex[0] + ((next[0] - vertex[0]) / toNext) * cut,
-      vertex[1] + ((next[1] - vertex[1]) / toNext) * cut,
-    ];
-
-    for (let step = 0; step <= segments; step += 1) {
-      const t = step / segments;
-      const inverse = 1 - t;
-
-      points.push([
-        inverse * inverse * start[0] + 2 * inverse * t * vertex[0] + t * t * end[0],
-        inverse * inverse * start[1] + 2 * inverse * t * vertex[1] + t * t * end[1],
-      ]);
-    }
-  }
-
-  return points;
-}
 
 /** The wall's cross-section: the outer rounded polygon with the inner one cut out of it. */
 export function cellWallShape(

@@ -273,6 +273,70 @@ describe('catalog integrity — disassembly vector (D16)', () => {
   });
 });
 
+describe('catalog integrity — per-cell overrides (composition)', () => {
+  it('accepts the committed membrane override', () => {
+    const membrane = getRecord('membrane')!;
+
+    expect(membrane.perCell?.plant?.geometryParams).toEqual({ sides: 8, cornerRounding: 0.4 });
+    expect(isValidRecord(membrane)).toBe(true);
+  });
+
+  it('rejects an override for a cell the record is not part of', () => {
+    const animalOnly = { ...BASE, cells: ['animal'] };
+    const issues = validateRecord({
+      ...animalOnly,
+      perCell: { plant: { geometryParams: { size: 2 } } },
+    });
+
+    expect(issues).toHaveLength(1);
+    expect(issues[0]?.recordId).toBe('mitochondrion');
+    expect(issues[0]?.field).toBe('perCell.plant');
+    expect(issues[0]?.message).toContain('not part of');
+  });
+
+  it('rejects an unknown cell key', () => {
+    const issues = validateRecord({ ...BASE, perCell: { fungal: { position: [0, 0, 0] } } });
+
+    expect(issues.map((issue) => issue.field)).toEqual(['perCell.fungal']);
+    expect(issues[0]?.message).toContain('known cells');
+  });
+
+  it('rejects an empty override rather than treating it as a no-op', () => {
+    // "No silent default": an override block that changes nothing is an authoring mistake.
+    const issues = validateRecord({ ...BASE, perCell: { plant: {} } });
+
+    expect(issues.map((issue) => issue.field)).toEqual(['perCell.plant']);
+    expect(issues[0]?.message).toContain('empty');
+  });
+
+  it('rejects an unsupported override key', () => {
+    const issues = validateRecord({
+      ...BASE,
+      perCell: { plant: { silhouette: 'octagon' } },
+    });
+
+    expect(issues.map((issue) => issue.field)).toEqual(['perCell.plant.silhouette']);
+    expect(issues[0]?.message).toContain('position, geometryParams');
+  });
+
+  it('validates the shape of each override key', () => {
+    const badPosition = validateRecord({ ...BASE, perCell: { plant: { position: [1, 2] } } });
+    const emptyParams = validateRecord({ ...BASE, perCell: { plant: { geometryParams: {} } } });
+
+    expect(badPosition.map((issue) => issue.field)).toEqual(['perCell.plant.position']);
+    expect(emptyParams.map((issue) => issue.field)).toEqual(['perCell.plant.geometryParams']);
+  });
+
+  it('accepts both override keys together and reads them as valid', () => {
+    const issues = validateRecord({
+      ...BASE,
+      perCell: { plant: { position: [0.5, 0.3, 0.2], geometryParams: { size: 0.28 } } },
+    });
+
+    expect(issues).toEqual([]);
+  });
+});
+
 describe('catalog integrity — roster canonicality', () => {
   it('fails when the animal roster loses a canonical organelle', () => {
     const issues = validateCatalog(ORGANELLE_RECORDS.filter((record) => record.id !== 'nucleus'));

@@ -205,6 +205,23 @@ const CATALOG: readonly OrganelleRecord[] = [
       params: { size: 1, detail: 1, count: 0, noiseAmplitude: 0.035 },
       seed: 'membrane/v1',
     },
+    /*
+     * **The plant membrane shares the wall's silhouette.**
+     *
+     * A plant cell is a rounded polygon, not a sphere — the rigid cellulose wall imposes
+     * straight-ish sides with rounded corners. A noise-displaced sphere inside that wall renders
+     * as a round membrane rattling inside an angular box, with wide corner gaps: two unrelated
+     * shapes claiming to be the same cell. The composition defect is real and it surfaced the
+     * moment the cell was first assembled.
+     *
+     * The fix is a parameter, not a special case: `sides: 8` and the wall's own `0.4` corner
+     * rounding make the membrane builder reuse the wall's silhouette generator, so both shapes
+     * are derived from one function. The animal membrane declares nothing here and therefore
+     * keeps its round default — no animal-cell behaviour changes.
+     */
+    perCell: {
+      plant: { geometryParams: { sides: 8, cornerRounding: 0.4 } },
+    },
     // Explicit "this part never separates": the outer envelope is what the others leave behind.
     disassembly: { direction: [0, 0, 0], distance: 0 },
     cells: ['animal', 'plant'],
@@ -225,9 +242,18 @@ const CATALOG: readonly OrganelleRecord[] = [
     // The palette's `membrane` layer is the outer-boundary role, so the wall shares it.
     paletteRole: 'membrane',
     position: [0, 0, 0],
+    /*
+     * `size` is the wall's **inner** boundary, and it was raised from 1.06 to 1.12 when the cell
+     * was first composed. At 1.06 the membrane's outermost vertex (1.035 with its noise) cleared
+     * the wall by 0.025 scene units — a seam roughly 2% of the cell radius, which reads as the
+     * wall touching the membrane rather than as a wall outside it. 1.12 gives a uniform 0.085
+     * gap at every azimuth, which is what makes "the wall sits outside the membrane" legible.
+     * The organelle fixture renders builder *defaults*, so this record-level change moves no
+     * committed screenshot.
+     */
     geometry: {
       builder: 'cell-wall',
-      params: { size: 1.06, detail: 1, count: 0 },
+      params: { size: 1.12, detail: 1, count: 0 },
       seed: 'cell-wall/v1',
     },
     disassembly: { direction: [0, 0, 0], distance: 0 },
