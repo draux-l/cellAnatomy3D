@@ -13,15 +13,17 @@ import { countPartTriangles, hashPart } from './primitives';
  * The builder registry's own gate (tasks 3.1, 3.2).
  *
  * The registered list is asserted **exactly**, not loosely: growing it is how a milestone adds an
- * organelle, and that change should be visible in review rather than implied. M1b registers the
- * seven shared organelles; M1c / PR 4 adds the plant three.
+ * organelle, and that change should be visible in review rather than implied. M1b registered the
+ * seven shared organelles; M1c / PR 4 adds the plant three, when the list below becomes the full
+ * declared vocabulary.
  */
 
 const PER_ORGANELLE_TRIANGLE_BUDGET = 25_000;
 const PER_CELL_DRAW_CALL_BUDGET = 150;
 
-/** The M1b set. PR 4 adds `cell-wall`, `chloroplast` and `vacuole` to this list. */
-const M1B_BUILDER_IDS = [
+/** The seven M1b organelles plus the M1c builders that have landed so far. */
+const EXPECTED_BUILDER_IDS = [
+  'chloroplast',
   'endoplasmic-reticulum',
   'golgi',
   'lysosome',
@@ -32,8 +34,8 @@ const M1B_BUILDER_IDS = [
 ] as const;
 
 describe('builder registry', () => {
-  it('registers exactly the M1b organelle set', () => {
-    expect([...REGISTERED_BUILDER_IDS].sort()).toEqual([...M1B_BUILDER_IDS]);
+  it('registers exactly the builders that have landed', () => {
+    expect([...REGISTERED_BUILDER_IDS].sort()).toEqual([...EXPECTED_BUILDER_IDS]);
     expect(Object.keys(BUILDER_REGISTRY).sort()).toEqual([...REGISTERED_BUILDER_IDS].sort());
   });
 
@@ -43,8 +45,7 @@ describe('builder registry', () => {
     }
   });
 
-  it('still leaves the plant three for PR 4', () => {
-    expect(REGISTERED_BUILDER_IDS).not.toContain('chloroplast');
+  it('still leaves the cell wall and the vacuole for tasks 3.10', () => {
     expect(REGISTERED_BUILDER_IDS).not.toContain('cell-wall');
     expect(REGISTERED_BUILDER_IDS).not.toContain('vacuole');
   });
@@ -114,15 +115,16 @@ describe('builder registry', () => {
   });
 
   it('names the registered builders when an id is unknown', () => {
-    expect(() => getBuilder('chloroplast')).toThrow(/No builder registered for "chloroplast"/);
-    expect(() => getBuilder('chloroplast')).toThrow(/membrane/);
+    expect(() => getBuilder('cell-wall')).toThrow(/No builder registered for "cell-wall"/);
     expect(() => getBuilder('photosystem')).toThrow(/No builder registered for "photosystem"/);
+    expect(() => getBuilder('photosystem')).toThrow(/chloroplast/);
   });
 
   it('narrows ids with isBuilderId', () => {
     expect(isBuilderId('mitochondrion')).toBe(true);
     expect(isBuilderId('ribosome')).toBe(true);
-    expect(isBuilderId('chloroplast')).toBe(false);
+    expect(isBuilderId('chloroplast')).toBe(true);
+    expect(isBuilderId('cell-wall')).toBe(false);
     expect(isBuilderId('toString')).toBe(false);
   });
 });

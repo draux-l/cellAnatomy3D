@@ -53,24 +53,20 @@ describe('catalog integrity — the committed catalog', () => {
   });
 
   it('validates the declared builder vocabulary without requiring registry resolution', () => {
-    // Task 2.3's sequencing rule: resolution is opt-in, so a partial registry can never fail a
-    // caller that did not ask about it. Task 3.2 owns the opt-in check below.
-    expect(REGISTERED_BUILDER_IDS.length).toBeLessThan(BUILDER_IDS.length);
-
-    const declaredButUnbuilt = getRecord('chloroplast')!;
-
-    expect(REGISTERED_BUILDER_IDS).not.toContain(declaredButUnbuilt.geometry.builder);
-    expect(validateRecord(declaredButUnbuilt)).toEqual([]);
+    // Task 2.3's sequencing rule: resolution is opt-in, so a caller that never supplies a
+    // registry can never fail on one. The catalog's own record data still has to pass.
+    expect(validateCatalog(ORGANELLE_RECORDS)).toEqual([]);
+    expect(validateBuilderResolution(ORGANELLE_RECORDS)).toEqual([]);
   });
 });
 
 describe('catalog integrity — builder resolution (D3, task 3.2)', () => {
-  it('tolerates the declared builders a later milestone owns', () => {
-    // The M1a/M1b window: the plant three are referenced by the catalog and not registered yet.
+  it('leaves no pending allowance once M1c registers its last builder', () => {
+    // The shrinking allowlist is exactly the declared-but-unregistered gap, and registration
+    // shrinks it in the same change: a builder left pending after it ships fails here.
     const gaps = BUILDER_IDS.filter((id) => !REGISTERED_BUILDER_IDS.includes(id));
 
-    expect(gaps.length).toBeGreaterThan(0);
-    expect([...PENDING_BUILDER_IDS].sort()).toEqual([...gaps].sort());
+    expect([...PENDING_BUILDER_IDS]).toEqual([...gaps]);
     expect(validateBuilderResolution(ORGANELLE_RECORDS, RESOLUTION)).toEqual([]);
   });
 
@@ -85,21 +81,21 @@ describe('catalog integrity — builder resolution (D3, task 3.2)', () => {
     expect(offender?.field).toBe('geometry.builder');
     expect(offender?.message).toContain('no registry entry');
     expect(formatIssues(issues)).toContain('[nucleus] geometry.builder:');
-    // The gap is only in one record: the tolerance for the plant three still holds.
+    // The gap is only in one record: the tolerance for the still-pending builders holds.
     expect(issues).toHaveLength(1);
   });
 
-  it('fails when a pending allowance is withdrawn before the builder exists', () => {
+  it('fails when a builder the catalog references is registered, except one the allowlist hides', () => {
+    // Simulates the sequencing rule itself: drop a registered builder with no allowance for it
+    // and every record that references it fails, named. This is the check that keeps the
+    // allowlist a gap-hider rather than a permanent hole.
     const issues = validateCatalog(ORGANELLE_RECORDS, {
-      registeredBuilderIds: REGISTERED_BUILDER_IDS,
-      pendingBuilderIds: [],
+      registeredBuilderIds: REGISTERED_BUILDER_IDS.filter((id) => id !== 'chloroplast'),
+      pendingBuilderIds: PENDING_BUILDER_IDS,
     });
 
-    expect(issues.map((issue) => issue.recordId).sort()).toEqual([
-      'cell-wall',
-      'chloroplast',
-      'vacuole',
-    ]);
+    expect(issues.map((issue) => issue.recordId)).toEqual(['chloroplast']);
+    expect(issues[0]?.field).toBe('geometry.builder');
   });
 
   it('fails on a builder registered under an id the catalog never declares', () => {

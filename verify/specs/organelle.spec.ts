@@ -42,6 +42,7 @@ const ORGANELLES = [
   'golgi',
   'ribosome',
   'lysosome',
+  'chloroplast',
 ] as const;
 
 /** The organelle the byte-identical determinism check runs on. */
@@ -91,7 +92,7 @@ test.describe('organelle metric fixtures', () => {
           measuredAt: new Date().toISOString().slice(0, 10),
           measuredWith: 'playwright chromium 153 / three 0.186.0',
           notes:
-            `Frozen organelle fixture (M1b). Draw calls ${debug.drawCalls}, ` +
+            `Frozen organelle fixture (seed-locked, clock-frozen). Draw calls ${debug.drawCalls}, ` +
             `triangles ${debug.triangles}; the per-organelle cost report lives in ` +
             `artifacts/perf/report.json.`,
         };

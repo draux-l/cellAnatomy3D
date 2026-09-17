@@ -45,6 +45,10 @@ export const M0_COLORS = {
   golgi: '#c9a05a',
   /** `organelles` palette role, the budding transport vesicles. */
   vesicle: '#e0c489',
+  /** `membrane` palette role, the chloroplast's outer envelope. */
+  chloroplast: '#6f9e5a',
+  /** `organelles` palette role, the stacked thylakoid discs — the photosynthesis teaching object. */
+  grana: '#3f7a45',
 } as const satisfies Record<string, string>;
 
 export type OrganelleMaterials = Record<OrganelleMaterialKey, Material> & {
@@ -97,6 +101,10 @@ export function createOrganelleMaterials(): OrganelleMaterials {
     er: createBody(M0_COLORS.er),
     golgi: createBody(M0_COLORS.golgi),
     vesicle: createBody(M0_COLORS.vesicle),
+    // The envelope is as translucent as the mitochondrion's: the grana are the teaching object
+    // and must stay legible straight through the stroma.
+    chloroplast: createShell(M0_COLORS.chloroplast, 0.4),
+    grana: createBody(M0_COLORS.grana),
   };
 
   return {

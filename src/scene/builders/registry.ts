@@ -1,4 +1,5 @@
 import type { BuilderId } from '../../catalog/types';
+import { buildChloroplast } from './chloroplast';
 import { buildEndoplasmicReticulum } from './er';
 import { buildGolgi } from './golgi';
 import { buildLysosome } from './lysosome';
@@ -20,10 +21,9 @@ import type { OrganelleBuild } from './primitives';
  * the result. Same extension point, testable side.
  *
  * `BuilderId` is the catalog's declared vocabulary (`src/catalog/types.ts`), not a local type.
- * M1b registers the seven shared organelles that do not belong to the plant cell; the plant three
- * (cell wall, chloroplast, vacuole) land in M1c / PR 4, so this map stays **partial** on purpose.
- * `catalog/integrity.ts` validates that every *referenced* builder either resolves here or is
- * explicitly listed as pending — the sequencing rule is data, not a comment.
+ * M1b registered the seven shared organelles; M1c / PR 4 registers the plant three (chloroplast,
+ * vacuole, cell wall) and empties the pending allowlist `catalog/integrity.ts` used to tolerate
+ * the gap. Add an organelle here and the catalog can reference it immediately.
  */
 
 export type { BuilderId };
@@ -38,6 +38,7 @@ export const BUILDER_REGISTRY: Partial<Record<BuilderId, OrganelleBuilder>> = {
   golgi: buildGolgi,
   ribosome: buildRibosome,
   lysosome: buildLysosome,
+  chloroplast: buildChloroplast,
 };
 
 /**

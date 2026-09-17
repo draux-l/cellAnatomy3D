@@ -31,6 +31,8 @@ describe('createOrganelleMaterials', () => {
       ['er', M0_COLORS.er],
       ['golgi', M0_COLORS.golgi],
       ['vesicle', M0_COLORS.vesicle],
+      ['chloroplast', M0_COLORS.chloroplast],
+      ['grana', M0_COLORS.grana],
     ];
 
     for (const [key, hex] of pairs) {

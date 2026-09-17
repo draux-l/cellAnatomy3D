@@ -20,7 +20,7 @@
       "regionColor": "#784932",
       "measuredAt": "2026-09-17",
       "measuredWith": "playwright chromium 153 / three 0.186.0",
-      "notes": "Frozen organelle fixture (M1b). Draw calls 13, triangles 11424; the per-organelle cost report lives in artifacts/perf/report.json."
+      "notes": "Frozen organelle fixture (seed-locked, clock-frozen). Draw calls 13, triangles 11424; the per-organelle cost report lives in artifacts/perf/report.json."
     },
     "organelle:membrane": {
       "screenshot": "artifacts/screens/organelle/membrane.png",
@@ -29,7 +29,7 @@
       "regionColor": "#263643",
       "measuredAt": "2026-09-17",
       "measuredWith": "playwright chromium 153 / three 0.186.0",
-      "notes": "Frozen organelle fixture (M1b). Draw calls 1, triangles 5040; the per-organelle cost report lives in artifacts/perf/report.json."
+      "notes": "Frozen organelle fixture (seed-locked, clock-frozen). Draw calls 1, triangles 5040; the per-organelle cost report lives in artifacts/perf/report.json."
     },
     "organelle:nucleus": {
       "screenshot": "artifacts/screens/organelle/nucleus.png",
@@ -38,7 +38,7 @@
       "regionColor": "#51426b",
       "measuredAt": "2026-09-17",
       "measuredWith": "playwright chromium 153 / three 0.186.0",
-      "notes": "Frozen organelle fixture (M1b). Draw calls 3, triangles 8244; the per-organelle cost report lives in artifacts/perf/report.json."
+      "notes": "Frozen organelle fixture (seed-locked, clock-frozen). Draw calls 3, triangles 8244; the per-organelle cost report lives in artifacts/perf/report.json."
     },
     "organelle:endoplasmic-reticulum": {
       "screenshot": "artifacts/screens/organelle/endoplasmic-reticulum.png",
@@ -47,7 +47,7 @@
       "regionColor": "#688560",
       "measuredAt": "2026-09-17",
       "measuredWith": "playwright chromium 153 / three 0.186.0",
-      "notes": "Frozen organelle fixture (M1b). Draw calls 1, triangles 8064; the per-organelle cost report lives in artifacts/perf/report.json."
+      "notes": "Frozen organelle fixture (seed-locked, clock-frozen). Draw calls 1, triangles 8064; the per-organelle cost report lives in artifacts/perf/report.json."
     },
     "organelle:golgi": {
       "screenshot": "artifacts/screens/organelle/golgi.png",
@@ -56,7 +56,7 @@
       "regionColor": "#8a6b30",
       "measuredAt": "2026-09-17",
       "measuredWith": "playwright chromium 153 / three 0.186.0",
-      "notes": "Frozen organelle fixture (M1b). Draw calls 2, triangles 1816; the per-organelle cost report lives in artifacts/perf/report.json."
+      "notes": "Frozen organelle fixture (seed-locked, clock-frozen). Draw calls 2, triangles 1816; the per-organelle cost report lives in artifacts/perf/report.json."
     },
     "organelle:ribosome": {
       "screenshot": "artifacts/screens/organelle/ribosome.png",
@@ -65,7 +65,7 @@
       "regionColor": "#a69457",
       "measuredAt": "2026-09-17",
       "measuredWith": "playwright chromium 153 / three 0.186.0",
-      "notes": "Frozen organelle fixture (M1b). Draw calls 1, triangles 4400; the per-organelle cost report lives in artifacts/perf/report.json."
+      "notes": "Frozen organelle fixture (seed-locked, clock-frozen). Draw calls 1, triangles 4400; the per-organelle cost report lives in artifacts/perf/report.json."
     },
     "organelle:lysosome": {
       "screenshot": "artifacts/screens/organelle/lysosome.png",
@@ -74,7 +74,16 @@
       "regionColor": "#a55f3e",
       "measuredAt": "2026-09-17",
       "measuredWith": "playwright chromium 153 / three 0.186.0",
-      "notes": "Frozen organelle fixture (M1b). Draw calls 1, triangles 320; the per-organelle cost report lives in artifacts/perf/report.json."
+      "notes": "Frozen organelle fixture (seed-locked, clock-frozen). Draw calls 1, triangles 320; the per-organelle cost report lives in artifacts/perf/report.json."
+    },
+    "organelle:chloroplast": {
+      "screenshot": "artifacts/screens/organelle/chloroplast.png",
+      "coverage": 0.259892,
+      "occupiedAreaPx": 266129,
+      "regionColor": "#3b5e35",
+      "measuredAt": "2026-09-17",
+      "measuredWith": "playwright chromium 153 / three 0.186.0",
+      "notes": "Frozen organelle fixture (seed-locked, clock-frozen). Draw calls 2, triangles 6504; the per-organelle cost report lives in artifacts/perf/report.json."
     }
   }
 }
