@@ -330,10 +330,33 @@ describe('catalog integrity — per-cell overrides (composition)', () => {
   it('accepts both override keys together and reads them as valid', () => {
     const issues = validateRecord({
       ...BASE,
-      perCell: { plant: { position: [0.5, 0.3, 0.2], geometryParams: { size: 0.28 } } },
+      perCell: { plant: { position: [-0.5, -0.3, 0.2], geometryParams: { size: 0.28 } } },
     });
 
     expect(issues).toEqual([]);
+  });
+
+  it('applies the outward rule to a per-cell placement as well as the record position', () => {
+    const position = BASE.position;
+    const length = Math.hypot(...position);
+    const inward: [number, number, number] = [
+      -position[0] / length,
+      -position[1] / length,
+      -position[2] / length,
+    ];
+
+    const issues = validateRecord({ ...BASE, perCell: { plant: { position: inward } } });
+
+    expect(issues).toHaveLength(1);
+    expect(issues[0]?.field).toBe('perCell.plant.position');
+    expect(issues[0]?.message).toContain('centre');
+  });
+
+  it('accepts the committed plant nucleus placement', () => {
+    const nucleus = getRecord('nucleus')!;
+
+    expect(nucleus.perCell?.plant?.position).toBeDefined();
+    expect(isValidRecord(nucleus)).toBe(true);
   });
 });
 

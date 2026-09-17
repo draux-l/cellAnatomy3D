@@ -59,13 +59,27 @@ const CATALOG: readonly OrganelleRecord[] = [
       en: 'The DNA of one human cell is about 2 metres long and fits inside a nucleus 6 µm across.',
     },
     paletteRole: 'nucleus',
-    position: [0.1, 0.05, -0.06],
+    position: [-0.1, 0.14, 0.04],
     geometry: {
       builder: 'nucleus',
-      params: { size: 0.34, detail: 1, count: 0, poreCount: 48 },
+      params: { size: 0.36, detail: 1, count: 0, poreCount: 48 },
       seed: 'nucleus/v1',
     },
-    disassembly: { direction: [0.46, 0.23, -0.86], distance: 0.55 },
+    // The nucleus sits near the centre and travels up-left; its direction was re-authored with its
+    // position so the exploded view still moves it outward (the gate enforces `dot >= 0`).
+    disassembly: { direction: [-0.566, 0.793, 0.226], distance: 0.9 },
+    /*
+     * **Plant placement.** The central vacuole occupies the volume the nucleus holds in the animal
+     * cell, so the plant nucleus is pressed to the periphery — which is what the reference shows and
+     * what turgor pressure does to a real plant cell. It is also slightly smaller there: at the
+     * periphery, a 0.36 nucleus would clip the membrane once the envelope's own waver is counted.
+     */
+    perCell: {
+      plant: {
+        position: [-0.36, 0.52, 0.15],
+        geometryParams: { size: 0.3 },
+      },
+    },
     cells: ['animal', 'plant'],
     pickable: true,
   },
@@ -82,7 +96,9 @@ const CATALOG: readonly OrganelleRecord[] = [
       en: 'Its inner membrane folds to increase the surface where respiration happens: more folds, more ATP.',
     },
     paletteRole: 'organelles',
-    position: [-0.34, -0.18, 0.22],
+    // Composition pass: pushed out from the centre so the cell's volume is used and the organelle
+    // does not sit inside the nucleus.
+    position: [-0.52, -0.3, 0.26],
     geometry: {
       builder: 'mitochondrion',
       params: { size: 0.3, detail: 1, count: 0, cristaeCount: 12 },
@@ -106,10 +122,13 @@ const CATALOG: readonly OrganelleRecord[] = [
       en: 'It is continuous with the nuclear envelope: together they form a single membrane system.',
     },
     paletteRole: 'organelles',
-    position: [0.14, -0.1, 0.1],
+    // Composition pass: the network was 0.5 scene units around the cell centre, so it wrapped the
+    // nucleus and hid it. It now sits lower-right of the nucleus — adjacent, as the anatomy says,
+    // but no longer engulfing it.
+    position: [0.42, -0.18, 0.12],
     geometry: {
       builder: 'endoplasmic-reticulum',
-      params: { size: 0.5, detail: 1, count: 6, branchCount: 6 },
+      params: { size: 0.38, detail: 1, count: 6, branchCount: 6 },
       seed: 'endoplasmic-reticulum/v1',
     },
     disassembly: { direction: [0.63, -0.45, 0.63], distance: 0.65 },
@@ -129,7 +148,7 @@ const CATALOG: readonly OrganelleRecord[] = [
       en: 'It has a cis face that receives and a trans face that dispatches: cargo enters one side and leaves the other.',
     },
     paletteRole: 'organelles',
-    position: [-0.16, 0.14, -0.12],
+    position: [-0.38, 0.44, -0.2],
     geometry: {
       builder: 'golgi',
       params: { size: 0.3, detail: 1, count: 6, cisternaeCount: 6 },
@@ -152,10 +171,13 @@ const CATALOG: readonly OrganelleRecord[] = [
       en: 'A cell can hold millions of ribosomes, each one assembling proteins at high speed.',
     },
     paletteRole: 'organelles',
-    position: [0.3, 0.22, 0.06],
+    // Composition pass: the cloud was centred inside the nucleus/ER cluster, so the granules read
+    // as one lump. It is now clear of the nucleus and slightly tighter, so the granules read as a
+    // cytosol population rather than a solid body.
+    position: [0.36, 0.1, 0.12],
     geometry: {
       builder: 'ribosome',
-      params: { size: 0.03, detail: 0, count: 220 },
+      params: { size: 0.03, detail: 0, count: 220, spread: 0.4 },
       seed: 'ribosome/v1',
     },
     disassembly: { direction: [0.796, 0.584, 0.159], distance: 0.55 },
@@ -175,7 +197,7 @@ const CATALOG: readonly OrganelleRecord[] = [
       en: 'It keeps its interior acidic so that its enzymes work.',
     },
     paletteRole: 'organelles',
-    position: [-0.4, 0.3, 0.14],
+    position: [-0.62, 0.3, 0.16],
     geometry: {
       builder: 'lysosome',
       params: { size: 0.12, detail: 1, count: 0 },
@@ -273,7 +295,9 @@ const CATALOG: readonly OrganelleRecord[] = [
       en: 'Grana stack thylakoid discs to pack the light-capturing machinery into very little space.',
     },
     paletteRole: 'organelles',
-    position: [0.24, 0.28, -0.2],
+    // Composition pass: pushed out along its own disassembly direction so it sits in the plant
+    // cell's peripheral cytoplasm rather than inside the central vacuole.
+    position: [0.32, 0.37, -0.26],
     geometry: {
       builder: 'chloroplast',
       params: { size: 0.42, detail: 1, count: 0, granaStacks: 5 },
@@ -300,8 +324,12 @@ const CATALOG: readonly OrganelleRecord[] = [
     paletteRole: 'organelles',
     position: [-0.02, -0.03, 0.01],
     geometry: {
+      // Composition pass: 0.72 made the vacuole swallow every other organelle — its radius alone
+      // left no cytoplasm for them to sit in. 0.58 still reads as the cell's dominant central body
+      // (its cross-section is ~30% of the cell) while leaving a peripheral band wide enough for the
+      // nucleus and the mitochondria to sit visibly outside it.
       builder: 'vacuole',
-      params: { size: 0.72, detail: 1, count: 0 },
+      params: { size: 0.58, detail: 1, count: 0 },
       seed: 'vacuole/v1',
     },
     disassembly: { direction: [-0.51, -0.7, 0.5], distance: 0.4 },

@@ -366,6 +366,50 @@ export function validateRecord(record: unknown, index = 0): IntegrityIssue[] {
     }
   }
 
+  /*
+   * A per-cell placement must satisfy the same outward rule the record's own position does.
+   *
+   * The disassembly vector is authored per record, and the plant nucleus sits somewhere the animal
+   * nucleus does not — so checking only `record.position` would let a cell override drive an
+   * organelle inward through the centre while the gate reported a pass. The rule is the same one
+   * applied above, evaluated against whichever placement this cell actually uses.
+   */
+  if (
+    isPlainObject(record.perCell) &&
+    isPlainObject(record.disassembly) &&
+    isVector3(record.disassembly.direction)
+  ) {
+    const direction = record.disassembly.direction;
+    const length = magnitude(direction);
+
+    if (length > DIRECTION_EPSILON) {
+      for (const [cell, override] of Object.entries(record.perCell)) {
+        if (!isPlainObject(override) || !isVector3(override.position)) {
+          continue;
+        }
+
+        const position = override.position;
+        const positionLength = magnitude(position);
+
+        if (positionLength <= DIRECTION_EPSILON) {
+          continue;
+        }
+
+        const radial =
+          (direction[0] * position[0] + direction[1] * position[1] + direction[2] * position[2]) /
+          (length * positionLength);
+
+        if (radial < -DIRECTION_EPSILON) {
+          add(
+            `perCell.${cell}.position`,
+            `puts the organelle where its disassembly direction points toward the cell centre ` +
+              `(radial component ${radial.toFixed(3)}); outward or zero is required`,
+          );
+        }
+      }
+    }
+  }
+
   for (const colourPath of findColourLiterals(record)) {
     add(colourPath, 'is a literal colour — records reference a palette role, never a colour');
   }

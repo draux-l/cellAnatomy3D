@@ -99,6 +99,15 @@ body {
   min-height: 0;
 }
 
+/* Wraps the composed cell so the viewer's discrete state is reachable outside the canvas:
+   the harness reads `data-hovered` / `data-selected` / `data-cell`, and the disassembly
+   control positions itself against this box. */
+.cell-view {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
 .app__note {
   margin: 0;
   padding: 24px 32px;
