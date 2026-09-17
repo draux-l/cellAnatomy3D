@@ -1,10 +1,12 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { AdaptiveDpr } from '@react-three/drei';
 import type { FixtureConfig } from '../app/fixture';
 import { useAppStore } from '../app/store';
 import type { CellId } from '../catalog/types';
+import { DisassemblyHud } from '../ui/hud/DisassemblyHud';
 import { CellStage } from './CellStage';
+import type { DisassemblyHudTarget } from './disassembly';
 import { OrganelleStage } from './OrganelleStage';
 import { useQualityTier } from './quality';
 import { DPR_CAP, RENDERER_SETTINGS } from './renderSettings';
@@ -71,14 +73,19 @@ function ComposedCellView({ fixture }: { fixture: FixtureConfig }) {
   const selectedId = useAppStore((state) => state.selectedId);
   const setHovered = useAppStore((state) => state.setHovered);
   const setSelected = useAppStore((state) => state.setSelected);
+  const disassemblyTarget = useAppStore((state) => state.disassemblyTarget);
   const tier = useQualityTier(fixture.name);
   const cell = cellForFixture(fixture, activeView);
+  // React never renders the readout text; the frame loop owns it. React owns the slider position.
+  const hudTarget = useRef<DisassemblyHudTarget>({ percent: null, state: null, lastWritten: -1 });
 
   useEffect(() => {
-    // A fixture names its hover/isolate state in the URL. Setting it once, rather than animating
-    // into it, is what makes the screenshot a function of the URL.
+    // A fixture names its hover/isolate/disassembly state in the URL. Setting it once, rather than
+    // animating into it, is what makes the screenshot a function of the URL.
     setHovered(fixture.hoveredId);
     setSelected(fixture.selectedId);
+    useAppStore.getState().setDisassembly(fixture.disassemblyValue ?? 0);
+    hudTarget.current.lastWritten = -1;
   }, [fixture, setHovered, setSelected]);
 
   useEffect(() => {
@@ -104,6 +111,7 @@ function ComposedCellView({ fixture }: { fixture: FixtureConfig }) {
       data-cell={cell}
       data-hovered={hoveredId ?? ''}
       data-selected={selectedId ?? ''}
+      data-disassembly={disassemblyTarget}
     >
       <Canvas
         dpr={[1, tier.dpr]}
@@ -124,11 +132,17 @@ function ComposedCellView({ fixture }: { fixture: FixtureConfig }) {
         // "miss" in R3F's terms would be every click (the hit volumes carry no R3F handlers) and
         // would clear a selection the controller just made.
       >
-        <CellStage cell={cell} fixture={fixture} tier={tier} />
+        <CellStage cell={cell} fixture={fixture} tier={tier} hudTarget={hudTarget} />
         {/* Drei's adaptive pass only in the real app: it changes resolution in response to load,
             which would make a fixture screenshot depend on the machine. */}
         {fixture.name === null ? <AdaptiveDpr pixelated={false} /> : null}
       </Canvas>
+
+      <DisassemblyHud
+        value={disassemblyTarget}
+        target={hudTarget}
+        frozen={fixture.disassemblyValue !== null}
+      />
     </div>
   );
 }

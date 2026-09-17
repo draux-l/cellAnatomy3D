@@ -10,6 +10,7 @@ import { NAVIGATION_LIMITS } from './interaction/cameraModel';
 import { PickController } from './interaction/Picking';
 import { IsolateCamera, type OrbitControlsHandle } from './interaction/useIsolateCamera';
 import type { QualityTier } from './quality';
+import { DisassemblyDriver, type DisassemblyHudTarget } from './disassembly';
 
 /**
  * The composed-cell stage: one catalog roster, assembled and lit.
@@ -28,10 +29,12 @@ export function CellStage({
   cell,
   fixture,
   tier,
+  hudTarget,
 }: {
   cell: CellId;
   fixture: FixtureConfig;
   tier: QualityTier;
+  hudTarget: { current: DisassemblyHudTarget };
 }) {
   const materials = useMemo(() => createOrganelleMaterials(), []);
   const controlsRef = useRef<OrbitControlsHandle | null>(null);
@@ -86,6 +89,10 @@ export function CellStage({
       {fixture.name === null ? <IsolateCamera controlsRef={controlsRef} cell={cell} /> : null}
 
       <PickController />
+
+      {/* One loop for the whole cell: it damps the progress once, positions every organelle root,
+          and writes the readout when the whole percent changes. */}
+      <DisassemblyDriver cell={cell} frozenValue={fixture.disassemblyValue} hudTarget={hudTarget} />
 
       <DebugSampler fixture={fixture} />
     </>

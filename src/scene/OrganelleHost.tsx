@@ -87,6 +87,17 @@ export function OrganelleHost({ record, cell, materials }: OrganelleHostProps) {
   const position = positionForRecord(record, cell);
   const bounds = useMemo(() => buildBounds(build.parts.map((part) => part.geometry)), [build]);
 
+  /*
+   * The root transform is written imperatively, not passed as a prop.
+   *
+   * The disassembly loop owns `position` during a frame, so a React prop would be re-applied on
+   * every re-render (a hover, an isolate) and flick the organelle back to its assembled place for
+   * one frame. Setting the base here and letting the loop overwrite it keeps one writer per value.
+   */
+  useLayoutEffect(() => {
+    group.current?.position.set(position[0], position[1], position[2]);
+  }, [position]);
+
   useLayoutEffect(() => {
     const object = group.current;
 
@@ -109,12 +120,7 @@ export function OrganelleHost({ record, cell, materials }: OrganelleHostProps) {
   }, [hoveredId, selectedId, localMaterials, record.id]);
 
   return (
-    <group
-      ref={group}
-      name={record.id}
-      position={position}
-      userData={{ organelleId: record.id }}
-    >
+    <group ref={group} name={record.id} userData={{ organelleId: record.id }}>
       {build.parts.map((part) => (
         <PartMesh
           key={part.name}

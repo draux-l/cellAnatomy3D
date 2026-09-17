@@ -317,6 +317,77 @@ export function measurePng(
   };
 }
 
+export interface RegionLuminanceDiff {
+  /** Pixels that differ between the two frames beyond the background distance. */
+  changedPixels: number;
+  /** Mean WCAG relative luminance of those pixels in the baseline frame. */
+  baselineLuminance: number;
+  /** Mean WCAG relative luminance of the same pixels in the changed frame. */
+  currentLuminance: number;
+  /** How much brighter the changed region became, as a percentage of the baseline. */
+  risePct: number;
+}
+
+/**
+ * How much brighter the *changed* pixels became between two frames.
+ *
+ * The hover requirement is stated on the organelle's region, and finding that region by projection
+ * would need the camera matrices. This measures it without them: take the pixels that actually
+ * changed, and compare their mean luminance. On the hover fixture exactly one organelle's materials
+ * change, so the changed pixels *are* the organelle region — and the metric stays honest because a
+ * hover that changed nothing would report zero changed pixels rather than a passing ratio.
+ */
+export function measureLuminanceRise(
+  baseline: Buffer,
+  current: Buffer,
+  threshold = DEFAULT_THRESHOLDS.backgroundDistance,
+): RegionLuminanceDiff {
+  const before = readPng(baseline);
+  const after = readPng(current);
+
+  if (before.width !== after.width || before.height !== after.height) {
+    throw new Error('measureLuminanceRise needs two frames of the same size');
+  }
+
+  const pixel = (png: PNG, index: number): Rgb => ({
+    r: png.data[index] ?? 0,
+    g: png.data[index + 1] ?? 0,
+    b: png.data[index + 2] ?? 0,
+  });
+
+  let changedPixels = 0;
+  let baselineSum = 0;
+  let currentSum = 0;
+
+  for (let index = 0; index < before.data.length; index += 4) {
+    const beforeColor = pixel(before, index);
+    const afterColor = pixel(after, index);
+
+    if (colorDistance(beforeColor, afterColor) <= threshold) {
+      continue;
+    }
+
+    changedPixels += 1;
+    baselineSum += relativeLuminance(beforeColor);
+    currentSum += relativeLuminance(afterColor);
+  }
+
+  const baselineLuminance = changedPixels > 0 ? baselineSum / changedPixels : 0;
+  const currentLuminance = changedPixels > 0 ? currentSum / changedPixels : 0;
+
+  return {
+    changedPixels,
+    baselineLuminance,
+    currentLuminance,
+    risePct:
+      baselineLuminance > 0
+        ? ((currentLuminance - baselineLuminance) / baselineLuminance) * 100
+        : currentLuminance > 0
+          ? Infinity
+          : 0,
+  };
+}
+
 export function assertCoverage(metrics: ScreenshotMetrics, thresholds = DEFAULT_THRESHOLDS): void {
   if (metrics.coverage < thresholds.coverageMin) {
     throw new Error(

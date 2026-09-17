@@ -67,7 +67,7 @@ const CATALOG: readonly OrganelleRecord[] = [
     },
     // The nucleus sits near the centre and travels up-left; its direction was re-authored with its
     // position so the exploded view still moves it outward (the gate enforces `dot >= 0`).
-    disassembly: { direction: [-0.566, 0.793, 0.226], distance: 0.9 },
+    disassembly: { direction: [-0.5661, 0.7926, 0.2265], distance: 0.9 },
     /*
      * **Plant placement.** The central vacuole occupies the volume the nucleus holds in the animal
      * cell, so the plant nucleus is pressed to the periphery — which is what the reference shows and

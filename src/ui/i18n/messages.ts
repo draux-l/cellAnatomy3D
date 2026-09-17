@@ -39,6 +39,38 @@ export const UI_MESSAGES = {
     es: 'English',
     en: 'English',
   },
+  /*
+   * The disassembly control is a **view control**, and its copy says so.
+   *
+   * The spec is explicit that disassembly is a diagram convention for studying structure, not
+   * something a cell does, and that it must never read as a fourth vital process. That is why
+   * these keys live under `view.` rather than `process.` and why the wording talks about looking
+   * at the cell ("exploded view", "study aid") rather than about the cell doing anything.
+   */
+  'view.disassembly.title': {
+    es: 'Vista despiezada',
+    en: 'Exploded view',
+  },
+  'view.disassembly.hint': {
+    es: 'Ayuda de estudio: muestra cómo encajan las partes. No es algo que la célula haga.',
+    en: 'Study aid: shows how the parts fit together. This is not something a cell does.',
+  },
+  'view.disassembly.control': {
+    es: 'Separación de los orgánulos',
+    en: 'Organelle separation',
+  },
+  'view.disassembly.state.assembled': {
+    es: 'Ensamblada',
+    en: 'Assembled',
+  },
+  'view.disassembly.state.partial': {
+    es: 'Parcialmente separada',
+    en: 'Partially separated',
+  },
+  'view.disassembly.state.separated': {
+    es: 'Totalmente separada',
+    en: 'Fully separated',
+  },
 } as const satisfies Record<string, Localized>;
 
 /** Every UI key the app can ask for. `t()` refuses anything else at compile time. */

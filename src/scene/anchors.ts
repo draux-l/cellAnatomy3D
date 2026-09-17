@@ -32,6 +32,17 @@ export function registeredAnchorIds(): string[] {
   return [...ANCHORS.keys()];
 }
 
+/**
+ * The registered root object for one organelle.
+ *
+ * The disassembly loop writes through this: it needs the same `Object3D` every other consumer
+ * follows, and taking it from the registry is what keeps "the organelle" a single object rather
+ * than a name looked up in two places.
+ */
+export function registeredOrganelleRoot(organelleId: string): Object3D | undefined {
+  return ANCHORS.get(organelleId)?.object;
+}
+
 export function registerOrganelleAnchor(
   organelleId: string,
   object: Object3D,

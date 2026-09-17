@@ -10,6 +10,7 @@ import {
   hexToRgb,
   hueDistance,
   luminanceDeltaPct,
+  measureLuminanceRise,
   measurePng,
   relativeLuminance,
   rgbToHex,
@@ -220,5 +221,45 @@ describe('describeMetrics', () => {
 
     expect(summary).toContain('100x100');
     expect(summary).toContain('coverage 0.00%');
+  });
+});
+
+/**
+ * The hover metric (task 4.2).
+ *
+ * The assertion is "the organelle's region gets at least 10% brighter". Finding that region by
+ * projection would need the camera matrices, so the metric uses the pixels that changed instead —
+ * which makes the honest failure mode "nothing changed" rather than a passing ratio over nothing.
+ */
+describe('measureLuminanceRise', () => {
+  const SUBJECT: Rect = { x: 10, y: 10, width: 20, height: 20, color: { r: 60, g: 60, b: 60 } };
+
+  it('measures the rise over the pixels that actually changed', () => {
+    const dim = renderPng(100, 100, [SUBJECT]);
+    const bright = renderPng(100, 100, [{ ...SUBJECT, color: { r: 120, g: 120, b: 120 } }]);
+    const diff = measureLuminanceRise(dim, bright);
+
+    expect(diff.changedPixels).toBe(400);
+    expect(diff.risePct).toBeGreaterThan(10);
+    expect(diff.currentLuminance).toBeGreaterThan(diff.baselineLuminance);
+  });
+
+  it('reports zero changed pixels when nothing moved, and cannot pass on that', () => {
+    const frame = renderPng(100, 100, [SUBJECT]);
+    const diff = measureLuminanceRise(frame, frame);
+
+    expect(diff.changedPixels).toBe(0);
+    expect(diff.risePct).toBe(0);
+  });
+
+  it('reports a darkening as a negative rise', () => {
+    const bright = renderPng(100, 100, [{ ...SUBJECT, color: { r: 120, g: 120, b: 120 } }]);
+    const dim = renderPng(100, 100, [SUBJECT]);
+
+    expect(measureLuminanceRise(bright, dim).risePct).toBeLessThan(0);
+  });
+
+  it('refuses frames of different sizes instead of guessing', () => {
+    expect(() => measureLuminanceRise(renderPng(10, 10), renderPng(20, 20))).toThrow(/same size/);
   });
 });

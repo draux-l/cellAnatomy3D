@@ -102,6 +102,78 @@
       "measuredAt": "2026-09-17",
       "measuredWith": "playwright chromium 153 / three 0.186.0",
       "notes": "Frozen organelle fixture (seed-locked, clock-frozen). Draw calls 1, triangles 448; the per-organelle cost report lives in artifacts/perf/report.json."
+    },
+    "disassembly:0": {
+      "screenshot": "artifacts/screens/disassembly/0.png",
+      "coverage": 0.1375,
+      "occupiedAreaPx": 134779,
+      "regionColor": "#414b51",
+      "measuredAt": "2026-09-17",
+      "measuredWith": "playwright chromium 153 / three 0.186.0",
+      "notes": "Disassembly frozen at 0%."
+    },
+    "disassembly:25": {
+      "screenshot": "artifacts/screens/disassembly/25.png",
+      "coverage": 0.138023,
+      "occupiedAreaPx": 135059,
+      "regionColor": "#444d53",
+      "measuredAt": "2026-09-17",
+      "measuredWith": "playwright chromium 153 / three 0.186.0",
+      "notes": "Disassembly frozen at 25%."
+    },
+    "disassembly:57": {
+      "screenshot": "artifacts/screens/disassembly/57.png",
+      "coverage": 0.147444,
+      "occupiedAreaPx": 144713,
+      "regionColor": "#454e51",
+      "measuredAt": "2026-09-17",
+      "measuredWith": "playwright chromium 153 / three 0.186.0",
+      "notes": "Disassembly frozen at 57%."
+    },
+    "disassembly:100": {
+      "screenshot": "artifacts/screens/disassembly/100.png",
+      "coverage": 0.173228,
+      "occupiedAreaPx": 160573,
+      "regionColor": "#404b50",
+      "measuredAt": "2026-09-17",
+      "measuredWith": "playwright chromium 153 / three 0.186.0",
+      "notes": "Disassembly frozen at 100%."
+    },
+    "disassembly:57-plant": {
+      "screenshot": "artifacts/screens/disassembly/57-plant.png",
+      "coverage": 0.307917,
+      "occupiedAreaPx": 309037,
+      "regionColor": "#63665a",
+      "measuredAt": "2026-09-17",
+      "measuredWith": "playwright chromium 153 / three 0.186.0",
+      "notes": "Disassembly frozen at 57% in the plant cell."
+    },
+    "cell:animal": {
+      "screenshot": "artifacts/screens/cell/animal.png",
+      "coverage": 0.196395,
+      "occupiedAreaPx": 195087,
+      "regionColor": "#414b51",
+      "measuredAt": "2026-09-17",
+      "measuredWith": "playwright chromium 153 / three 0.186.0",
+      "notes": "Composed animal cell, frozen fixture. Draw calls 22, triangles 39308."
+    },
+    "cell:plant": {
+      "screenshot": "artifacts/screens/cell/plant.png",
+      "coverage": 0.44417,
+      "occupiedAreaPx": 449968,
+      "regionColor": "#636559",
+      "measuredAt": "2026-09-17",
+      "measuredWith": "playwright chromium 153 / three 0.186.0",
+      "notes": "Composed plant cell, frozen fixture. Draw calls 26, triangles 48564."
+    },
+    "interaction:isolate-golgi": {
+      "screenshot": "artifacts/screens/interaction/isolate-golgi.png",
+      "coverage": 0.301311,
+      "occupiedAreaPx": 267419,
+      "regionColor": "#72655e",
+      "measuredAt": "2026-09-17",
+      "measuredWith": "playwright chromium 153 / three 0.186.0",
+      "notes": "Isolated golgi fixture, camera framed from the catalog. Draw calls 22."
     }
   }
 }
