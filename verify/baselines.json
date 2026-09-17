@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "viewport": {
+    "width": 1280,
+    "height": 800,
+    "deviceScaleFactor": 1
+  },
+  "thresholds": {
+    "backgroundDistance": 24,
+    "coverageMin": 0.01,
+    "areaBandPct": 25,
+    "hueToleranceDeg": 5,
+    "luminanceTolerancePct": 20
+  },
+  "fixtures": {
+    "organelle:mitochondrion": {
+      "screenshot": "artifacts/screens/organelle/mitochondrion.png",
+      "coverage": 0.283439,
+      "occupiedAreaPx": 290242,
+      "regionColor": "#7c4d33",
+      "measuredAt": "2026-09-17",
+      "measuredWith": "playwright chromium 153 / three 0.186.0",
+      "notes": "Frozen organelle fixture: M0’s only organelle. Draw calls and triangles are recorded in artifacts/perf/report.json."
+    }
+  }
+}
