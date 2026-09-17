@@ -1,4 +1,4 @@
-import { DoubleSide, Material, MeshPhysicalMaterial, MeshStandardMaterial } from 'three';
+import { DoubleSide, FrontSide, Material, MeshPhysicalMaterial, MeshStandardMaterial } from 'three';
 import { describe, expect, it } from 'vitest';
 import { ORGANELLE_MATERIAL_KEYS } from './builders/primitives';
 import { M0_COLORS, createOrganelleMaterials } from './materials';
@@ -13,7 +13,7 @@ describe('createOrganelleMaterials', () => {
   });
 
   it('colours the outer and inner membrane from the M0 placeholder values', () => {
-    const shell = materials.outerMembrane as MeshPhysicalMaterial;
+    const shell = materials.outerMembrane as MeshStandardMaterial;
     const folds = materials.innerMembrane as MeshStandardMaterial;
 
     expect(shell.color.getHexString()).toBe(M0_COLORS.outerMembrane.replace('#', ''));
@@ -45,25 +45,58 @@ describe('createOrganelleMaterials', () => {
   });
 
   it('keeps the outer membrane translucent so the folds stay legible', () => {
-    const shell = materials.outerMembrane as MeshPhysicalMaterial;
+    const shell = materials.outerMembrane as MeshStandardMaterial;
 
     expect(shell.transparent).toBe(true);
     expect(shell.opacity).toBeGreaterThan(0);
     expect(shell.opacity).toBeLessThan(1);
-    expect(shell.side).toBe(DoubleSide);
   });
 
   it('keeps every boundary shell translucent and depth-write-free', () => {
     // Every surface that encloses something else: the cell membrane, the nuclear envelope and the
     // three plant boundaries. All of them must be `transparent` + `opacity`, never `transmission`.
     for (const key of ['membrane', 'nuclearEnvelope', 'chloroplast', 'cellWall', 'vacuole'] as const) {
-      const shell = materials[key] as MeshPhysicalMaterial;
+      const shell = materials[key] as MeshStandardMaterial;
 
       expect(shell.transparent).toBe(true);
       expect(shell.opacity).toBeGreaterThan(0);
       expect(shell.opacity).toBeLessThan(0.5);
-      expect(shell.side).toBe(DoubleSide);
       expect(shell.depthWrite).toBe(false);
+    }
+  });
+
+  /*
+   * The shells are single-sided because every one of them is a geometrically closed surface — the
+   * closure is asserted independently in `builders/shell-closure.test.ts`. `DoubleSide` on a
+   * transparent, depth-write-free shell shades each covered pixel twice for no shape benefit, and
+   * measured ~35% of the frame (44.1 -> 59.5 fps p50 on the animal cell). These two assertions exist
+   * so a future shell cannot silently reintroduce the cost.
+   */
+  it('renders every boundary shell single-sided', () => {
+    for (const key of [
+      'outerMembrane',
+      'membrane',
+      'nuclearEnvelope',
+      'chloroplast',
+      'cellWall',
+      'vacuole',
+    ] as const) {
+      expect(materials[key].side).toBe(FrontSide);
+    }
+  });
+
+  it('keeps the shells on the standard shader path, never the physical one', () => {
+    // `transmission` is banned, so a shell uses no `MeshPhysicalMaterial` feature at all. The
+    // physical path still cost ~11% over the standard path with clearcoat already at 0.
+    for (const key of [
+      'outerMembrane',
+      'membrane',
+      'nuclearEnvelope',
+      'chloroplast',
+      'cellWall',
+      'vacuole',
+    ] as const) {
+      expect(materials[key]).not.toBeInstanceOf(MeshPhysicalMaterial);
     }
   });
 
@@ -80,7 +113,7 @@ describe('createOrganelleMaterials', () => {
   });
 
   it('keeps the nucleolus opaque and distinct from the envelope that hides it', () => {
-    const envelope = materials.nuclearEnvelope as MeshPhysicalMaterial;
+    const envelope = materials.nuclearEnvelope as MeshStandardMaterial;
     const nucleolus = materials.nucleolus as MeshStandardMaterial;
 
     expect(nucleolus.transparent).toBe(false);

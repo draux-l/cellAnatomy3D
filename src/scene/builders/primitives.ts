@@ -427,6 +427,16 @@ export interface DisplaceOptions {
  * cracks into the render. These bodies are untextured, so the UVs carry nothing worth keeping;
  * `countBoundaryEdges` exists so a test can prove the shell came out closed.
  *
+ * **The normal attribute is dropped for exactly the same reason, and it was missed for a long
+ * time.** `mergeVertices` hashes every attribute, normals included, and a *non-indexed* geometry
+ * from `ExtrudeGeometry` carries one normal **per face**: two copies of a shared corner hold
+ * different normals, so the weld refuses every one of them. The failure is silent and it looks like
+ * a shading artefact rather than a topology one — the wall welded to 2,016 vertices where a closed
+ * 960-triangle shell needs about 482, so its corner arcs stayed a mosaic of flat facets and its
+ * flat annulus caps shaded triangle by triangle. Both attributes are recomputed or unused
+ * downstream (`computeVertexNormals` below), so dropping them changes nothing but the weld's
+ * ability to succeed.
+ *
  * The input is left untouched; the caller owns it.
  */
 export function smoothGeometry(geometry: BufferGeometry, tolerance = 1e-6): BufferGeometry {
@@ -483,6 +493,62 @@ export function countBoundaryEdges(geometry: BufferGeometry): {
   }
 
   return { boundary, nonManifold };
+}
+
+/**
+ * Boundary edges of a surface, keyed by vertex **position** rather than by vertex index.
+ *
+ * `countBoundaryEdges` is the right tool for "did the weld succeed?" — it is deliberately
+ * index-keyed, so a vertex that survived duplication is reported as a tear. But index-keying
+ * answers a different question than "is this surface closed?": a `SphereGeometry` duplicates its
+ * wrap column and its poles, so the index-keyed count reports 356 boundary edges for a surface that
+ * is geometrically sealed.
+ *
+ * This is the "is it closed?" measurement. Two vertices are the same vertex when they quantise to
+ * the same position, so a UV seam unifies and only a genuine hole remains. It is what lets a
+ * builder decision that depends on closure — "this shell never needs its back faces" — be an
+ * asserted invariant instead of a comment.
+ */
+export function countSurfaceBoundaryEdges(geometry: BufferGeometry, tolerance = 1e-4): number {
+  const index = geometry.getIndex();
+  const position = geometry.getAttribute('position');
+
+  if (!(position instanceof BufferAttribute)) {
+    throw new Error('countSurfaceBoundaryEdges requires a geometry with a position attribute');
+  }
+
+  const keyOf = (vertex: number): string => {
+    const quantise = (value: number): number => Math.round(value / tolerance);
+
+    return `${quantise(position.getX(vertex))},${quantise(position.getY(vertex))},${quantise(position.getZ(vertex))}`;
+  };
+
+  const count = index ? index.count : position.count;
+  const uses = new Map<string, number>();
+
+  for (let triangle = 0; triangle < count; triangle += 3) {
+    const corners = [0, 1, 2].map((offset) =>
+      index ? index.getX(triangle + offset) : triangle + offset,
+    );
+
+    for (let edge = 0; edge < 3; edge += 1) {
+      const a = keyOf(corners[edge]!);
+      const b = keyOf(corners[(edge + 1) % 3]!);
+      const key = a < b ? `${a}|${b}` : `${b}|${a}`;
+
+      uses.set(key, (uses.get(key) ?? 0) + 1);
+    }
+  }
+
+  let boundary = 0;
+
+  for (const useCount of uses.values()) {
+    if (useCount === 1) {
+      boundary += 1;
+    }
+  }
+
+  return boundary;
 }
 
 /**
