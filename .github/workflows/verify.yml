@@ -1,0 +1,95 @@
+name: verify
+
+# Verification runs on every pull request; the host deploy runs only when main moves.
+# A PR with several pushes therefore consumes CI minutes but never a host build.
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: build, sizes, unit tests, metric harness
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install the pinned browser build
+        run: npx playwright install --with-deps chromium
+
+      # Same command the developer runs locally: build + size audit + vitest + Playwright.
+      - name: Verify
+        run: npm run verify
+
+      - name: Upload metric artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-artifacts
+          path: |
+            artifacts/
+            playwright-report/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload the verified bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-bundle
+          path: dist/
+          retention-days: 7
+
+  deploy:
+    name: deploy to Cloudflare Pages
+    runs-on: ubuntu-latest
+    needs: verify
+    # Only a push to main deploys, and only after verification passed.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment: production
+    steps:
+      # The deployed bundle is the exact artifact verification ran against — no rebuild.
+      - name: Download the verified bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-bundle
+          path: dist
+
+      - name: Check deploy credentials
+        id: credentials
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -n "$CLOUDFLARE_API_TOKEN" ] && [ -n "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Cloudflare credentials are not configured; skipping the deploy."
+          fi
+
+      - name: Deploy
+        if: steps.credentials.outputs.available == 'true'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=cell-anatomy-3d
