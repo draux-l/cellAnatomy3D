@@ -12,6 +12,7 @@ import {
   createSeededNoise,
   meshPart,
   ORGANELLE_PARAM_DEFAULTS,
+  smoothGeometry,
   type OrganelleBuild,
   type OrganelleParams,
   type SeededNoise,
@@ -198,8 +199,27 @@ export function buildCellWall(
     CELL_WALL_NOISE_FREQUENCY / size,
   );
 
+  /*
+   * Weld the extrusion and give it smooth normals.
+   *
+   * `ExtrudeGeometry` is non-indexed, so `computeVertexNormals` gives every triangle its **own**
+   * normal — the whole band renders as a mosaic of flat facets, and the finer the corner arcs get,
+   * the finer that mosaic gets. At the original six corner segments the seams read as a few broad
+   * diagonal bands across the band's face; at fourteen they read as a visibly hatched surface. Both
+   * are the same defect, and it is the *caps* that show it worst: `roughenRadially` makes the flat
+   * annulus very slightly non-planar, so each of its triangles picks up a slightly different normal
+   * and the shading steps from triangle to triangle.
+   *
+   * Welding first means coincident corner vertices share one normal, so the corner arcs shading as
+   * curves is what the geometry actually is. `smoothGeometry` drops the UV attribute, which this
+   * surface does not carry anything in — the wall is untextured.
+   */
+  const smoothed = smoothGeometry(wall);
+
+  wall.dispose();
+
   return createBuild(
-    [meshPart({ name: 'cell-wall', materialKey: 'cellWall', geometry: wall })],
+    [meshPart({ name: 'cell-wall', materialKey: 'cellWall', geometry: smoothed })],
     { ...params },
     seed,
   );

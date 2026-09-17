@@ -55,9 +55,32 @@ export const NUCLEUS_PARAMS: NucleusParams = {
 export const NUCLEUS_NUCLEOLUS_RADIUS_RATIO = 0.42;
 /** Nucleolus centre offset from the nucleus centre, as a fraction of the envelope radius. */
 export const NUCLEUS_NUCLEOLUS_OFFSET_RATIO = 0.43;
+/**
+ * Subdivision of the nucleolus polyhedron per unit of `detail`; detail 1 buys detail 6.
+ *
+ * Raised from `2 * detail` (180 triangles) when the composed cell was inspected. The nucleolus is
+ * opaque and sits behind a translucent envelope at 42% of the envelope radius, so its facets are
+ * the one thing the eye lands on inside the nucleus — and at 180 triangles it rendered as a plainly
+ * faceted gem, which is the opposite of the reference's "clearly differentiated nucleolus".
+ *
+ * Six rather than the lysosome's eight because the body is drawn much smaller: the displaced
+ * icosphere only needs enough vertices that the silhouette chord sag stays under a pixel at the
+ * size it actually renders.
+ */
+export const NUCLEUS_NUCLEOLUS_DETAIL_PER_PARAM = 6;
 /** Pore ring radius and tube radius, as fractions of the envelope radius. */
 export const NUCLEUS_PORE_RADIUS_RATIO = 0.085;
 export const NUCLEUS_PORE_TUBE_RATIO = 0.022;
+/**
+ * Pore ring subdivisions per unit of `detail`: 8 around the tube's cross-section, 12 around the ring.
+ *
+ * The pores were hard-coded at `TorusGeometry(…, 6, 10)`, which is a hexagonal tube bent into a
+ * decagon — plainly a polygon at the isolated-organelle framing the app offers, and the rings are
+ * the nucleus's most repeated detail. Scaling them from `detail` follows the shared parameter
+ * convention (`organelle-geometry.md`: add a parameter rather than hard-code the number inline).
+ */
+export const NUCLEUS_PORE_TUBE_SEGMENTS = 8;
+export const NUCLEUS_PORE_RING_SEGMENTS = 12;
 /** Envelope lobes: a perfectly round nucleus reads as a marble, so the profile breathes. */
 export const NUCLEUS_PROFILE_WOBBLE = 0.045;
 
@@ -118,7 +141,7 @@ export function buildNucleus(
   const nucleolus = smoothGeometry(
     new IcosahedronGeometry(
       radius * NUCLEUS_NUCLEOLUS_RADIUS_RATIO,
-      Math.max(1, Math.round(2 * detail)),
+      Math.max(1, Math.round(NUCLEUS_NUCLEOLUS_DETAIL_PER_PARAM * detail)),
     ),
   );
 
@@ -138,8 +161,8 @@ export function buildNucleus(
     const poreGeometry = new TorusGeometry(
       radius * NUCLEUS_PORE_RADIUS_RATIO,
       radius * NUCLEUS_PORE_TUBE_RATIO,
-      6,
-      10,
+      Math.max(4, Math.round(NUCLEUS_PORE_TUBE_SEGMENTS * detail)),
+      Math.max(8, Math.round(NUCLEUS_PORE_RING_SEGMENTS * detail)),
     );
     const matrices = new Float32Array(samples.length * 16);
     const quaternion = new Quaternion();

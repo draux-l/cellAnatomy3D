@@ -444,6 +444,10 @@ export function smoothGeometry(geometry: BufferGeometry, tolerance = 1e-6): Buff
     geometry.deleteAttribute('uv');
   }
 
+  if (geometry.getAttribute('normal')) {
+    geometry.deleteAttribute('normal');
+  }
+
   const welded = mergeVertices(geometry, tolerance);
 
   welded.computeVertexNormals();

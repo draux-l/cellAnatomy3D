@@ -10,8 +10,21 @@
  * The module is pure geometry maths: no meshes, no materials, no renderer.
  */
 
-/** Corner arc samples per unit of `detail`, before the floor. */
-export const SILHOUETTE_CORNER_SEGMENTS_PER_DETAIL = 6;
+/**
+ * Corner arc samples per unit of `detail`, before the floor.
+ *
+ * Raised from 6 when the composed plant cell was inspected. The **straight runs stay straight** —
+ * the eight-fold angular silhouette is the whole point of this generator and nothing here softens
+ * it — but a corner arc sampled six times across a chord of ~0.36 scene units renders as a chain of
+ * straight segments roughly 15 px long at the composed framing, which reads as a chamfer rather
+ * than as a rounded corner. That is accidental faceting sitting on top of intentional angularity,
+ * and the two are different things.
+ *
+ * The cost is small: the outline grows from 56 to 136 points, so the wall goes from 448 to about
+ * 1,100 triangles and the plant membrane's cross-sections get smoother arcs for free (it morphs
+ * onto the same outline).
+ */
+export const SILHOUETTE_CORNER_SEGMENTS_PER_DETAIL = 14;
 
 /**
  * The outline of a regular `sides`-gon with rounded corners, as a closed point loop.
