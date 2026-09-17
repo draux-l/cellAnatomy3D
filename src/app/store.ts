@@ -89,6 +89,32 @@ export const DISCRETE_STATE_KEYS = [
 ] as const satisfies readonly (keyof AppState)[];
 
 /**
+ * Every discrete key a language switch must leave untouched (spec: `Language Switch Is
+ * Non-Destructive`).
+ *
+ * The spec lists the visible ones — active view, selected organelle, running process, phase, speed,
+ * palette, quiz progress — and this list adds the two observable values it does not name but that
+ * a rebuild would also disturb: the hovered organelle and the disassembly value. It is **every
+ * discrete key except `locale`**, and `store.test.ts` asserts exactly that, so adding a state key
+ * without deciding what a language switch does to it fails the build.
+ *
+ * `setLocale` writes `{ locale }` and nothing else, which is what makes the switch
+ * non-destructive by construction rather than by care: there is no code path in the action that
+ * could carry another key. The contract is stated here because a later refactor (say, a locale
+ * change that "helpfully" reset the view) would otherwise be invisible.
+ */
+export const LOCALE_PRESERVED_KEYS = [
+  'activeView',
+  'selectedId',
+  'hoveredId',
+  'disassemblyTarget',
+  'processId',
+  'speed',
+  'paletteId',
+  'quizActive',
+] as const satisfies readonly (keyof AppState)[];
+
+/**
  * Names that would signal a per-frame value smuggled into the reactive slice.
  * `store.test.ts` fails the build if any state key matches.
  */
@@ -143,6 +169,18 @@ export const useAppStore = create<AppState>()((set) => ({
   setProcess: (processId) => set({ processId }),
   setSpeed: (speed) => set({ speed }),
   setPalette: (paletteId) => set({ paletteId }),
+  /**
+   * The language switch (spec: `Language Switch Is Non-Destructive`).
+   *
+   * One key, and only that key: the view, the isolate, the process and its phase, the speed, the
+   * palette and the quiz progress are all preserved because this action cannot reach them
+   * (`LOCALE_PRESERVED_KEYS` records the contract and `store.test.ts` enforces it).
+   *
+   * Nothing else in the app needs to co-operate. Content is bilingual in the catalog, so the swap
+   * is a re-render of copy; the 3D scene is not rebuilt, the camera is not moved, and the
+   * annotation anchors are read per frame from the organelle's own `matrixWorld`, so they cannot
+   * move because a string changed.
+   */
   setLocale: (locale) => set({ locale }),
   setQuizActive: (quizActive) => set({ quizActive }),
 }));

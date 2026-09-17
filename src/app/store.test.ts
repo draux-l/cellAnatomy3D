@@ -4,6 +4,7 @@ import {
   DISASSEMBLY_MAX,
   DISASSEMBLY_MIN,
   DISCRETE_STATE_KEYS,
+  LOCALE_PRESERVED_KEYS,
   PER_FRAME_KEY_PATTERN,
   clampDisassembly,
   type AppState,
@@ -183,5 +184,93 @@ describe('disassembly and isolation are mutually exclusive', () => {
     expect(seen).toEqual([60, 0]);
 
     unsubscribe();
+  });
+});
+
+/**
+ * The language switch is non-destructive (design D5, spec: `Language Switch Is Non-Destructive`).
+ *
+ * The action writes one key, so the contract looks like a tautology. It is not: the spec lists what
+ * must survive a switch precisely because the tempting implementations — re-mounting the viewer,
+ * resetting the selection "so the labels are consistent", rebuilding the scene — all destroy it,
+ * and the store is where that decision is either kept or broken. These tests fail the moment a
+ * language switch starts carrying another key, and the last one fails when a **new** state key
+ * arrives without a decision about what a switch does to it.
+ */
+describe('language switching is non-destructive', () => {
+  beforeEach(() => {
+    processClock.reset();
+    useAppStore.setState(DEFAULTS);
+  });
+
+  function preservedState(): Record<string, unknown> {
+    const state = useAppStore.getState();
+    const snapshot: Record<string, unknown> = {};
+
+    for (const key of LOCALE_PRESERVED_KEYS) {
+      snapshot[key] = state[key];
+    }
+
+    return snapshot;
+  }
+
+  /** Puts a non-default value on every preserved key, so a reset would be visible. */
+  function loadDistinctiveState(): void {
+    const store = useAppStore.getState();
+
+    store.setActiveView('plant');
+    store.setHovered('nucleus');
+    store.setSelected('golgi');
+    store.setProcess('nutrition');
+    store.setSpeed('slow');
+    store.setPalette('high-contrast');
+    store.setQuizActive(true);
+  }
+
+  it('changes the locale and nothing else', () => {
+    loadDistinctiveState();
+
+    const before = preservedState();
+
+    useAppStore.getState().setLocale('en');
+
+    expect(useAppStore.getState().locale).toBe('en');
+    expect(preservedState()).toEqual(before);
+    // The isolate really was set, so the equality above is not two objects of defaults.
+    expect(useAppStore.getState().selectedId).toBe('golgi');
+  });
+
+  it('preserves the disassembly value in the other mutually-exclusive shape', () => {
+    loadDistinctiveState();
+    // Raising disassembly clears the isolate, so this is the state the pair never shares.
+    useAppStore.getState().setDisassembly(60);
+
+    const before = preservedState();
+
+    useAppStore.getState().setLocale('en');
+
+    expect(useAppStore.getState().disassemblyTarget).toBe(60);
+    expect(useAppStore.getState().selectedId).toBeNull();
+    expect(preservedState()).toEqual(before);
+  });
+
+  it('notifies subscribers once per switch, and only the locale was read', () => {
+    loadDistinctiveState();
+
+    const seen: string[] = [];
+    const unsubscribe = useAppStore.subscribe((state) => seen.push(state.locale));
+
+    useAppStore.getState().setLocale('en');
+    useAppStore.getState().setLocale('es');
+
+    expect(seen).toEqual(['en', 'es']);
+
+    unsubscribe();
+  });
+
+  it('covers every discrete key except the locale', () => {
+    const expected = [...DISCRETE_STATE_KEYS].filter((key) => key !== 'locale').sort();
+
+    expect([...LOCALE_PRESERVED_KEYS].sort()).toEqual(expected);
   });
 });

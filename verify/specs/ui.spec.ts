@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { getRecord } from '../../src/catalog/cells';
+import { t } from '../../src/ui/i18n';
+import { disassemblyStateKey } from '../../src/ui/hud/disassemblyCopy';
 import { formatOrganelleSize } from '../../src/ui/specSheetModel';
 import { collectProblems, openApp } from '../harness';
 
@@ -32,8 +34,10 @@ async function settle(page: Page): Promise<void> {
 /**
  * Clicks the organelle under the centre of the canvas and returns its id.
  *
- * The empty-corner move first is deliberate: `hoveredId` is a discrete value that survives a
- * camera change, so a stale hover from a previous gesture would otherwise be read as this one's.
+ * The **selection is the ground truth**, not the hover: `hoveredId` is a discrete value that a
+ * previous gesture can leave set (the plant cell's wall reaches the canvas corner, so "move
+ * somewhere empty first" is not available in both views), while `selectedId` is written by this
+ * click alone. The hover is still polled first, as the precondition that a pick ran at all.
  */
 async function isolateCentreOrganelle(page: Page): Promise<string> {
   const box = await page.locator('canvas').boundingBox();
@@ -42,22 +46,17 @@ async function isolateCentreOrganelle(page: Page): Promise<string> {
     throw new Error('the canvas has no layout box');
   }
 
-  await page.mouse.move(box.x + 6, box.y + 6);
-  await expect.poll(() => page.getAttribute(CELL_VIEW, 'data-hovered')).toBe('');
-
   const centreX = box.x + box.width / 2;
   const centreY = box.y + box.height / 2;
 
   await page.mouse.move(centreX, centreY);
   await expect.poll(() => page.getAttribute(CELL_VIEW, 'data-hovered')).not.toBe('');
 
-  const hovered = (await page.getAttribute(CELL_VIEW, 'data-hovered')) ?? '';
-
   await page.mouse.down();
   await page.mouse.up();
-  await expect.poll(() => page.getAttribute(CELL_VIEW, 'data-selected')).toBe(hovered);
+  await expect.poll(() => page.getAttribute(CELL_VIEW, 'data-selected')).not.toBe('');
 
-  return hovered;
+  return (await page.getAttribute(CELL_VIEW, 'data-selected')) ?? '';
 }
 
 test.describe('the view navigation', () => {
@@ -173,5 +172,154 @@ test.describe('the spec sheet', () => {
 
     await expect(page.locator('[data-spec]')).toHaveCount(0);
     await expect(page.locator(CELL_VIEW)).toHaveAttribute('data-selected', '');
+  });
+});
+
+/** Every annotation's anchor, keyed by organelle id, in roster order. */
+async function readAnchors(page: Page): Promise<Record<string, [number, number]>> {
+  const entries = await page.evaluate(() =>
+    (window.__cellDebug?.annotations ?? []).map((annotation) => ({
+      id: annotation.id,
+      anchor: [annotation.anchor[0], annotation.anchor[1]] as [number, number],
+    })),
+  );
+  const anchors: Record<string, [number, number]> = {};
+
+  for (const entry of entries) {
+    anchors[entry.id] = entry.anchor;
+  }
+
+  return anchors;
+}
+
+/**
+ * Waits until the annotation anchors stop moving and returns them.
+ *
+ * The real app tweens the isolate camera, so the first frames after a click are still in motion and
+ * a comparison taken then would measure the tween rather than the language switch. The settle
+ * condition is **sustained stillness**, not a momentary plateau: the Playwright environment starves
+ * the render loop in bursts (measured: `frames+0` for 750 ms, then ~10 frames per 250 ms), so a
+ * single quiet window is a fact about frame delivery rather than about the tween.
+ */
+const STABLE_READINGS_REQUIRED = 5;
+const SETTLE_ATTEMPTS = 40;
+
+async function waitForStableAnchors(page: Page): Promise<Record<string, [number, number]>> {
+  let previous = await readAnchors(page);
+  let stable = 0;
+
+  for (let attempt = 0; attempt < SETTLE_ATTEMPTS; attempt += 1) {
+    await page.waitForTimeout(250);
+
+    const current = await readAnchors(page);
+
+    if (Object.keys(current).length > 0 && JSON.stringify(current) === JSON.stringify(previous)) {
+      stable += 1;
+
+      if (stable >= STABLE_READINGS_REQUIRED) {
+        return current;
+      }
+    } else {
+      stable = 0;
+    }
+
+    previous = current;
+  }
+
+  throw new Error('the annotation anchors never settled after isolating an organelle');
+}
+
+/**
+ * The spec's `Language Switch Is Non-Destructive` (task 4.7), on the one surface a unit test cannot
+ * reach: the rendered annotation layer.
+ *
+ * What is asserted and why it is the honest form of each claim:
+ *
+ * - **The anchors are byte-identical, not merely close.** An anchor is the projection of one world
+ *   point through the camera, so identical anchors across the switch mean the camera did not move
+ *   and the organelles did not move. That is the framing claim, measured where it is observable —
+ *   there is no camera channel on the debug bridge, and a whole-frame comparison would be dominated
+ *   by the copy that is *supposed* to change.
+ * - **The selection, the view and the disassembly value are unchanged**, and the same `<canvas>`
+ *   node is still mounted.
+ * - **The copy did change**: the sheet, the HUD's localized state word and the annotation's
+ *   primary/secondary lines all follow the new language, and the annotation is the *same node*.
+ */
+test.describe('the language switch is non-destructive', () => {
+  test('keeps the isolate, the view, the disassembly value and every anchor', async ({ page }) => {
+    const problems = collectProblems(page);
+
+    await openApp(page);
+    await settle(page);
+
+    // A distinctive state: the plant view (a different roster), an isolated organelle, and a hover.
+    await page.locator('[data-view="plant"]').click();
+    await expect(page.locator(CELL_VIEW)).toHaveAttribute('data-cell', 'plant');
+    await settle(page);
+
+    const isolated = await isolateCentreOrganelle(page);
+    const record = getRecord(isolated);
+
+    expect(record).toBeDefined();
+
+    const before = await waitForStableAnchors(page);
+
+    expect(Object.keys(before).length).toBeGreaterThan(0);
+
+    await page.evaluate(() => {
+      document.querySelector('canvas')?.setAttribute('data-marker', 'kept');
+    });
+
+    const annotationNode = page.locator(`[data-annotation="${isolated}"]`);
+
+    await expect(annotationNode.locator('[data-annotation-line="primary"]')).toHaveText(
+      record!.name.es,
+    );
+
+    await page.locator('[data-locale="en"]').click();
+
+    // The scene and the layer are the same objects, and nothing about the arrangement moved.
+    const after = await waitForStableAnchors(page);
+
+    expect(Object.keys(after)).toEqual(Object.keys(before));
+    expect(after).toEqual(before);
+
+    await expect(page.locator(CELL_VIEW)).toHaveAttribute('data-selected', isolated);
+    await expect(page.locator(CELL_VIEW)).toHaveAttribute('data-cell', 'plant');
+    await expect(page.locator(CELL_VIEW)).toHaveAttribute('data-disassembly', '0');
+    expect(await page.locator('canvas[data-marker="kept"]').count()).toBe(1);
+
+    // The copy is what changed, and it changed in place: the bilingual order swaps, the sheet
+    // follows, and the imperative HUD text (written by the frame loop, not by React) is relocalized.
+    await expect(annotationNode.locator('[data-annotation-line="primary"]')).toHaveText(
+      record!.name.en,
+    );
+    await expect(annotationNode.locator('[data-annotation-line="secondary"]')).toHaveText(
+      record!.name.es,
+    );
+    await expect(page.locator(`[data-spec="${isolated}"] [data-spec-field="name"]`)).toHaveText(
+      record!.name.en,
+    );
+    await expect(page.locator('.view-control__state')).toHaveText(
+      t(disassemblyStateKey(0), 'en'),
+    );
+
+    console.log(
+      `[i18n] ${isolated} stayed isolated on the plant view across the switch; ` +
+        `${Object.keys(before).length} anchors identical`,
+    );
+
+    // And back: the switch is symmetric, and the anchors are still the same projections.
+    await page.locator('[data-locale="es"]').click();
+
+    expect(await waitForStableAnchors(page)).toEqual(before);
+    await expect(annotationNode.locator('[data-annotation-line="primary"]')).toHaveText(
+      record!.name.es,
+    );
+    await expect(page.locator('.view-control__state')).toHaveText(
+      t(disassemblyStateKey(0), 'es'),
+    );
+
+    expect(problems.messages).toEqual([]);
   });
 });
