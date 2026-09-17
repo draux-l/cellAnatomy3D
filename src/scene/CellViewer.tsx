@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
 import type { FixtureConfig } from '../app/fixture';
 import { useAppStore } from '../app/store';
@@ -66,7 +67,16 @@ function ComposedCellView({ fixture }: { fixture: FixtureConfig }) {
   const activeView = useAppStore((state) => state.activeView);
   const hoveredId = useAppStore((state) => state.hoveredId);
   const selectedId = useAppStore((state) => state.selectedId);
+  const setHovered = useAppStore((state) => state.setHovered);
+  const setSelected = useAppStore((state) => state.setSelected);
   const cell = cellForFixture(fixture, activeView);
+
+  useEffect(() => {
+    // A fixture names its hover/isolate state in the URL. Setting it once, rather than animating
+    // into it, is what makes the screenshot a function of the URL.
+    setHovered(fixture.hoveredId);
+    setSelected(fixture.selectedId);
+  }, [fixture, setHovered, setSelected]);
 
   return (
     <div
@@ -90,6 +100,9 @@ function ComposedCellView({ fixture }: { fixture: FixtureConfig }) {
           near: 0.1,
           far: 100,
         }}
+        // No `onPointerMissed` here: the pick controller owns click classification, because a
+        // "miss" in R3F's terms would be every click (the hit volumes carry no R3F handlers) and
+        // would clear a selection the controller just made.
       >
         <CellStage cell={cell} fixture={fixture} />
       </Canvas>

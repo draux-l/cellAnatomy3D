@@ -59,7 +59,7 @@ export function emphasisFor(
  * Records a material's resting opacity once, so de-emphasis is always relative to the palette's
  * own value rather than to a previous emphasis mode.
  */
-export function prepareEmphasis(material: Material): Material {
+export function prepareEmphasis<T extends Material>(material: T): T {
   if (typeof material.userData[BASE_OPACITY_KEY] !== 'number') {
     material.userData[BASE_OPACITY_KEY] = material.opacity;
   }
@@ -68,7 +68,7 @@ export function prepareEmphasis(material: Material): Material {
 }
 
 /** Writes one emphasis mode to a material. Idempotent, so it is safe to call every store change. */
-export function applyEmphasis(material: Material, mode: EmphasisMode): Material {
+export function applyEmphasis<T extends Material>(material: T, mode: EmphasisMode): T {
   const stored = material.userData[BASE_OPACITY_KEY];
   const baseOpacity = typeof stored === 'number' ? stored : material.opacity;
   const emissiveMaterial = material as Material & { emissive?: Color; emissiveIntensity?: number };

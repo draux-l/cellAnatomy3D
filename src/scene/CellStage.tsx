@@ -7,6 +7,7 @@ import { M0_COLORS, createOrganelleMaterials } from './materials';
 import { ENVIRONMENT_RESOLUTION } from './renderSettings';
 import { DebugSampler } from './useDebugSampler';
 import { NAVIGATION_LIMITS } from './interaction/cameraModel';
+import { PickController } from './interaction/Picking';
 
 /**
  * The composed-cell stage: one catalog roster, assembled and lit.
@@ -64,6 +65,8 @@ export function CellStage({
         minDistance={NAVIGATION_LIMITS.minDistance}
         maxDistance={NAVIGATION_LIMITS.maxDistance}
       />
+
+      <PickController />
 
       <DebugSampler fixture={fixture} />
     </>

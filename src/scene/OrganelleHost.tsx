@@ -3,10 +3,13 @@ import type { Group, Material } from 'three';
 import { useAppStore } from '../app/store';
 import { paramsForRecord, positionForRecord } from '../catalog/params';
 import type { CellId, OrganelleRecord } from '../catalog/types';
+import { buildBounds } from '../catalog/vectors';
 import { anchorOffsetFor, registerOrganelleAnchor, unregisterOrganelleAnchor } from './anchors';
 import { getBuilder } from './builders/registry';
 import type { OrganelleMaterialKey } from './builders/primitives';
 import { applyEmphasis, emphasisFor, prepareEmphasis } from './highlight';
+import { PickVolume } from './interaction/Picking';
+import { isOuterEnvelope } from './interaction/pickingModel';
 import type { OrganelleMaterials } from './materials';
 import { PartMesh } from './PartMesh';
 
@@ -82,6 +85,7 @@ export function OrganelleHost({ record, cell, materials }: OrganelleHostProps) {
   );
 
   const position = positionForRecord(record, cell);
+  const bounds = useMemo(() => buildBounds(build.parts.map((part) => part.geometry)), [build]);
 
   useLayoutEffect(() => {
     const object = group.current;
@@ -118,6 +122,10 @@ export function OrganelleHost({ record, cell, materials }: OrganelleHostProps) {
           material={localMaterials.get(part.materialKey)!}
         />
       ))}
+      {/* The hit volume is a child of this root, so it follows the organelle under disassembly. */}
+      {record.pickable ? (
+        <PickVolume organelleId={record.id} bounds={bounds} envelope={isOuterEnvelope(record)} />
+      ) : null}
     </group>
   );
 }
