@@ -19,8 +19,9 @@ import {
  *
  * Scene-unit values are authored for a cell of radius ~1 unit: `geometry.params.size` is the
  * model scale, `size` is the biological measurement, and they are deliberately different
- * numbers. Disassembly `distance` values are authored by hand for now; task 3.12 replaces them
- * with a computed 1.5× bounding-radius suggestion the author may override.
+ * numbers. Disassembly `distance` values are **hand-authored and are what renders**;
+ * `catalog/vectors.ts` (task 3.12) exposes the ratified 1.5× bounding-radius suggestion as an
+ * authoring aid for filling that field in, and it never overrides a declared value.
  */
 
 function deepFreeze<T>(value: T): T {
