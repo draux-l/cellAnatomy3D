@@ -115,8 +115,16 @@ export interface AnnotationLayout {
 }
 
 export interface AnnotationSolution {
-  /** One entry per input, in input order, so the caller's node refs stay aligned. */
+  /** One entry per **laid out** projection, in input order, so the caller's node refs stay aligned. */
   layouts: AnnotationLayout[];
+  /**
+   * Ids whose anchor projected outside the viewport and were therefore not laid out.
+   *
+   * A part that is not on screen has no screen position to attach a leader to. Laying one out
+   * anyway draws a line to nowhere — and, measured on the `isolate` fixture, produced actual leader
+   * crossings, because an off-frame anchor's elbow tick can run the height of the column.
+   */
+  dropped: string[];
   /**
    * The smallest distance from an anchor to its own column's box edge.
    *
@@ -257,6 +265,24 @@ function elbowFor(
   return { elbow: [elbowX, anchor[1]], edge: [boxLeft, attachY] };
 }
 
+/**
+ * True when a projected anchor lies inside the viewport.
+ *
+ * The margin is zero on purpose: an anchor one pixel inside the frame still has an attachment
+ * point, and a leader that ends there is short rather than absent. Only a part that is genuinely
+ * off screen loses its annotation.
+ */
+function isInsideViewport(x: number, y: number, viewport: SolverViewport): boolean {
+  return (
+    Number.isFinite(x) &&
+    Number.isFinite(y) &&
+    x >= 0 &&
+    x <= viewport.width &&
+    y >= 0 &&
+    y <= viewport.height
+  );
+}
+
 export function solveAnnotationLayout(
   projections: readonly AnnotationProjection[],
   viewport: SolverViewport,
@@ -271,8 +297,18 @@ export function solveAnnotationLayout(
   const hysteresisFraction = options.hysteresisFraction ?? COLUMN_HYSTERESIS_FRACTION;
 
   const byColumn: Record<AnnotationColumn, AnnotationProjection[]> = { left: [], right: [] };
+  const dropped: string[] = [];
 
   for (const projection of projections) {
+    // Off-viewport anchors are dropped before the hysteresis sees them, so a part that leaves the
+    // frame does not leave a column assignment behind for when it returns.
+    if (
+      !isInsideViewport(projection.x, projection.y, viewport)
+    ) {
+      dropped.push(projection.id);
+      continue;
+    }
+
     const column = assignAnnotationColumn(
       projection.id,
       projection.x,
@@ -331,7 +367,10 @@ export function solveAnnotationLayout(
   }
 
   return {
-    layouts: projections.map((projection) => layouts.get(projection.id)!),
+    layouts: projections
+      .map((projection) => layouts.get(projection.id))
+      .filter((layout): layout is AnnotationLayout => layout !== undefined),
+    dropped,
     elbowClearancePx: Number.isFinite(elbowClearancePx) ? elbowClearancePx : 0,
     overflow,
   };

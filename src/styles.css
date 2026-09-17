@@ -173,3 +173,130 @@ body {
   line-height: 1.45;
   color: var(--cell-muted);
 }
+
+/* ---------------------------------------------------------------------------------------------
+   The annotation overlay (design D14).
+
+   One absolutely-positioned subtree over the canvas. It is DOM, not in-canvas text: the typography
+   is the browser's, the leader lines are SVG in the same subtree, and the layer adds zero draw
+   calls to a budget the composed cells already spend 23-27 of.
+
+   Everything positional is written imperatively by the layer's single `useFrame`; the CSS here only
+   sizes and inks. `pointer-events: none` keeps the overlay from stealing a drag meant for the
+   orbit control.
+   --------------------------------------------------------------------------------------------- */
+.annotation-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.annotation-layer__leaders {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.annotation-leader {
+  fill: none;
+  stroke: var(--cell-ink, var(--cell-fg));
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.annotation-anchor {
+  fill: var(--cell-ink, var(--cell-fg));
+  /* The hover emphasis scales the marker in place; `fill-box` keeps the origin on the marker
+     rather than on the SVG viewport. */
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.annotation-layer__labels {
+  position: absolute;
+  inset: 0;
+}
+
+/* A block's width is fixed so the solver's box maths matches the measured DOM without the two
+   having to negotiate. Font size, not width, is what a long name changes. */
+.annotation {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 152px;
+  padding: 2px 4px;
+  will-change: transform;
+}
+
+.annotation__primary {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cell-fg);
+}
+
+.annotation__secondary {
+  display: block;
+  font-size: 10px;
+  line-height: 1.3;
+  color: var(--cell-muted);
+}
+
+/* Hover emphasizes the annotation that is already on screen (spec, MODIFIED 2026-09-17): ink to
+   the accent, a weight bump on the label, a heavier leader and a slightly larger anchor. No node
+   is created or removed, and the toggle is applied to the existing group and block. */
+.annotation--hovered .annotation__primary {
+  color: var(--cell-accent);
+  font-weight: 700;
+}
+
+.annotation--hovered .annotation__secondary {
+  color: var(--cell-fg);
+}
+
+.annotation-leader-group[data-hovered='true'] .annotation-leader {
+  stroke-width: 2;
+  stroke: var(--cell-accent);
+}
+
+.annotation-leader-group[data-hovered='true'] .annotation-anchor {
+  fill: var(--cell-accent);
+  transform: scale(1.3);
+}
+
+/* ---------------------------------------------------------------------------------------------
+   The FPS readout (design D15). 2 Hz text, written by the frame loop's owner - never React state.
+   --------------------------------------------------------------------------------------------- */
+.fps-readout {
+  position: absolute;
+  right: 24px;
+  top: 24px;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 5px 10px;
+  border: 1px solid #1d2530;
+  border-radius: 999px;
+  background: rgb(10 14 19 / 82%);
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+}
+
+.fps-readout__value {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--cell-fg);
+}
+
+.fps-readout__unit {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cell-muted);
+}

@@ -181,6 +181,7 @@ test.describe('hover', () => {
   }) => {
     const baseline = await openFixture(page, 'cell', { view: 'animal' });
     const baselineFrame = await capturePng(page);
+    const baselineLabels = await page.locator('[data-annotation]').count();
 
     const hovered = await openFixture(page, 'hover', { organelle: HOVER_SUBJECT });
     const hoveredFrame = await capturePng(page);
@@ -195,12 +196,16 @@ test.describe('hover', () => {
     expect(diff.changedPixels).toBeGreaterThan(0);
     expect(diff.risePct, `hover luminance rise ${diff.risePct.toFixed(1)}%`).toBeGreaterThanOrEqual(10);
 
-    // Hover emphasizes an existing annotation; it must not add a label node (spec, MODIFIED).
+    // Hover emphasizes an existing annotation; it must not create a label node (spec, MODIFIED).
+    // The annotation layer is persistent, so the honest form of that assertion is "hover added
+    // none" rather than "there are none": the count is compared against the un-hovered fixture.
     expect(await page.getAttribute(CELL_VIEW, 'data-hovered')).toBe(HOVER_SUBJECT);
-    expect(await page.locator('[data-annotation]').count()).toBe(0);
+    expect(baselineLabels).toBeGreaterThan(0);
+    expect(await page.locator('[data-annotation]').count()).toBe(baselineLabels);
 
     console.log(
-      `[hover:${HOVER_SUBJECT}] +${diff.risePct.toFixed(1)}% over ${diff.changedPixels} px`,
+      `[hover:${HOVER_SUBJECT}] +${diff.risePct.toFixed(1)}% over ${diff.changedPixels} px, ` +
+        `${baselineLabels} annotations unchanged`,
     );
   });
 

@@ -11,6 +11,7 @@ import { PickController } from './interaction/Picking';
 import { IsolateCamera, type OrbitControlsHandle } from './interaction/useIsolateCamera';
 import type { QualityTier } from './quality';
 import { DisassemblyDriver, type DisassemblyHudTarget } from './disassembly';
+import { AnnotationDriver, type AnnotationLayerTarget } from '../ui/annotations/AnnotationLayer';
 
 /**
  * The composed-cell stage: one catalog roster, assembled and lit.
@@ -30,11 +31,14 @@ export function CellStage({
   fixture,
   tier,
   hudTarget,
+  annotationTarget,
 }: {
   cell: CellId;
   fixture: FixtureConfig;
   tier: QualityTier;
   hudTarget: { current: DisassemblyHudTarget };
+  /** The overlay's node registry, or null when the annotation layer is switched off. */
+  annotationTarget: AnnotationLayerTarget | null;
 }) {
   const materials = useMemo(() => createOrganelleMaterials(), []);
   const controlsRef = useRef<OrbitControlsHandle | null>(null);
@@ -90,9 +94,20 @@ export function CellStage({
 
       <PickController />
 
-      {/* One loop for the whole cell: it damps the progress once, positions every organelle root,
-          and writes the readout when the whole percent changes. */}
+      {/*
+        One loop for the whole cell: it damps the progress once, positions every organelle root,
+        and writes the readout when the whole percent changes.
+      */}
       <DisassemblyDriver cell={cell} frozenValue={fixture.disassemblyValue} hudTarget={hudTarget} />
+
+      {/*
+        Mounted **after** the driver on purpose: within a frame, `useFrame` subscribers run in
+        subscription order, and the annotation anchors must be read after the driver has written
+        the organelle positions (design D14's "one `useFrame`, after the scene updates").
+      */}
+      {annotationTarget === null ? null : (
+        <AnnotationDriver cell={cell} target={annotationTarget} />
+      )}
 
       <DebugSampler fixture={fixture} />
     </>

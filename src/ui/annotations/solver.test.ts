@@ -285,6 +285,66 @@ describe('solveAnnotationLayout', () => {
     expect(crossingPairs(separated.layouts)).toEqual([]);
   });
 
+  it('drops an anchor that is off screen instead of drawing a leader to nowhere', () => {
+    // The `isolate` fixture is exactly this case: the camera is inside the cell, so several
+    // organelles project outside the frame. Laying those out drew elbow ticks the height of the
+    // column and produced two real leader crossings.
+    const columns = createColumnAssignments();
+    const solution = solveAnnotationLayout(
+      [
+        projection('visible', 400, 300),
+        projection('below', 900, 862),
+        projection('above', 900, -17),
+        projection('beside', 1300, 400),
+      ],
+      VIEWPORT,
+      columns,
+    );
+
+    expect(solution.layouts.map((layout) => layout.id)).toEqual(['visible']);
+    expect(solution.dropped).toEqual(['below', 'above', 'beside']);
+  });
+
+  it('keeps zero crossings when part of the roster projects off screen', () => {
+    let checked = 0;
+
+    for (let seed = 1; seed <= 500; seed += 1) {
+      const random = mulberry32(seed);
+      const count = 3 + Math.floor(random() * 10);
+      const projections = Array.from({ length: count }, (_, index) => {
+        const left = random() < 0.5;
+        // A third of the anchors are pushed outside the frame, which is the isolate case. The rest
+        // stay inboard of their column, so this family measures the dropping rule and not the
+        // separately-documented "anchor outside its own column" limitation.
+        const offscreen = random() < 0.34;
+        const x = left
+          ? offscreen
+            ? -40 - random() * 400
+            : 260 + random() * 370
+          : offscreen
+            ? 1320 + random() * 400
+            : 660 + random() * 360;
+
+        return projection(
+          `organelle-${index}`,
+          x,
+          offscreen
+            ? random() < 0.5
+              ? -60 - random() * 400
+              : 860 + random() * 400
+            : 40 + random() * 700,
+        );
+      });
+      const solution = solveAnnotationLayout(projections, VIEWPORT, createColumnAssignments());
+
+      expect(crossingPairs(solution.layouts), `seed ${seed} crossings`).toEqual([]);
+      expect(boxesOutOfViewport(solution.layouts, VIEWPORT), `seed ${seed} off screen`).toEqual([]);
+      checked += solution.layouts.length;
+    }
+
+    expect(checked).toBeGreaterThan(1000);
+  });
+
   it('reports the clearance the horizontal run depends on', () => {
     const columns = createColumnAssignments();
 

@@ -5,6 +5,7 @@ import {
   DISASSEMBLY_POSE,
   HERO_POSE,
   isolateCameraPose,
+  yawPose,
   type CameraPose,
 } from '../scene/interaction/cameraModel';
 
@@ -14,7 +15,7 @@ import {
  * The metric harness cannot compare animated WebGL pixels across machines, so a fixture freezes
  * everything that would otherwise drift: the camera pose, the clock, the hover/isolate state and
  * the disassembly value. Geometry is already seed-locked by the catalog, and the fourth control —
- * no floating labels — is carried by `showLabels`, which the annotation layer reads.
+ * no floating labels — is carried by `showLabels`.
  *
  * M1d added three composed-cell fixtures on top of the M0 organelle one:
  *
@@ -29,6 +30,14 @@ import {
  * `isolate` and `disassembly` are the two the spec's verification scenarios name, and both are
  * only meaningful because the fixture bypasses the live damping/camera tweens: a screenshot has to
  * be a function of the URL, not of how long the page has been open.
+ *
+ * M1d-2 adds three URL controls used by the annotation and readout checks:
+ *
+ * | Parameter | Effect |
+ * |---|---|
+ * | `yaw=<degrees>` | rotates the camera pose about Y, so an orbit sweep is a set of URLs |
+ * | `annotations=off` | mounts the viewer without the annotation layer, so its draw-call delta is measurable |
+ * | `fps=off` | mounts the viewer without the FPS readout, so its effect on the render count is measurable |
  */
 
 export type FixtureName = 'organelle' | 'cell' | 'hover' | 'isolate' | 'disassembly';
@@ -77,6 +86,12 @@ export interface FixtureConfig {
   selectedId: string | null;
   /** Disassembly percentage the fixture pins (target *and* damped value), or null. */
   disassemblyValue: number | null;
+  /** Camera azimuth offset in degrees, for the annotation orbit sweep. */
+  yaw: number;
+  /** False when `?annotations=off`: mount the viewer without the annotation layer. */
+  showAnnotations: boolean;
+  /** False when `?fps=off`: mount the viewer without the FPS readout. */
+  showFps: boolean;
 }
 
 export interface ParseFixtureOptions {
@@ -135,19 +150,40 @@ function positionOf(organelleId: string): [number, number, number] {
   return position ? [...position] : [0, 0, 0];
 }
 
+/** Degrees of azimuth, clamped to one turn. An unparseable value is treated as no rotation. */
+function parseYaw(raw: string | null): number {
+  if (raw === null) {
+    return 0;
+  }
+
+  const parsed = Number.parseFloat(raw);
+
+  if (!Number.isFinite(parsed)) {
+    return 0;
+  }
+
+  return Math.min(180, Math.max(-180, parsed));
+}
+
+/** `off` disables; anything else, or absence, leaves the surface on. */
+function parseToggle(raw: string | null): boolean {
+  return raw !== 'off';
+}
+
 function cameraFor(
   name: FixtureName | null,
   organelleId: string,
+  yaw: number,
 ): CameraPose {
   if (name === null) {
-    return HERO_POSE;
+    return yawPose(HERO_POSE, yaw);
   }
 
   if (name === 'isolate') {
-    return isolateCameraPose(positionOf(organelleId), extentOf(organelleId));
+    return yawPose(isolateCameraPose(positionOf(organelleId), extentOf(organelleId)), yaw);
   }
 
-  return FIXTURE_POSES[name];
+  return yawPose(FIXTURE_POSES[name], yaw);
 }
 
 /**
@@ -165,6 +201,7 @@ export function parseFixture(search: string, options: ParseFixtureOptions = {}):
     params.get('id') ?? params.get('organelle') ?? options.defaultOrganelleId ?? DEFAULT_ORGANELLE_ID;
 
   const composed = name !== null && COMPOSED_FIXTURES.includes(name);
+  const yaw = parseYaw(params.get('yaw'));
 
   return {
     name,
@@ -172,10 +209,13 @@ export function parseFixture(search: string, options: ParseFixtureOptions = {}):
     frozenTime: parseFrozenTime(params.get('t')),
     freezeClock: name !== null,
     showLabels: name === null,
-    camera: cameraFor(name, organelleId),
+    camera: cameraFor(name, organelleId, yaw),
     cell: composed ? parseCell(params.get('view')) : null,
     hoveredId: name === 'hover' ? organelleId : null,
     selectedId: name === 'isolate' ? organelleId : null,
     disassemblyValue: name === 'disassembly' ? parseDisassembly(params.get('value')) ?? 0 : null,
+    yaw,
+    showAnnotations: parseToggle(params.get('annotations')),
+    showFps: parseToggle(params.get('fps')),
   };
 }

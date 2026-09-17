@@ -129,6 +129,26 @@ export function pickVolumeIds(): string[] {
   return [...VOLUMES.keys()];
 }
 
+/**
+ * The hit volumes that can **occlude** an anchor, for the annotation layer (design D14).
+ *
+ * Two exclusions, and both are load-bearing:
+ *
+ * 1. **Outer envelopes never occlude.** The membrane, the cytoplasm and the cell wall are hit
+ *    volumes that geometrically contain every other organelle, so treating them as occluders would
+ *    mark almost every annotation occluded — de-emphasizing ink for no visual reason.
+ * 2. **The annotation's own organelle never occludes itself.** Its inflated box is bigger than the
+ *    part, and the anchor sits on that part's surface.
+ *
+ * What remains is the honest reading of "a part whose anchor sits behind the cell body": another
+ * inner organelle stands between the camera and the anchor.
+ */
+export function occluderObjects(organelleId: string): Object3D[] {
+  return [...VOLUMES.values()]
+    .filter((entry) => !entry.envelope && entry.organelleId !== organelleId)
+    .map((entry) => entry.object);
+}
+
 /** The priority rule applied to a raw raycast result, keyed through the registry. */
 export function choosePickFromObjects(
   intersections: readonly { distance: number; object: Object3D }[],

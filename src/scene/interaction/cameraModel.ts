@@ -61,6 +61,31 @@ export const NAVIGATION_LIMITS = {
   maxDistance: 9,
 } as const;
 
+/**
+ * The same pose seen from a rotated azimuth, in degrees about the world Y axis.
+ *
+ * The annotation matrix (task 4.19) needs an **orbit** sweep whose every step is a function of the
+ * URL, so the camera has to be pinnable at a named yaw rather than driven by a drag. Rotating the
+ * pose position about Y keeps the target and the distance, which is exactly what an orbit is, so a
+ * yawed fixture and a dragged orbit frame the same cell the same way.
+ */
+export function yawPose(pose: CameraPose, yawDegrees: number): CameraPose {
+  if (!Number.isFinite(yawDegrees) || yawDegrees === 0) {
+    return { position: [...pose.position], target: [...pose.target], fov: pose.fov };
+  }
+
+  const radians = (yawDegrees * Math.PI) / 180;
+  const cos = Math.cos(radians);
+  const sin = Math.sin(radians);
+  const [x, y, z] = pose.position;
+
+  return {
+    position: [x * cos + z * sin, y, -x * sin + z * cos],
+    target: [...pose.target],
+    fov: pose.fov,
+  };
+}
+
 export function clampNavigationDistance(distance: number): number {
   if (!Number.isFinite(distance)) {
     return NAVIGATION_LIMITS.minDistance;

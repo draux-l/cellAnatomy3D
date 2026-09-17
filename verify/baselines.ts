@@ -25,11 +25,35 @@ export interface FixtureBaseline {
   notes?: string;
 }
 
+/**
+ * One step of the annotation layout matrix (task 4.19, design D17).
+ *
+ * The spec's layout invariants are asserted directly against each step's live layout; this record
+ * is the **review-visible snapshot** of what those steps produced, so a change in annotation layout
+ * shows up as a diff in the same commit that caused it.
+ */
+export interface AnnotationMatrixStep {
+  cell: 'animal' | 'plant';
+  yaw: number;
+  disassembly: number;
+  annotations: number;
+  /** The smallest gap measured between two boxes in one column, in CSS px. */
+  minGapPx: number | null;
+  crossings: number;
+  overlaps: number;
+  offScreen: number;
+  /** Smallest distance from an anchor to its own column's box edge, in CSS px. */
+  elbowClearancePx: number;
+  measuredAt: string;
+}
+
 export interface BaselinesFile {
   version: number;
   viewport: { width: number; height: number; deviceScaleFactor: number };
   thresholds: MetricsThresholds;
   fixtures: Record<string, FixtureBaseline>;
+  /** The annotation fixture matrix, re-recorded with `UPDATE_BASELINES=1`. */
+  annotationMatrix?: AnnotationMatrixStep[];
 }
 
 export function baselineKey(fixture: string, subjectId: string): string {
@@ -44,6 +68,9 @@ export function loadBaselines(): BaselinesFile {
     viewport: parsed.viewport,
     thresholds: { ...DEFAULT_THRESHOLDS, ...parsed.thresholds },
     fixtures: parsed.fixtures,
+    // Carried through, not rebuilt: a load that dropped it would silently delete the matrix on the
+    // next write.
+    ...(parsed.annotationMatrix ? { annotationMatrix: parsed.annotationMatrix } : {}),
   };
 }
 

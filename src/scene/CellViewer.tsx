@@ -1,9 +1,15 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { AdaptiveDpr } from '@react-three/drei';
 import type { FixtureConfig } from '../app/fixture';
 import { useAppStore } from '../app/store';
 import type { CellId } from '../catalog/types';
+import {
+  AnnotationOverlay,
+  createAnnotationLayerTarget,
+  type AnnotationLayerTarget,
+} from '../ui/annotations/AnnotationLayer';
+import { FpsReadout } from '../ui/hud/FpsReadout';
 import { DisassemblyHud } from '../ui/hud/DisassemblyHud';
 import { CellStage } from './CellStage';
 import type { DisassemblyHudTarget } from './disassembly';
@@ -78,6 +84,14 @@ function ComposedCellView({ fixture }: { fixture: FixtureConfig }) {
   const cell = cellForFixture(fixture, activeView);
   // React never renders the readout text; the frame loop owns it. React owns the slider position.
   const hudTarget = useRef<DisassemblyHudTarget>({ percent: null, state: null, lastWritten: -1 });
+  /**
+   * The annotation layer's shared node registry.
+   *
+   * The DOM half lives outside the canvas and records its nodes here; the frame half lives inside
+   * and writes to them. A ref object rather than React state, so per-frame writes never reach
+   * React — the same mechanism the disassembly readout uses.
+   */
+  const annotationTarget: AnnotationLayerTarget = useMemo(createAnnotationLayerTarget, []);
 
   useEffect(() => {
     // A fixture names its hover/isolate/disassembly state in the URL. Setting it once, rather than
@@ -132,11 +146,23 @@ function ComposedCellView({ fixture }: { fixture: FixtureConfig }) {
         // "miss" in R3F's terms would be every click (the hit volumes carry no R3F handlers) and
         // would clear a selection the controller just made.
       >
-        <CellStage cell={cell} fixture={fixture} tier={tier} hudTarget={hudTarget} />
+        <CellStage
+          cell={cell}
+          fixture={fixture}
+          tier={tier}
+          hudTarget={hudTarget}
+          annotationTarget={fixture.showAnnotations ? annotationTarget : null}
+        />
         {/* Drei's adaptive pass only in the real app: it changes resolution in response to load,
             which would make a fixture screenshot depend on the machine. */}
         {fixture.name === null ? <AdaptiveDpr pixelated={false} /> : null}
       </Canvas>
+
+      {/* The overlay itself. Outside the canvas, so it costs zero draw calls and its typography is
+          the browser's rather than a texture atlas. */}
+      {fixture.showAnnotations ? <AnnotationOverlay cell={cell} target={annotationTarget} /> : null}
+
+      {fixture.showFps ? <FpsReadout /> : null}
 
       <DisassemblyHud
         value={disassemblyTarget}

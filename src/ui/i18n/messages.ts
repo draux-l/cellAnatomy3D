@@ -71,6 +71,16 @@ export const UI_MESSAGES = {
     es: 'Totalmente separada',
     en: 'Fully separated',
   },
+  /*
+   * The FPS readout's accessible name.
+   *
+   * The unit itself is rendered as `fps`, a technical identifier that is the same in both
+   * languages; the bilingual copy is the label, which is what a screen reader announces.
+   */
+  'hud.fps.title': {
+    es: 'Fotogramas por segundo medidos',
+    en: 'Measured frames per second',
+  },
 } as const satisfies Record<string, Localized>;
 
 /** Every UI key the app can ask for. `t()` refuses anything else at compile time. */
