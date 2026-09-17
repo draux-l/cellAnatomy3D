@@ -27,6 +27,10 @@ export const UI_MESSAGES = {
     es: 'Idioma',
     en: 'Language',
   },
+  'app.loading3d': {
+    es: 'Cargando el modelo 3D…',
+    en: 'Loading the 3D model…',
+  },
   'language.es': {
     es: 'Español',
     en: 'Español',
