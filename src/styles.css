@@ -115,6 +115,160 @@ body {
   color: var(--cell-muted);
 }
 
+/* ---------------------------------------------------------------------------------------------
+   The view navigation (task 4.5).
+
+   The view selector answers "which cell am I looking at"; "back to selection" answers "return to
+   the landing state". They are one bar with two roles, because they are the two halves of the
+   spec's `Mouse-Only Navigation And Reset`: the first is the view-selection state, the second
+   restores it.
+   --------------------------------------------------------------------------------------------- */
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 32px 16px;
+}
+
+.nav__group {
+  display: inline-flex;
+  gap: 4px;
+  padding: 2px;
+  border: 1px solid #1d2530;
+  border-radius: 999px;
+}
+
+.nav__view {
+  appearance: none;
+  border: 0;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cell-muted);
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.nav__view:hover:not(:disabled) {
+  color: var(--cell-fg);
+}
+
+.nav__view[aria-pressed='true'] {
+  background: #16202c;
+  color: var(--cell-fg);
+}
+
+/* A view the app cannot render yet is disabled, never a control that silently shows another cell. */
+.nav__view:disabled {
+  color: #3d4753;
+  cursor: not-allowed;
+}
+
+.nav__reset {
+  appearance: none;
+  border: 1px solid #1d2530;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cell-muted);
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.nav__reset:hover:not(:disabled) {
+  color: var(--cell-fg);
+}
+
+.nav__reset:disabled {
+  color: #3d4753;
+  cursor: default;
+}
+
+/* ---------------------------------------------------------------------------------------------
+   The spec sheet (task 4.5). Absolutely positioned over the stage so it never reflows the canvas:
+   the camera framing must not change because a panel opened.
+   --------------------------------------------------------------------------------------------- */
+.spec-sheet {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  width: min(360px, calc(100% - 48px));
+  max-height: calc(100% - 48px);
+  overflow-y: auto;
+  padding: 16px 18px 18px;
+  border: 1px solid #1d2530;
+  border-radius: 10px;
+  background: rgb(10 14 19 / 88%);
+  backdrop-filter: blur(6px);
+  pointer-events: auto;
+}
+
+.spec-sheet__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.spec-sheet__title {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--cell-accent);
+}
+
+.spec-sheet__close {
+  appearance: none;
+  border: 0;
+  padding: 0 4px;
+  background: transparent;
+  color: var(--cell-muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.spec-sheet__close:hover {
+  color: var(--cell-fg);
+}
+
+.spec-sheet__fields {
+  margin: 0;
+}
+
+.spec-sheet__row + .spec-sheet__row {
+  margin-top: 12px;
+}
+
+.spec-sheet__label {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--cell-muted);
+}
+
+.spec-sheet__value {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--cell-fg);
+}
+
+.spec-sheet__value[data-spec-field='name'] {
+  font-size: 15px;
+  font-weight: 600;
+}
+
 /* The view-control group: study aids that change how the cell is *shown*, deliberately kept apart
    from anything that lists the cell's processes. */
 .view-control {

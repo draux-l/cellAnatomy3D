@@ -2,6 +2,8 @@ import { Suspense, lazy, useMemo } from 'react';
 import { parseFixture } from './app/fixture';
 import { useT } from './ui/i18n';
 import { LanguageSelector } from './ui/i18n/LanguageSelector';
+import { Nav } from './ui/Nav';
+import { SpecSheet } from './ui/SpecSheet';
 
 /**
  * Application shell.
@@ -21,8 +23,9 @@ import { LanguageSelector } from './ui/i18n/LanguageSelector';
  * codebase's one-export-style convention.
  *
  * Under a `?fixture=` the shell renders nothing but the stage, so a screenshot is exactly the
- * canvas: DOM chrome must never contribute to the non-blank coverage metric. The spec-sheet
- * panels and the view navigation arrive in M1e (tasks 4.5-4.7).
+ * canvas: DOM chrome must never contribute to the non-blank coverage metric. So the navigation and
+ * the spec sheet render only in the real app — they are the two panels M1e adds (tasks 4.5-4.7),
+ * and both are plain DOM in the entry chunk.
  */
 const CellViewer = lazy(async () => {
   const { CellViewer: Viewer } = await import('./scene/CellViewer');
@@ -55,10 +58,12 @@ export function App() {
         </div>
         <p className="app__subtitle">{t('app.subtitle')}</p>
       </header>
+      <Nav />
       <div className="app__stage">
         <Suspense fallback={<p className="app__note">{t('app.loading3d')}</p>}>
           <CellViewer fixture={fixture} />
         </Suspense>
+        <SpecSheet />
       </div>
     </main>
   );

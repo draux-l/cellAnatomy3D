@@ -81,6 +81,66 @@ export const UI_MESSAGES = {
     es: 'Fotogramas por segundo medidos',
     en: 'Measured frames per second',
   },
+  /*
+   * The view navigation and the landing state.
+   *
+   * The three views are the proposal's own vocabulary. `comparison` is declared **unavailable**
+   * rather than absent: the comparison stage is milestone M6, so a control that switched to it
+   * would render the animal cell under a comparison label. Same honesty pattern as the animal
+   * movement process (design D11): the entry exists, says what it is, and fabricates nothing.
+   */
+  'nav.view.title': {
+    es: 'Vista',
+    en: 'View',
+  },
+  'nav.view.animal': {
+    es: 'Célula animal',
+    en: 'Animal cell',
+  },
+  'nav.view.plant': {
+    es: 'Célula vegetal',
+    en: 'Plant cell',
+  },
+  'nav.view.comparison': {
+    es: 'Comparación',
+    en: 'Comparison',
+  },
+  'nav.view.pending': {
+    es: 'Se añade en una etapa posterior',
+    en: 'Added in a later stage',
+  },
+  'nav.reset': {
+    es: 'Volver a la selección',
+    en: 'Back to selection',
+  },
+  /*
+   * The spec sheet. The field labels are UI chrome; the field *values* are the record's own
+   * `name`, `func`, `size` and `funFact` (spec: Single Source Of Truth).
+   */
+  'spec.title': {
+    es: 'Ficha del orgánulo',
+    en: 'Organelle sheet',
+  },
+  'spec.field.name': {
+    es: 'Nombre',
+    en: 'Name',
+  },
+  'spec.field.function': {
+    es: 'Función',
+    en: 'Function',
+  },
+  'spec.field.size': {
+    es: 'Tamaño aproximado',
+    en: 'Approximate size',
+  },
+  'spec.field.funFact': {
+    es: 'Dato curioso',
+    en: 'Fun fact',
+  },
+  'spec.close': {
+    es: 'Cerrar la ficha',
+    en: 'Close the sheet',
+  },
 } as const satisfies Record<string, Localized>;
 
 /** Every UI key the app can ask for. `t()` refuses anything else at compile time. */
