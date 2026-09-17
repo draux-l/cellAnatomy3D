@@ -32,7 +32,48 @@ body {
 
 .app__header {
   padding: 24px 32px 8px;
+  /* The header must never eat a pointer event meant for the stage; the selector re-enables
+     its own hit-testing below. */
   pointer-events: none;
+}
+
+.app__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.lang {
+  display: inline-flex;
+  gap: 4px;
+  padding: 2px;
+  border: 1px solid #1d2530;
+  border-radius: 999px;
+  pointer-events: auto;
+}
+
+.lang__option {
+  appearance: none;
+  border: 0;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cell-muted);
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.lang__option:hover {
+  color: var(--cell-fg);
+}
+
+.lang__option[aria-pressed='true'] {
+  background: #16202c;
+  color: var(--cell-fg);
 }
 
 .app__title {
