@@ -72,31 +72,46 @@ async function measureStep(
  * asserts the readout has to wait for the motion to finish rather than for the DOM to stop
  * changing on its own.
  */
-const SETTLED_FRAMES = 3;
+/** How long the readout must hold the control's value before the damping counts as finished. */
+const HOLD_MS = 1500;
 
-async function waitForReadoutToSettle(page: Parameters<typeof openFixture>[0]): Promise<void> {
-  let previous = '';
-  let framesAtLastChange = 0;
+/**
+ * Waits until the animated readout has reached the control's value **and stayed there**.
+ *
+ * Neither a wall-clock nor a frame-count stability window is enough on its own. React writes the
+ * control's target on every step, so the DOM shows the destination for a moment before the frame
+ * loop catches up; and a software rasteriser delivers frames in bursts with near-zero deltas, so
+ * the damped value can sit still for several frames while it is still converging. The honest wait
+ * is therefore "the readout equals the target and has held it long enough that no in-flight write
+ * can still be coming" — and its failure mode is a timeout, never a false pass.
+ */
+async function waitForReadoutToReach(
+  page: Parameters<typeof openFixture>[0],
+  target: number,
+): Promise<void> {
+  const expected = `${target}%`;
+  let heldSince = 0;
+  let last = '';
 
-  // The wait is counted in *rendered frames*, not milliseconds. On a software rasteriser the app
-  // renders at a few frames per second, so a wall-clock stability window would declare the damping
-  // finished while the readout was simply between two frames — and the readout only moves when a
-  // frame runs. Three unchanged frames is the honest definition of "the motion stopped".
-  for (let attempt = 0; attempt < 300; attempt += 1) {
+  for (let attempt = 0; attempt < 400; attempt += 1) {
     const value = (await page.textContent('[data-role="percent"]')) ?? '';
-    const frames = await page.evaluate(() => window.__cellDebug?.frames ?? 0);
 
-    if (value !== previous) {
-      previous = value;
-      framesAtLastChange = frames;
-    } else if (frames - framesAtLastChange >= SETTLED_FRAMES) {
-      return;
+    last = value;
+
+    if (value === expected) {
+      heldSince = heldSince === 0 ? Date.now() : heldSince;
+
+      if (Date.now() - heldSince >= HOLD_MS) {
+        return;
+      }
+    } else {
+      heldSince = 0;
     }
 
-    await page.waitForTimeout(100);
+    await page.waitForTimeout(120);
   }
 
-  throw new Error(`the disassembly readout never settled (last value "${previous}")`);
+  throw new Error(`the disassembly readout never reached ${expected} (last value "${last}")`);
 }
 
 function record(key: string, screenshot: string, measurement: StepMeasurement, notes: string): void {
@@ -229,7 +244,7 @@ test.describe('disassembly on the live app', () => {
 
     await page.locator('[data-role="control"]').fill('57');
     await expect.poll(() => page.getAttribute(CELL_VIEW, 'data-disassembly')).toBe('57');
-    await waitForReadoutToSettle(page);
+    await waitForReadoutToReach(page, 57);
 
     expect(await page.textContent('[data-role="percent"]')).toBe('57%');
     expect(await page.textContent('[data-role="state"]')).toBe('Parcialmente separada');
@@ -253,13 +268,13 @@ test.describe('disassembly on the live app', () => {
 
     await slider.fill('100');
     await expect.poll(() => page.getAttribute(CELL_VIEW, 'data-disassembly')).toBe('100');
-    // Let the damping finish before coming back, so the round trip is a real one.
-    await page.waitForTimeout(1200);
+    // Let the damping actually arrive before coming back, so the round trip is a real one and not
+    // a comparison of two mid-motion frames.
+    await waitForReadoutToReach(page, 100);
 
     await slider.fill('0');
     await expect.poll(() => page.getAttribute(CELL_VIEW, 'data-disassembly')).toBe('0');
-    await expect.poll(() => page.textContent('[data-role="percent"]')).toBe('0%');
-    await page.waitForTimeout(1500);
+    await waitForReadoutToReach(page, 0);
 
     const after = await capturePng(page);
     const baselines = loadBaselines();
