@@ -44,8 +44,8 @@ describe('renderer settings', () => {
     expect(RENDERER_SETTINGS.outputColorSpace).toBe(SRGBColorSpace);
   });
 
-  it('caps the device pixel ratio at 2 and resolves the environment at 1024', () => {
-    expect(DPR_CAP).toBe(2);
+  it('caps the device pixel ratio at 1.5 and resolves the environment at 1024', () => {
+    expect(DPR_CAP).toBe(1.5);
     expect(ENVIRONMENT_RESOLUTION).toBe(1024);
   });
 
