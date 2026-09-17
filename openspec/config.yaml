@@ -1,0 +1,85 @@
+# openspec/config.yaml
+# SDD project configuration — bootstrapped by sdd-init.
+schema: spec-driven
+
+project: cellanatomy3d
+
+# Strict TDD Mode is DISABLED: no test runner exists in this repository yet.
+# Re-evaluate and flip this to true once the design phase ratifies a stack and
+# a test runner with at least one passing test is in place.
+strict_tdd: false
+
+context: |
+  GREENFIELD: no source code, no build tooling, no test runner, no framework ratified.
+  Product: "3D Cell Anatomy Explorer (Animal vs. Plant)" — educational web app.
+  Real-time interactive 3D comparison with a premium product-showcase aesthetic
+  (dark minimalist background, technical spaced typography, orbitable center model, spec side panel).
+  Core interaction: drag = orbit, scroll = zoom, hover organelle = highlight + label,
+  click organelle = isolate + show per-organelle spec sheet.
+  Three animated processes are the functional core: nutrition (respiration vs. photosynthesis),
+  movement (cilia/flagella, pseudopodia, cyclosis), reproduction (mitosis, incl. cytokinesis contrast).
+  Views: "Animal Cell" / "Plant Cell" / "Comparison". Comparison is on-demand only — never split-screen by default.
+  Proposed stack (NOT ratified — evaluate during design): Three.js or React Three Fiber,
+  .glb organelle models, raycasting for hover/click, HTML/CSS overlay UI, view state management.
+
+testing:
+  strict_tdd: false
+  detected: 2026-09-16
+  test_runner:
+    available: false
+    command: ""
+    framework: none
+  layers:
+    unit: false
+    integration: false
+    e2e: false
+  coverage:
+    available: false
+    command: ""
+  quality_tools:
+    linter: false
+    type_checker: false
+    formatter: false
+  note: >
+    No package.json, go.mod, pyproject.toml, Cargo.toml, Makefile, or CI config found.
+    All capabilities are genuinely unavailable — nothing was invented. Automated
+    verification is BLOCKED until the design phase selects a stack and adds a test runner.
+
+rules:
+  proposal:
+    - State the problem and the pedagogical goal explicitly; this is an educational product.
+    - Include a rollback plan for any change that alters shared animation or view-state architecture.
+    - Record unresolved open gaps (asset sourcing, animation synchronization) as explicit non-goals or risks.
+  specs:
+    - Use Given/When/Then for every scenario.
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY).
+    - Separate biological correctness requirements from visual/UX requirements.
+    - Any requirement touching mitosis phases or the cytokinesis contrast MUST cite the biological fact it encodes.
+  design:
+    - Do NOT ratify a stack without recording the tradeoffs against the proposed stack (Three.js vs. React Three Fiber).
+    - Document every architecture decision with rationale in an ADR-style section.
+    - Include sequence diagrams for the three animated processes and for the animal/plant/comparison view switching.
+    - Define a performance budget (target FPS, draw calls, asset size) before animations are specified.
+    - Specify the organelle data model (name, function, approximate size, fun fact) as a single source of truth shared by 3D labels and the spec sheet.
+  tasks:
+    - Group by phase, use hierarchical numbering.
+    - Keep each task completable in one session.
+    - No task may depend on an unratified stack decision.
+  apply:
+    guidelines:
+      - Follow existing code patterns once they exist; there are none yet.
+      - Artifacts, identifiers, comments, and UI copy are written in English.
+    tdd: false
+    test_command: ""
+  verify:
+    test_command: ""
+    build_command: ""
+    coverage_threshold: 0
+  archive:
+    - Warn before merging destructive deltas.
+
+workflow:
+  execution_mode: interactive
+  artifact_store: both
+  delivery_strategy: ask-on-risk
+  review_budget_changed_lines: 800
