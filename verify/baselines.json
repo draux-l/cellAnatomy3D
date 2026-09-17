@@ -17,10 +17,64 @@
       "screenshot": "artifacts/screens/organelle/mitochondrion.png",
       "coverage": 0.283439,
       "occupiedAreaPx": 290242,
-      "regionColor": "#7c4d33",
+      "regionColor": "#784932",
       "measuredAt": "2026-09-17",
       "measuredWith": "playwright chromium 153 / three 0.186.0",
-      "notes": "Frozen organelle fixture: M0’s only organelle. Draw calls and triangles are recorded in artifacts/perf/report.json."
+      "notes": "Frozen organelle fixture (M1b). Draw calls 13, triangles 11424; the per-organelle cost report lives in artifacts/perf/report.json."
+    },
+    "organelle:membrane": {
+      "screenshot": "artifacts/screens/organelle/membrane.png",
+      "coverage": 0.492437,
+      "occupiedAreaPx": 504256,
+      "regionColor": "#263643",
+      "measuredAt": "2026-09-17",
+      "measuredWith": "playwright chromium 153 / three 0.186.0",
+      "notes": "Frozen organelle fixture (M1b). Draw calls 1, triangles 5040; the per-organelle cost report lives in artifacts/perf/report.json."
+    },
+    "organelle:nucleus": {
+      "screenshot": "artifacts/screens/organelle/nucleus.png",
+      "coverage": 0.304755,
+      "occupiedAreaPx": 312069,
+      "regionColor": "#51426b",
+      "measuredAt": "2026-09-17",
+      "measuredWith": "playwright chromium 153 / three 0.186.0",
+      "notes": "Frozen organelle fixture (M1b). Draw calls 3, triangles 8244; the per-organelle cost report lives in artifacts/perf/report.json."
+    },
+    "organelle:endoplasmic-reticulum": {
+      "screenshot": "artifacts/screens/organelle/endoplasmic-reticulum.png",
+      "coverage": 0.211521,
+      "occupiedAreaPx": 216597,
+      "regionColor": "#688560",
+      "measuredAt": "2026-09-17",
+      "measuredWith": "playwright chromium 153 / three 0.186.0",
+      "notes": "Frozen organelle fixture (M1b). Draw calls 1, triangles 8064; the per-organelle cost report lives in artifacts/perf/report.json."
+    },
+    "organelle:golgi": {
+      "screenshot": "artifacts/screens/organelle/golgi.png",
+      "coverage": 0.081838,
+      "occupiedAreaPx": 83802,
+      "regionColor": "#8a6b30",
+      "measuredAt": "2026-09-17",
+      "measuredWith": "playwright chromium 153 / three 0.186.0",
+      "notes": "Frozen organelle fixture (M1b). Draw calls 2, triangles 1816; the per-organelle cost report lives in artifacts/perf/report.json."
+    },
+    "organelle:ribosome": {
+      "screenshot": "artifacts/screens/organelle/ribosome.png",
+      "coverage": 0.056532,
+      "occupiedAreaPx": 12787,
+      "regionColor": "#a69457",
+      "measuredAt": "2026-09-17",
+      "measuredWith": "playwright chromium 153 / three 0.186.0",
+      "notes": "Frozen organelle fixture (M1b). Draw calls 1, triangles 4400; the per-organelle cost report lives in artifacts/perf/report.json."
+    },
+    "organelle:lysosome": {
+      "screenshot": "artifacts/screens/organelle/lysosome.png",
+      "coverage": 0.112026,
+      "occupiedAreaPx": 114715,
+      "regionColor": "#a55f3e",
+      "measuredAt": "2026-09-17",
+      "measuredWith": "playwright chromium 153 / three 0.186.0",
+      "notes": "Frozen organelle fixture (M1b). Draw calls 1, triangles 320; the per-organelle cost report lives in artifacts/perf/report.json."
     }
   }
 }
