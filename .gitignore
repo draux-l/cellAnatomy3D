@@ -14,6 +14,11 @@ playwright-report/
 # Scratch space for local capture experiments (never committed)
 artifacts/tmp/
 
+# Reference images used as modeling input (personal reference material).
+# Never shipped in the build and never committed, to avoid repo bloat and
+# third-party copyright questions. Provenance is documented in text instead.
+references/
+
 # Local environment
 .env
 .env.local
