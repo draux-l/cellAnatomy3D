@@ -141,6 +141,49 @@ export const UI_MESSAGES = {
     es: 'Cerrar la ficha',
     en: 'Close the sheet',
   },
+  /*
+   * The WebGL-unavailable path (task 4.6, design D9).
+   *
+   * The copy is written for the person who hit it: a machine in a classroom. It says what the
+   * machine cannot do and what it still can, in that order, and it never suggests the app is
+   * broken — the static path is a supported path, not an error page.
+   */
+  'fallback.title': {
+    es: 'Modo sin WebGL',
+    en: 'WebGL-unavailable mode',
+  },
+  'fallback.lead': {
+    es: 'Este equipo no puede crear un contexto WebGL2, así que el modelo 3D no está disponible. Las imágenes de las células y todas las fichas de los orgánulos sí lo están.',
+    en: 'This machine cannot create a WebGL2 context, so the 3D model is not available. The cell images and every organelle sheet are still available.',
+  },
+  'fallback.image.animal': {
+    es: 'Imagen estática de la célula animal',
+    en: 'Static image of the animal cell',
+  },
+  'fallback.image.plant': {
+    es: 'Imagen estática de la célula vegetal',
+    en: 'Static image of the plant cell',
+  },
+  'fallback.unavailable.title': {
+    es: 'No disponible sin WebGL',
+    en: 'Unavailable without WebGL',
+  },
+  'fallback.unavailable.processes': {
+    es: 'Los procesos: nutrición, movimiento y reproducción.',
+    en: 'The processes: nutrition, movement and reproduction.',
+  },
+  'fallback.unavailable.isolate': {
+    es: 'Aislar un orgánulo en el modelo para verlo por separado.',
+    en: 'Isolating an organelle in the model to see it on its own.',
+  },
+  'fallback.unavailable.quiz': {
+    es: 'El cuestionario, porque hay que señalar orgánulos en el modelo.',
+    en: 'The quiz, because it needs organelle pointing on the model.',
+  },
+  'fallback.sheets.title': {
+    es: 'Fichas de los orgánulos',
+    en: 'Organelle sheets',
+  },
 } as const satisfies Record<string, Localized>;
 
 /** Every UI key the app can ask for. `t()` refuses anything else at compile time. */

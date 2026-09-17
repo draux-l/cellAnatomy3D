@@ -1,5 +1,7 @@
 import { Suspense, lazy, useMemo } from 'react';
 import { parseFixture } from './app/fixture';
+import { isWebGL2Available } from './app/webgl';
+import { FallbackView } from './ui/FallbackView';
 import { useT } from './ui/i18n';
 import { LanguageSelector } from './ui/i18n/LanguageSelector';
 import { Nav } from './ui/Nav';
@@ -26,6 +28,11 @@ import { SpecSheet } from './ui/SpecSheet';
  * canvas: DOM chrome must never contribute to the non-blank coverage metric. So the navigation and
  * the spec sheet render only in the real app — they are the two panels M1e adds (tasks 4.5-4.7),
  * and both are plain DOM in the entry chunk.
+ *
+ * The WebGL2 probe runs first, and it runs in the **shell** — before this lazy import is even
+ * fetched (task 4.6, design D9). A machine that cannot create a WebGL2 context gets the static
+ * fallback instead of a canvas that never paints; that is why the check is here and not inside the
+ * viewer.
  */
 const CellViewer = lazy(async () => {
   const { CellViewer: Viewer } = await import('./scene/CellViewer');
@@ -35,7 +42,16 @@ const CellViewer = lazy(async () => {
 
 export function App() {
   const fixture = useMemo(() => parseFixture(window.location.search), []);
+  const webgl2 = useMemo(() => isWebGL2Available(), []);
   const t = useT();
+
+  if (!webgl2) {
+    return (
+      <main className="app app--fallback" data-webgl="unavailable">
+        <FallbackView />
+      </main>
+    );
+  }
 
   if (fixture.name !== null) {
     return (
