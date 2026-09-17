@@ -23,7 +23,8 @@ const REPORT_PATH = 'artifacts/perf/report.json';
 
 /** Longest delta the clock accepts, in seconds — mirrors src/app/clock.ts. */
 const WARM_UP_MS = 1500;
-const STEADY_STATE_MS = 5000;
+const STEADY_STATE_WINDOW_MS = 2000;
+const STEADY_STATE_WINDOWS = 3;
 const MIN_FRAMES = 30;
 
 const TARGETS = PERFORMANCE_BUDGETS;
@@ -63,9 +64,28 @@ async function measureBrowser() {
 
   // Warm up, then measure only the steady state: the first seconds after load include shader
   // compilation and first-paint costs, which would dominate a percentile over one second.
+  //
+  // Several short windows rather than one long one, because frame timing on a shared machine is
+  // not stable between runs. Recording every window makes the number's own reliability visible,
+  // instead of hiding a 5x spread behind a single average.
   await page.waitForTimeout(WARM_UP_MS);
-  await page.evaluate(() => window.__cellDebug?.reset());
-  await page.waitForTimeout(STEADY_STATE_MS);
+
+  const windows = [];
+
+  for (let index = 0; index < STEADY_STATE_WINDOWS; index += 1) {
+    await page.evaluate(() => window.__cellDebug?.reset());
+    await page.waitForTimeout(STEADY_STATE_WINDOW_MS);
+
+    const window = await page.evaluate(() => {
+      const stats = window.__cellDebug?.frameStats;
+
+      return stats ? { samples: stats.samples, fpsP50: stats.p50Fps, fpsP95: stats.p95Fps } : null;
+    });
+
+    if (window) {
+      windows.push(window);
+    }
+  }
 
   const debug = await page.evaluate(() => {
     const d = window.__cellDebug;
@@ -78,7 +98,6 @@ async function measureBrowser() {
       drawCalls: d.drawCalls,
       triangles: d.triangles,
       frames: d.frames,
-      frameStats: d.frameStats,
       clock: d.clock,
       frozen: d.frozen,
       fixture: d.fixture,
@@ -91,7 +110,36 @@ async function measureBrowser() {
     throw new Error('window.__cellDebug was unavailable; cannot record a performance baseline');
   }
 
-  return { rasteriser, firstPaint, debug, problems };
+  if (windows.length === 0) {
+    throw new Error('no steady-state windows were measured; the debug sampler reported nothing');
+  }
+
+  const median = (values) => [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)];
+  const p50Values = windows.map((window) => window.fpsP50);
+  const p95Values = windows.map((window) => window.fpsP95);
+
+  const stability = {
+    windows,
+    windowMs: STEADY_STATE_WINDOW_MS,
+    fpsP50SpreadPct: Number(
+      (((Math.max(...p50Values) - Math.min(...p50Values)) / median(p50Values)) * 100).toFixed(1),
+    ),
+  };
+
+  return {
+    rasteriser,
+    firstPaint,
+    debug: {
+      ...debug,
+      frameStats: {
+        p50Fps: median(p50Values),
+        p95Fps: median(p95Values),
+        samples: windows.reduce((total, window) => total + window.samples, 0),
+      },
+    },
+    stability,
+    problems,
+  };
 }
 
 function buildBudgetRows({ debug, firstPaint, sizes }) {
@@ -132,7 +180,7 @@ function buildBudgetRows({ debug, firstPaint, sizes }) {
       unit: 'fps',
       gate: 'advisory-local',
       status: software ? 'not-comparable' : debug.frameStats.p50Fps >= TARGETS.steadyStateFps ? 'pass' : 'miss',
-      source: `rAF delta ring buffer, ${STEADY_STATE_MS} ms steady-state window`,
+      source: `rAF delta ring buffer, ${STEADY_STATE_WINDOW_MS} ms windows`,
     },
     {
       id: 'steady-state-fps-p95',
@@ -141,7 +189,7 @@ function buildBudgetRows({ debug, firstPaint, sizes }) {
       unit: 'fps',
       gate: 'advisory-local',
       status: software ? 'not-comparable' : debug.frameStats.p95Fps >= TARGETS.p95Fps ? 'pass' : 'miss',
-      source: `rAF delta ring buffer, ${STEADY_STATE_MS} ms steady-state window`,
+      source: `rAF delta ring buffer, ${STEADY_STATE_WINDOW_MS} ms windows`,
     },
     {
       id: 'shell-gzip',
@@ -186,7 +234,7 @@ function preserveRatification() {
 async function main() {
   const entries = collectDistEntries('dist');
   const sizes = auditEntries(entries);
-  const { rasteriser, firstPaint, debug, problems } = await measureBrowser();
+  const { rasteriser, firstPaint, debug, stability, problems } = await measureBrowser();
 
   const budgets = buildBudgetRows({
     debug: { ...debug, rasteriser },
@@ -212,7 +260,8 @@ async function main() {
     },
     measurement: {
       warmUpMs: WARM_UP_MS,
-      steadyStateWindowMs: STEADY_STATE_MS,
+      steadyStateWindowMs: STEADY_STATE_WINDOW_MS,
+      steadyStateWindows: STEADY_STATE_WINDOWS,
       frameSamples: debug.frameStats.samples,
       framesObserved: debug.frames,
     },
@@ -230,6 +279,7 @@ async function main() {
     })),
     budgets,
     misses,
+    stability,
     pageErrors: problems,
     ratification: preserveRatification(),
     notes: [
@@ -247,8 +297,9 @@ async function main() {
   console.log(`  hardware         ${report.environment.hardwareAccelerated ? 'yes' : 'no (software — fps is not comparable to a laptop target)'}`);
   console.log(`  first 3D paint   ${firstPaint === null ? 'unmeasured' : `${Math.round(firstPaint)} ms`}`);
   console.log(
-    `  steady state     p50 ${debug.frameStats.p50Fps.toFixed(1)} fps / p95 ${debug.frameStats.p95Fps.toFixed(1)} fps over ${debug.frameStats.samples} frames`,
+    `  steady state     p50 ${debug.frameStats.p50Fps.toFixed(1)} fps / p95 ${debug.frameStats.p95Fps.toFixed(1)} fps (median of ${stability.windows.length} x ${STEADY_STATE_WINDOW_MS}ms windows, p50 spread ${stability.fpsP50SpreadPct}%)`,
   );
+  console.log(`                    windows: ${stability.windows.map((w) => w.fpsP50.toFixed(1)).join(' / ')} fps p50`);
   console.log(`  draw calls       ${debug.drawCalls} (budget ${TARGETS.drawCallsPerCell})`);
   console.log(`  triangles        ${debug.triangles} (budget ${TARGETS.trianglesPerOrganelle} per organelle)`);
   console.log(`  shell gzip       ${formatBytes(sizes.totals.shellGzipBytes)} (budget ${formatBytes(BUDGETS.shellGzipBytes)})`);

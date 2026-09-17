@@ -1,0 +1,175 @@
+{
+  "milestone": "M0",
+  "measuredAt": "2026-09-17T04:58:26.434Z",
+  "fixture": "/?fixture=organelle&id=mitochondrion",
+  "environment": {
+    "platform": "win32 x64",
+    "node": "v24.13.0",
+    "browser": "playwright chromium",
+    "rasteriser": "ANGLE (Intel, Intel(R) UHD Graphics (0x00009BC4) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "hardwareAccelerated": true,
+    "viewport": "1280x800",
+    "deviceScaleFactor": 1
+  },
+  "measurement": {
+    "warmUpMs": 1500,
+    "steadyStateWindowMs": 2000,
+    "steadyStateWindows": 3,
+    "frameSamples": 115,
+    "framesObserved": 45
+  },
+  "organelle": {
+    "id": "mitochondrion",
+    "seed": "mitochondrion/v1",
+    "triangles": 3984,
+    "drawCalls": 13
+  },
+  "sizes": [
+    {
+      "file": "assets/index-BhLlbTgm.js",
+      "role": "entry-js",
+      "rawBytes": 1189681,
+      "gzipBytes": 334501
+    },
+    {
+      "file": "assets/index-DMEXKPpy.css",
+      "role": "entry-css",
+      "rawBytes": 790,
+      "gzipBytes": 447
+    },
+    {
+      "file": "index.html",
+      "role": "html",
+      "rawBytes": 559,
+      "gzipBytes": 352
+    }
+  ],
+  "budgets": [
+    {
+      "id": "draw-calls-per-cell",
+      "target": "<= 150 calls",
+      "measured": 13,
+      "unit": "calls",
+      "gate": "hard",
+      "status": "pass",
+      "source": "window.__cellDebug (renderer.info for the cell scene, sampled at 1 Hz)"
+    },
+    {
+      "id": "triangles-per-organelle",
+      "target": "<= 25000 triangles",
+      "measured": 3984,
+      "unit": "triangles",
+      "gate": "hard",
+      "status": "pass",
+      "source": "window.__cellDebug (renderer.info for the cell scene, sampled at 1 Hz)"
+    },
+    {
+      "id": "first-3d-paint",
+      "target": "<= 3000 ms",
+      "measured": 821,
+      "unit": "ms",
+      "gate": "advisory-local",
+      "status": "pass",
+      "source": "window.__cellDebug.firstRenderAt"
+    },
+    {
+      "id": "steady-state-fps-p50",
+      "target": ">= 60 fps",
+      "measured": 28.5,
+      "unit": "fps",
+      "gate": "advisory-local",
+      "status": "miss",
+      "source": "rAF delta ring buffer, 2000 ms windows"
+    },
+    {
+      "id": "steady-state-fps-p95",
+      "target": ">= 55 fps",
+      "measured": 8.6,
+      "unit": "fps",
+      "gate": "advisory-local",
+      "status": "miss",
+      "source": "rAF delta ring buffer, 2000 ms windows"
+    },
+    {
+      "id": "shell-gzip",
+      "target": "<= 350.0 KB gzipped",
+      "measured": 334501,
+      "unit": "bytes",
+      "gate": "hard",
+      "status": "pass",
+      "source": "verify/size-audit.mjs over dist/"
+    },
+    {
+      "id": "initial-payload-gzip",
+      "target": "<= 2.50 MB gzipped",
+      "measured": 335300,
+      "unit": "bytes",
+      "gate": "hard",
+      "status": "pass",
+      "source": "verify/size-audit.mjs over dist/"
+    },
+    {
+      "id": "single-file-cap",
+      "target": "<= 25.00 MB per file",
+      "measured": 1189681,
+      "unit": "bytes",
+      "gate": "hard",
+      "status": "pass",
+      "source": "verify/size-audit.mjs over dist/"
+    }
+  ],
+  "misses": [
+    "steady-state-fps-p50: measured 28.5fps against >= 60 fps",
+    "steady-state-fps-p95: measured 8.6fps against >= 55 fps"
+  ],
+  "stability": {
+    "windows": [
+      {
+        "samples": 41,
+        "fpsP50": 31.44654088345025,
+        "fpsP95": 8.605851980228827
+      },
+      {
+        "samples": 29,
+        "fpsP50": 14.025245442381465,
+        "fpsP95": 8.02568218356144
+      },
+      {
+        "samples": 45,
+        "fpsP50": 28.49002849486649,
+        "fpsP95": 8.5557837094824
+      }
+    ],
+    "windowMs": 2000,
+    "fpsP50SpreadPct": 61.1
+  },
+  "pageErrors": [],
+  "ratification": {
+    "status": "pending-user-decision",
+    "recordedAt": "2026-09-16",
+    "decidedBy": "maintainer",
+    "missesUnderReview": [
+      "steady-state-fps-p50: 28.5 fps against the >= 60 fps target",
+      "steady-state-fps-p95: 8.6 fps against the >= 55 fps target"
+    ],
+    "evidence": [
+      "The 60 fps target was written for a mid-tier laptop with a visible window; this measurement runs headless on Intel UHD Graphics (integrated), 1280x800, devicePixelRatio 1.",
+      "The measurement is not stable enough to gate: three back-to-back 2s windows in one run gave p50 31.4 / 14.0 / 28.5 fps (61.1% spread), and separate runs on the same build and hardware ranged from 7.7 to 37.9 fps p50. CPU load measured 19% during the slow readings, so the variance is not CPU saturation.",
+      "The same scene at 640x400 measures p50 59.9 fps and p95 58.8 fps, so the cost scales with pixel count: the M0 viewer is fill-rate bound, not scene-graph bound (13 draw calls, 3984 triangles).",
+      "Removing the frame-rate limit makes rAF deltas meaningless (p50 909 fps, p95 16.6 fps bimodal), so the vsync-paced measurement is the only honest one.",
+      "First 3D paint is 821 ms against a 3000 ms budget, and draw calls are 13 against 150, so neither load time nor scene complexity is the constraint."
+    ],
+    "proposedOptions": [
+      "Keep 60 fps as the target and treat this as an open M1 performance item: drop clearcoat from the large translucent shell (MeshPhysicalMaterial -> MeshStandardMaterial), prefer FrontSide where DoubleSide is not required, and apply the D12 DPR cap and quality tier (task 4.8).",
+      "Re-ratify the target per hardware tier: >= 40 fps p50 on integrated GPUs while idle, with 60 fps retained for discrete-GPU machines.",
+      "Defer the decision to M2, re-measure on a quiet machine with a process animating, and require at least three runs before treating any fps number as a baseline."
+    ],
+    "note": "Recorded, not accepted. No target was lowered and no number here was chosen to look better: the committed value is the median of a run whose own windows disagreed by 61%, which is the honest representation of what this machine produced. The maintainer decides which option applies.",
+    "decision": null
+  },
+  "notes": [
+    "Draw calls, payload sizes and file sizes hard-fail CI: they are deterministic.",
+    "Frame timing is advisory by design — CI runners share GPUs and jitter — so p50/p95 are recorded here and reviewed locally.",
+    "This report is the M0 reference every later milestone is compared against. A miss is re-ratified here, never silently accepted."
+  ]
+}
