@@ -13,8 +13,14 @@ import type { UiKey } from './i18n/messages';
  * test in both languages (`fallbackCopy.test.ts`), alongside the spec sheets and the static images
  * that DO remain.
  */
+/**
+ * The list is ordered by what the learner reaches for: the three ways of examining the model, then
+ * the processes, then the quiz.
+ */
 export const FALLBACK_UNAVAILABLE_SURFACES: readonly UiKey[] = [
-  'fallback.unavailable.processes',
+  'fallback.unavailable.annotations',
+  'fallback.unavailable.disassembly',
   'fallback.unavailable.isolate',
+  'fallback.unavailable.processes',
   'fallback.unavailable.quiz',
 ];

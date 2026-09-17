@@ -168,13 +168,27 @@ export const UI_MESSAGES = {
     es: 'No disponible sin WebGL',
     en: 'Unavailable without WebGL',
   },
-  'fallback.unavailable.processes': {
-    es: 'Los procesos: nutrición, movimiento y reproducción.',
-    en: 'The processes: nutrition, movement and reproduction.',
+  /*
+   * The three model-inspection aids (task 4.22). They are the surfaces the adopted UI reference
+   * makes central — bilingual annotations on the parts, the exploded view, and isolate — and every
+   * one of them is a consequence of having a renderer. Saying so is what keeps the fallback honest:
+   * the static images still carry their labels, but nothing on the page pretends to be interactive.
+   */
+  'fallback.unavailable.annotations': {
+    es: 'Las anotaciones sobre el modelo en 3D (las imágenes estáticas ya llevan sus etiquetas).',
+    en: 'The annotations over the 3D model (the static images already carry their labels).',
+  },
+  'fallback.unavailable.disassembly': {
+    es: 'La vista despiezada: separar los orgánulos para ver cómo encajan.',
+    en: 'The exploded view: separating the organelles to see how they fit together.',
   },
   'fallback.unavailable.isolate': {
     es: 'Aislar un orgánulo en el modelo para verlo por separado.',
     en: 'Isolating an organelle in the model to see it on its own.',
+  },
+  'fallback.unavailable.processes': {
+    es: 'Los procesos: nutrición, movimiento y reproducción.',
+    en: 'The processes: nutrition, movement and reproduction.',
   },
   'fallback.unavailable.quiz': {
     es: 'El cuestionario, porque hay que señalar orgánulos en el modelo.',

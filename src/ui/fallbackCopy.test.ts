@@ -24,8 +24,10 @@ describe('the fallback declarations', () => {
     // renderer, the three processes and the quiz need it to run, and isolate + disassembly are the
     // two controls the viewer owns.
     expect([...FALLBACK_UNAVAILABLE_SURFACES]).toEqual([
-      'fallback.unavailable.processes',
+      'fallback.unavailable.annotations',
+      'fallback.unavailable.disassembly',
       'fallback.unavailable.isolate',
+      'fallback.unavailable.processes',
       'fallback.unavailable.quiz',
     ]);
     expect(new Set(FALLBACK_UNAVAILABLE_SURFACES).size).toBe(FALLBACK_UNAVAILABLE_SURFACES.length);
