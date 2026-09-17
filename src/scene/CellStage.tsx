@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { ContactShadows, Environment, Lightformer, OrbitControls } from '@react-three/drei';
 import type { FixtureConfig } from '../app/fixture';
 import type { CellId } from '../catalog/types';
@@ -8,6 +8,7 @@ import { ENVIRONMENT_RESOLUTION } from './renderSettings';
 import { DebugSampler } from './useDebugSampler';
 import { NAVIGATION_LIMITS } from './interaction/cameraModel';
 import { PickController } from './interaction/Picking';
+import { IsolateCamera, type OrbitControlsHandle } from './interaction/useIsolateCamera';
 
 /**
  * The composed-cell stage: one catalog roster, assembled and lit.
@@ -30,6 +31,7 @@ export function CellStage({
   fixture: FixtureConfig;
 }) {
   const materials = useMemo(() => createOrganelleMaterials(), []);
+  const controlsRef = useRef<OrbitControlsHandle | null>(null);
 
   useEffect(() => () => materials.dispose(), [materials]);
 
@@ -59,12 +61,23 @@ export function CellStage({
       />
 
       <OrbitControls
+        // drei types the ref as its own `OrbitControls` class, which is not exported; the tween
+        // only needs `target` and `update`, so the handle is narrowed at the boundary.
+        ref={(instance) => {
+          controlsRef.current = instance as unknown as OrbitControlsHandle | null;
+        }}
         target={fixture.camera.target}
         enableDamping={false}
         enablePan={false}
         minDistance={NAVIGATION_LIMITS.minDistance}
         maxDistance={NAVIGATION_LIMITS.maxDistance}
       />
+
+      {/*
+        A fixture pins the camera in the URL, so the isolate tween only runs in the real app —
+        otherwise a screenshot would depend on how long the page had been open.
+      */}
+      {fixture.name === null ? <IsolateCamera controlsRef={controlsRef} cell={cell} /> : null}
 
       <PickController />
 

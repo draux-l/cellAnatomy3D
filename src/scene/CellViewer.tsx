@@ -78,6 +78,23 @@ function ComposedCellView({ fixture }: { fixture: FixtureConfig }) {
     setSelected(fixture.selectedId);
   }, [fixture, setHovered, setSelected]);
 
+  useEffect(() => {
+    // "Back to the view-selection state" (spec: `Back to selection returns to the landing state`).
+    // The pointer-only path is the empty-space click the pick controller already handles; this adds
+    // a second, keyboard-only affordance until M1e's navigation panel provides a visible button.
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape') {
+        return;
+      }
+
+      useAppStore.getState().resetToSelection();
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
   return (
     <div
       className="cell-view"

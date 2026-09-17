@@ -66,8 +66,24 @@ function numericConstants(source: string): Map<string, number> {
 /** A runtime import of three.js: `import type …` is erased and therefore not a runtime import. */
 const RUNTIME_THREE_IMPORT = /import\s+(?!type\b)[^;]*?from\s+['"]three(?:\/[\w./-]+)?['"]/;
 
-/** The vocabulary a hard-coded displacement constant would have to use. */
-const TRAVEL_VOCABULARY = /DISASSEMBLY|TRAVEL|DISPLACEMENT/i;
+/**
+ * The vocabulary a hard-coded displacement constant would have to use.
+ *
+ * Narrowed from `DISASSEMBLY|TRAVEL|DISPLACEMENT` when the composed-cell slice landed. `DISASSEMBLY`
+ * alone is the *feature* name, not a quantity: `DISASSEMBLY_MIN`/`_MAX` are the percentage range of
+ * the slider and cannot be a displacement, yet the over-broad pattern flagged them. A gate that
+ * reports false positives is a gate people learn to ignore, so it now targets the quantity words —
+ * and `findTravelConstants` is asserted against synthetic sources below so the narrowing is proven
+ * not to have made it vacuous.
+ */
+const TRAVEL_VOCABULARY = /TRAVEL|DISPLACEMENT/i;
+
+/** Every travel-vocabulary constant in one source file, formatted for the failure message. */
+export function findTravelConstants(source: string, file: string): string[] {
+  return [...numericConstants(source).keys()]
+    .filter((name) => TRAVEL_VOCABULARY.test(name))
+    .map((name) => `${file} declares ${name}`);
+}
 
 describe('bounding radius matches three\'s own Box3', () => {
   it('measures a unit box', () => {
@@ -214,14 +230,30 @@ describe('the catalog stays three-free and the multiplier has one home', () => {
         continue;
       }
 
-      for (const name of numericConstants(sourceOf(file)).keys()) {
-        if (TRAVEL_VOCABULARY.test(name)) {
-          offenders.push(`${relative(file)} declares ${name}`);
-        }
-      }
+      offenders.push(...findTravelConstants(sourceOf(file), relative(file)));
     }
 
     expect(offenders).toEqual([]);
+  });
+
+  it('still catches a real displacement constant, and ignores a control range', () => {
+    // The non-vacuousness check for the narrowed vocabulary: a planted displacement is caught, and
+    // the two shapes that must not trip it do not.
+    const planted = [
+      'const ORGANELLE_TRAVEL = 0.75;',
+      'const SUGGESTED_DISPLACEMENT = 1.5;',
+    ].join('\n');
+    const legitimate = [
+      'const DISASSEMBLY_MIN = 0;',
+      'const DISASSEMBLY_MAX = 100;',
+      'const FOCUS_DAMPING_PER_SECOND = 6;',
+    ].join('\n');
+
+    expect(findTravelConstants(planted, 'planted.ts')).toEqual([
+      'planted.ts declares ORGANELLE_TRAVEL',
+      'planted.ts declares SUGGESTED_DISPLACEMENT',
+    ]);
+    expect(findTravelConstants(legitimate, 'legitimate.ts')).toEqual([]);
   });
 
   it('declares the ratified multiplier exactly once, here', () => {

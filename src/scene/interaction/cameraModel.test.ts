@@ -6,11 +6,16 @@ import { buildMembrane } from '../builders/membrane';
 import {
   CELL_POSE,
   DISASSEMBLY_POSE,
+  FOCUS_SNAP_EPSILON,
   HERO_POSE,
   ISOLATE_DISTANCE_FACTOR,
   ISOLATE_DISTANCE_MARGIN,
   NAVIGATION_LIMITS,
+  approachFocus,
   clampNavigationDistance,
+  defaultFocus,
+  focusForRecord,
+  focusSettled,
   isolateCameraPose,
 } from './cameraModel';
 
@@ -137,5 +142,77 @@ describe('isolateCameraPose', () => {
     const second = isolateCameraPose(record.position, Number(record.geometry.params.size));
 
     expect(first).toEqual(second);
+  });
+});
+
+describe('the isolate framing tween', () => {
+  it('rests on the cell centre at the composed distance', () => {
+    const focus = defaultFocus();
+
+    expect(focus.target).toEqual([...CELL_POSE.target]);
+    expect(focus.distance).toBeCloseTo(Math.hypot(...CELL_POSE.position), 9);
+  });
+
+  it('frames a record at its own cell-specific placement', () => {
+    const nucleus = getRecord('nucleus')!;
+    const animal = focusForRecord(nucleus, 'animal');
+    const plant = focusForRecord(nucleus, 'plant');
+
+    expect(animal.target).not.toEqual(plant.target);
+    expect(plant.target).toEqual([...nucleus.perCell!.plant!.position!]);
+  });
+
+  it('arrives exactly and then reports itself settled', () => {
+    const desired = focusForRecord(getRecord('golgi')!, 'animal');
+    let current = defaultFocus();
+
+    for (let step = 0; step < 400; step += 1) {
+      current = approachFocus(current, desired, 1 / 60);
+    }
+
+    expect(focusSettled(current, desired)).toBe(true);
+    // The final value is the destination, not merely close to it: a screenshot must not depend on
+    // how many frames the transition happened to take.
+    expect(current.target).toEqual(desired.target);
+    expect(current.distance).toBe(desired.distance);
+  });
+
+  it('is frame-rate independent', () => {
+    const desired = focusForRecord(getRecord('lysosome')!, 'animal');
+    const start = defaultFocus();
+    let atSixty = start;
+    let atTwenty = start;
+
+    for (let step = 0; step < 30; step += 1) {
+      atSixty = approachFocus(atSixty, desired, 1 / 60);
+    }
+
+    for (let step = 0; step < 10; step += 1) {
+      atTwenty = approachFocus(atTwenty, desired, 1 / 20);
+    }
+
+    expect(atSixty.distance).toBeCloseTo(atTwenty.distance, 3);
+  });
+
+  it('never overshoots and clamps an absurd delta', () => {
+    const desired = focusForRecord(getRecord('membrane')!, 'animal');
+    const start = defaultFocus();
+    // A backgrounded tab delivers one enormous delta; the clamp keeps the step from jumping past
+    // its destination, so the result stays between where it was and where it is going.
+    const next = approachFocus(start, desired, 1e6);
+    const low = Math.min(start.distance, desired.distance);
+    const high = Math.max(start.distance, desired.distance);
+
+    expect(next.distance).toBeGreaterThanOrEqual(low);
+    expect(next.distance).toBeLessThanOrEqual(high);
+    // The clamp is live: an unclamped 1e6 second delta would land exactly on the destination.
+    expect(next.distance).not.toBe(desired.distance);
+  });
+
+  it('is already settled when it is asked for what it already has', () => {
+    const focus = defaultFocus();
+
+    expect(focusSettled(focus, focus)).toBe(true);
+    expect(FOCUS_SNAP_EPSILON).toBeGreaterThan(0);
   });
 });

@@ -10,6 +10,9 @@
  * module has to be safe to pull into the entry graph — and it is plain trigonometry.
  */
 
+import { positionForRecord } from '../../catalog/params';
+import type { CellId, OrganelleRecord } from '../../catalog/types';
+
 export interface CameraPose {
   position: [number, number, number];
   target: [number, number, number];
@@ -90,6 +93,106 @@ function unitOf([x, y, z]: readonly [number, number, number]): [number, number, 
  * record — no built geometry is needed, which is what lets the fixture route compute the same pose
  * in the shell.
  */
+/** The damping rate of the isolate framing tween, in inverse seconds. */
+export const FOCUS_DAMPING_PER_SECOND = 6;
+/** Below this, the tween snaps to its destination so the final frame is exact. */
+export const FOCUS_SNAP_EPSILON = 0.002;
+
+/**
+ * What the camera is looking at and how far away it is, without the orbit angle.
+ *
+ * Keeping the orbit angle out is deliberate: the tween adjusts the target and the distance while
+ * the user's chosen viewing direction is preserved, so isolating never yanks the view around to
+ * the other side of the cell.
+ */
+export interface FocusState {
+  target: [number, number, number];
+  distance: number;
+}
+
+/** The resting focus: the cell's centre, at the composed pose's distance. */
+export function defaultFocus(): FocusState {
+  return { target: [...CELL_POSE.target], distance: Math.hypot(...CELL_POSE.position) };
+}
+
+/**
+ * The focus that frames one record, in one cell.
+ *
+ * The extent comes from the record's own parameters rather than from built geometry, which is what
+ * lets the `?fixture=isolate` route compute the identical pose in the app shell before the 3D
+ * chunk exists.
+ */
+export function focusForRecord(record: OrganelleRecord, cell: CellId): FocusState {
+  const size = record.geometry.params.size;
+  const extent = typeof size === 'number' && Number.isFinite(size) ? size : 0.3;
+
+  return {
+    target: positionForRecord(record, cell),
+    distance: clampNavigationDistance(
+      Math.max(0, extent) * ISOLATE_DISTANCE_FACTOR + ISOLATE_DISTANCE_MARGIN,
+    ),
+  };
+}
+
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
+}
+
+function smoothToward(
+  current: number,
+  desired: number,
+  alpha: number,
+  epsilon: number,
+  exact: number,
+): number {
+  const next = lerp(current, desired, alpha);
+
+  return Math.abs(next - desired) < epsilon ? exact : next;
+}
+
+/**
+ * One step of the framing tween.
+ *
+ * Exponential damping rather than a fixed fraction, so the motion is the same whether the machine
+ * is at 60 or 20 fps, and a snap threshold, so the last frame is exactly the destination instead of
+ * asymptotically close to it.
+ */
+export function approachFocus(
+  current: FocusState,
+  desired: FocusState,
+  dtSeconds: number,
+  rate = FOCUS_DAMPING_PER_SECOND,
+): FocusState {
+  const dt = Number.isFinite(dtSeconds) ? Math.max(0, Math.min(dtSeconds, 0.1)) : 0;
+  const alpha = 1 - Math.exp(-rate * dt);
+
+  return {
+    target: [
+      smoothToward(current.target[0], desired.target[0], alpha, FOCUS_SNAP_EPSILON, desired.target[0]),
+      smoothToward(current.target[1], desired.target[1], alpha, FOCUS_SNAP_EPSILON, desired.target[1]),
+      smoothToward(current.target[2], desired.target[2], alpha, FOCUS_SNAP_EPSILON, desired.target[2]),
+    ],
+    distance: smoothToward(
+      current.distance,
+      desired.distance,
+      alpha,
+      FOCUS_SNAP_EPSILON,
+      desired.distance,
+    ),
+  };
+}
+
+/** True when the tween has arrived, so the loop can stop writing and let the user orbit freely. */
+export function focusSettled(current: FocusState, desired: FocusState): boolean {
+  return (
+    Math.hypot(
+      current.target[0] - desired.target[0],
+      current.target[1] - desired.target[1],
+      current.target[2] - desired.target[2],
+    ) < FOCUS_SNAP_EPSILON && Math.abs(current.distance - desired.distance) < FOCUS_SNAP_EPSILON
+  );
+}
+
 export function isolateCameraPose(
   position: readonly [number, number, number],
   extent: number,
