@@ -16,6 +16,7 @@ import {
   type AnnotationProjection,
   type ColumnAssignments,
 } from './solver';
+import { annotationInkStyleForId } from './ink';
 
 /**
  * The annotation overlay (tasks 4.15–4.17, design D14).
@@ -107,8 +108,18 @@ export function AnnotationOverlay({ cell, target }: AnnotationOverlayProps) {
   const locale = useAppStore((state) => state.locale);
   const hoveredId = useAppStore((state) => state.hoveredId);
   const quizActive = useAppStore((state) => state.quizActive);
+  const paletteId = useAppStore((state) => state.paletteId);
   const roster = useMemo(() => rosterFor(cell), [cell]);
   const otherLocale: Locale = locale === 'es' ? 'en' : 'es';
+
+  /**
+   * The ink, resolved once per palette change (task 4.21).
+   *
+   * It is a render-time assignment of the palette's `label` role to one custom property, which is
+   * why a palette swap restyles leaders, anchors and both language lines with no catalog edit and
+   * no per-frame cost: the frame loop still writes only `transform`, `d` and `opacity`.
+   */
+  const inkStyle = useMemo(() => annotationInkStyleForId(paletteId), [paletteId]);
 
   // The hysteresis memory describes one roster's layout problem. A cell change is a new problem.
   useEffect(() => {
@@ -163,11 +174,16 @@ export function AnnotationOverlay({ cell, target }: AnnotationOverlayProps) {
   // The blind condition suppresses the whole layer, not just its text: under a quiz prompt no
   // annotation is shown and none is emphasized (spec: Blind quiz condition still suppresses).
   if (quizActive) {
-    return <div className="annotation-layer" data-annotations="suppressed" />;
+    return <div className="annotation-layer" data-annotations="suppressed" style={inkStyle} />;
   }
 
   return (
-    <div className="annotation-layer" data-annotations="visible">
+    <div
+      className="annotation-layer"
+      data-annotations="visible"
+      data-annotation-ink-role="label"
+      style={inkStyle}
+    >
       <svg className="annotation-layer__leaders" aria-hidden="true">
         {roster.map((record, index) => (
           <g

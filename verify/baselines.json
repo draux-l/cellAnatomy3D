@@ -105,7 +105,7 @@
     },
     "disassembly:0": {
       "screenshot": "artifacts/screens/disassembly/0.png",
-      "coverage": 0.148763,
+      "coverage": 0.148888,
       "occupiedAreaPx": 138320,
       "regionColor": "#3c484f",
       "measuredAt": "2026-09-17",
@@ -114,7 +114,7 @@
     },
     "disassembly:25": {
       "screenshot": "artifacts/screens/disassembly/25.png",
-      "coverage": 0.149314,
+      "coverage": 0.149425,
       "occupiedAreaPx": 138684,
       "regionColor": "#3f4a52",
       "measuredAt": "2026-09-17",
@@ -123,7 +123,7 @@
     },
     "disassembly:57": {
       "screenshot": "artifacts/screens/disassembly/57.png",
-      "coverage": 0.159604,
+      "coverage": 0.159707,
       "occupiedAreaPx": 149161,
       "regionColor": "#414b4f",
       "measuredAt": "2026-09-17",
@@ -132,7 +132,7 @@
     },
     "disassembly:100": {
       "screenshot": "artifacts/screens/disassembly/100.png",
-      "coverage": 0.185566,
+      "coverage": 0.185669,
       "occupiedAreaPx": 166724,
       "regionColor": "#3e484b",
       "measuredAt": "2026-09-17",
@@ -141,7 +141,7 @@
     },
     "disassembly:57-plant": {
       "screenshot": "artifacts/screens/disassembly/57-plant.png",
-      "coverage": 0.324748,
+      "coverage": 0.32485,
       "occupiedAreaPx": 316464,
       "regionColor": "#4e524b",
       "measuredAt": "2026-09-17",
@@ -150,7 +150,7 @@
     },
     "cell:animal": {
       "screenshot": "artifacts/screens/cell/animal.png",
-      "coverage": 0.206583,
+      "coverage": 0.206686,
       "occupiedAreaPx": 197532,
       "regionColor": "#3b474e",
       "measuredAt": "2026-09-17",
@@ -159,7 +159,7 @@
     },
     "cell:plant": {
       "screenshot": "artifacts/screens/cell/plant.png",
-      "coverage": 0.458977,
+      "coverage": 0.45905,
       "occupiedAreaPx": 455300,
       "regionColor": "#4b4f49",
       "measuredAt": "2026-09-17",
@@ -168,7 +168,7 @@
     },
     "interaction:isolate-golgi": {
       "screenshot": "artifacts/screens/interaction/isolate-golgi.png",
-      "coverage": 0.32187,
+      "coverage": 0.321974,
       "occupiedAreaPx": 261486,
       "regionColor": "#73665f",
       "measuredAt": "2026-09-17",

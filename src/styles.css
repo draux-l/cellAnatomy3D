@@ -338,6 +338,15 @@ body {
    Everything positional is written imperatively by the layer's single `useFrame`; the CSS here only
    sizes and inks. `pointer-events: none` keeps the overlay from stealing a drag meant for the
    orbit control.
+
+   **The ink is one value** (task 4.21): `--cell-ink`, set on `.annotation-layer` from the active
+   palette's `label` role by `annotations/ink.ts`. Leaders, anchors and both language lines resolve
+   it, and the label's internal hierarchy is size, weight and opacity rather than a second colour —
+   which is what makes a palette swap or the M5 high-contrast mode a data change.
+
+   The `var(--cell-ink, var(--cell-fg))` fallback never fires while the layer is mounted through
+   the overlay (a unit test asserts the variable is always supplied). It exists so a mis-mounted
+   layer degrades to the app's foreground colour instead of to invisible ink.
    --------------------------------------------------------------------------------------------- */
 .annotation-layer {
   position: absolute;
@@ -392,35 +401,36 @@ body {
   line-height: 1.25;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--cell-fg);
+  color: var(--cell-ink, var(--cell-fg));
 }
 
+/* The secondary line is the same ink at lower opacity: the bilingual contract says both lines show
+   the same content, and the hierarchy is typographic rather than chromatic. */
 .annotation__secondary {
   display: block;
   font-size: 10px;
   line-height: 1.3;
-  color: var(--cell-muted);
+  color: var(--cell-ink, var(--cell-fg));
+  opacity: 0.66;
 }
 
-/* Hover emphasizes the annotation that is already on screen (spec, MODIFIED 2026-09-17): ink to
-   the accent, a weight bump on the label, a heavier leader and a slightly larger anchor. No node
-   is created or removed, and the toggle is applied to the existing group and block. */
+/* Hover emphasizes the annotation that is already on screen (spec, MODIFIED 2026-09-17): a weight
+   bump on the primary line, the secondary line at full ink, a heavier leader and a slightly larger
+   anchor. No node is created or removed, the toggle is applied to the existing group and block, and
+   no second colour is introduced — the emphasis stays inside the palette's one ink role. */
 .annotation--hovered .annotation__primary {
-  color: var(--cell-accent);
   font-weight: 700;
 }
 
 .annotation--hovered .annotation__secondary {
-  color: var(--cell-fg);
+  opacity: 1;
 }
 
 .annotation-leader-group[data-hovered='true'] .annotation-leader {
   stroke-width: 2;
-  stroke: var(--cell-accent);
 }
 
 .annotation-leader-group[data-hovered='true'] .annotation-anchor {
-  fill: var(--cell-accent);
   transform: scale(1.3);
 }
 
