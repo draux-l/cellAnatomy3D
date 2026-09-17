@@ -388,6 +388,68 @@ export function measureLuminanceRise(
   };
 }
 
+/**
+ * How far the nearest rendered pixel is from a point, in CSS pixels, or `null` if none is within
+ * `radius`.
+ *
+ * This is the independent half of "the anchor is attached to its part" (task 4.19). The layout
+ * mirror says where the layer *thinks* the anchor is; this asks the rendered frame whether anything
+ * was actually drawn there. A leader pointing at empty space fails it, and no projection detail has
+ * to be trusted for the check to mean something.
+ *
+ * It searches a radius rather than the exact pixel because an anchor sits on the *top* of an
+ * organelle's bounds — for a sparse build (the ribosome cloud) the single pixel under the marker
+ * can legitimately be background between two granules.
+ */
+export function nearestSubjectDistance(
+  buffer: Buffer,
+  x: number,
+  y: number,
+  radius: number,
+  threshold = DEFAULT_THRESHOLDS.backgroundDistance,
+): number | null {
+  const png = readPng(buffer);
+  const background = sampleBackground(png);
+  const centreX = Math.round(x);
+  const centreY = Math.round(y);
+  let best: number | null = null;
+
+  for (let dy = -radius; dy <= radius; dy += 1) {
+    const py = centreY + dy;
+
+    if (py < 0 || py >= png.height) {
+      continue;
+    }
+
+    for (let dx = -radius; dx <= radius; dx += 1) {
+      const px = centreX + dx;
+
+      if (px < 0 || px >= png.width) {
+        continue;
+      }
+
+      const distance = Math.hypot(dx, dy);
+
+      if (best !== null && distance >= best) {
+        continue;
+      }
+
+      const index = (py * png.width + px) * 4;
+      const color: Rgb = {
+        r: png.data[index] ?? 0,
+        g: png.data[index + 1] ?? 0,
+        b: png.data[index + 2] ?? 0,
+      };
+
+      if (colorDistance(color, background) > threshold) {
+        best = distance;
+      }
+    }
+  }
+
+  return best;
+}
+
 export function assertCoverage(metrics: ScreenshotMetrics, thresholds = DEFAULT_THRESHOLDS): void {
   if (metrics.coverage < thresholds.coverageMin) {
     throw new Error(

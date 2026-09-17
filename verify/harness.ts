@@ -34,6 +34,8 @@ export interface CellDebugSnapshot {
   fixture: string | null;
   frozen: boolean;
   frames: number;
+  /** Renders of the presented frame of the main scene (task 4.13). */
+  sceneRenders: number;
   drawCalls: number;
   triangles: number;
   firstRenderAtMs: number | null;
@@ -41,10 +43,50 @@ export interface CellDebugSnapshot {
   clock: { elapsed: number; scale: number };
 }
 
+/** One annotation as the layer wrote it (the `__cellDebug.annotations` mirror). */
+export interface AnnotationSnapshot {
+  id: string;
+  column: 'left' | 'right';
+  box: { x: number; y: number; width: number; height: number };
+  leader: [number, number][];
+  anchor: [number, number];
+  opacity: number;
+  occluded: boolean;
+  hovered: boolean;
+}
+
 export function fixtureUrl(fixture: string, params: Record<string, string> = {}): string {
   const search = new URLSearchParams({ fixture, ...params });
 
   return `/?${search.toString()}`;
+}
+
+/** The rendered annotation layout, as the harness reads it. */
+export async function readAnnotations(page: Page): Promise<AnnotationSnapshot[]> {
+  return page.evaluate(() => (window.__cellDebug?.annotations ?? []).map((entry) => ({
+    id: entry.id,
+    column: entry.column,
+    box: { ...entry.box },
+    leader: entry.leader.map((point) => [point[0], point[1]] as [number, number]),
+    anchor: [entry.anchor[0], entry.anchor[1]] as [number, number],
+    opacity: entry.opacity,
+    occluded: entry.occluded,
+    hovered: entry.hovered,
+  })));
+}
+
+/**
+ * The readout's tick counter, or null when the readout is not mounted.
+ *
+ * Read through `evaluate` rather than a locator: a locator would *wait* for a node that is
+ * deliberately absent in the disabled configuration, turning an assertion into a timeout.
+ */
+export async function readFpsTicks(page: Page): Promise<number | null> {
+  const raw = await page.evaluate(
+    () => document.querySelector('[data-role="fps"]')?.getAttribute('data-ticks') ?? null,
+  );
+
+  return raw === null ? null : Number.parseInt(raw, 10);
 }
 
 export interface PageProblems {
@@ -77,6 +119,7 @@ export async function readCellDebug(page: Page): Promise<CellDebugSnapshot | nul
       fixture: debug.fixture,
       frozen: debug.frozen,
       frames: debug.frames,
+      sceneRenders: debug.sceneRenders,
       drawCalls: debug.drawCalls,
       triangles: debug.triangles,
       firstRenderAtMs: debug.firstRenderAtMs,
