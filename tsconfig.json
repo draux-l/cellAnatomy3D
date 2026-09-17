@@ -16,6 +16,7 @@
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "noEmit": true,
+    "allowJs": true,
     "types": ["node"]
   },
   "include": ["src", "verify", "vite.config.ts", "playwright.config.ts"]
