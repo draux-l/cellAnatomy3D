@@ -47,6 +47,35 @@ export interface SeededNoise {
   random(): number;
 }
 
+/** Material roles a builder may ask the host for. */
+export type OrganelleMaterialKey = 'outerMembrane' | 'innerMembrane';
+
+/**
+ * One geometry, one draw call.
+ *
+ * Parts stay separate where a later milestone needs to reach an individual structure —
+ * the cristae are animated by the respiration process, so they are not merged.
+ */
+export interface OrganellePart {
+  /** Stable name, unique inside a build. Used for test output and the perf report. */
+  name: string;
+  materialKey: OrganelleMaterialKey;
+  geometry: BufferGeometry;
+}
+
+export interface OrganelleBuild {
+  parts: OrganellePart[];
+  /** Triangles summed over every part, for the ≤25k per-organelle budget. */
+  triangles: number;
+  /** One draw call per part, for the ≤150 per-cell budget. */
+  drawCalls: number;
+  /** The parameters actually used, so the skill's output contract can be reported. */
+  params: Record<string, number | string | boolean>;
+  /** The deterministic identity of this build. */
+  seed: string;
+  dispose: () => void;
+}
+
 export function createSeededNoise(seed: string): SeededNoise {
   const random = alea(seed);
   const noise3D = createNoise3D(random);

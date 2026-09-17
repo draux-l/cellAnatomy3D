@@ -11,6 +11,9 @@ dist/
 test-results/
 playwright-report/
 
+# Scratch space for local capture experiments (never committed)
+artifacts/tmp/
+
 # Local environment
 .env
 .env.local

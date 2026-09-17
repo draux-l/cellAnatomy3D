@@ -161,6 +161,49 @@ export function createCellDebug(options: CellDebugOptions = {}): CellDebug {
 /** The process-wide debug object. Installed on `window` by `main.tsx`. */
 export const cellDebug = createCellDebug();
 
+export interface RenderCounter {
+  readonly calls: number;
+  readonly triangles: number;
+}
+
+export interface SampledRenderer<Scene, Camera, Result> {
+  render: (scene: Scene, camera: Camera) => Result;
+  info: { render: RenderCounter };
+}
+
+/**
+ * Counts the draw calls of the **cell scene** alone.
+ *
+ * `renderer.info.render` is reset by every top-level render, and three-based helpers run their
+ * own auxiliary passes — drei's `<ContactShadows>` and `<Environment>` both do. Reading the
+ * counter from a frame callback therefore reports whichever pass ran last, which in practice is
+ * a shadow pass with one draw call and two triangles. Wrapping `render` and reading the counter
+ * immediately after the app's own scene renders reports the number the budget cares about.
+ */
+export function attachRendererSampling<Scene, Camera, Result>(
+  renderer: SampledRenderer<Scene, Camera, Result>,
+  mainScene: Scene,
+  debug: Pick<CellDebug, 'sampleRenderer'>,
+  now: () => number,
+): () => void {
+  const original = renderer.render;
+
+  renderer.render = (scene, camera) => {
+    const result = original.call(renderer, scene, camera);
+
+    if (scene === mainScene) {
+      const { calls, triangles } = renderer.info.render;
+      debug.sampleRenderer(calls, triangles, now());
+    }
+
+    return result;
+  };
+
+  return () => {
+    renderer.render = original;
+  };
+}
+
 export interface DebugTarget {
   __cellDebug?: CellDebug;
 }

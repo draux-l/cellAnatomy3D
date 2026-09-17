@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
+  attachRendererSampling,
   createCellDebug,
   computePercentile,
   installCellDebug,
@@ -125,5 +126,68 @@ describe('installCellDebug', () => {
     installCellDebug(debug, target);
 
     expect(target.__cellDebug).toBe(debug);
+  });
+});
+
+describe('attachRendererSampling', () => {
+  /** Stands in for three's WebGLRenderer: each render resets the counter, then counts. */
+  function createFakeRenderer() {
+    const info = { render: { calls: 0, triangles: 0 } };
+    const renderer = {
+      info,
+      render(scene: string) {
+        const isAuxiliary = scene.startsWith('aux');
+        info.render.calls = isAuxiliary ? 1 : 11;
+        info.render.triangles = isAuxiliary ? 2 : 6123;
+      },
+    };
+
+    return renderer;
+  }
+
+  it('samples the app scene and ignores auxiliary passes', () => {
+    const renderer = createFakeRenderer();
+    const debug = createCellDebug();
+    let now = 0;
+    const detach = attachRendererSampling(renderer, 'main', debug, () => now);
+
+    renderer.render('aux-shadow');
+    renderer.render('main');
+    renderer.render('aux-post');
+
+    expect(debug.drawCalls).toBe(11);
+    expect(debug.triangles).toBe(6123);
+
+    now = 1500;
+    renderer.render('main');
+
+    expect(debug.drawCallSampleTimesMs).toEqual([0, 1500]);
+
+    detach();
+  });
+
+  it('never lets an auxiliary pass overwrite the sample', () => {
+    const renderer = createFakeRenderer();
+    const debug = createCellDebug();
+    const detach = attachRendererSampling(renderer, 'main', debug, () => 0);
+
+    renderer.render('main');
+    renderer.render('aux-shadow');
+
+    expect(debug.drawCalls).toBe(11);
+
+    detach();
+  });
+
+  it('restores the original render method on detach', () => {
+    const renderer = createFakeRenderer();
+    const original = renderer.render;
+    const detach = attachRendererSampling(renderer, 'main', createCellDebug(), () => 0);
+
+    expect(renderer.render).not.toBe(original);
+
+    detach();
+
+    expect(renderer.render).toBe(original);
   });
 });
