@@ -9,6 +9,7 @@ import {
   type FixtureBaseline,
 } from '../baselines';
 import { collectProblems, capturePng, openFixture, VIEWPORT } from '../harness';
+import { ORGANELLE_FIXTURE_SUBJECTS } from '../screenshot-coverage';
 import {
   assertAreaWithinBand,
   assertCoverage,
@@ -24,28 +25,17 @@ import {
 /**
  * The metric-assertion gate for the organelle fixture.
  *
- * One entry per builder the app can render **today**. M1b (PR 3) adds the seven shared
- * organelles; M1c (PR 4) adds the plant three. The list is explicit rather than derived from the
- * catalog on purpose: the catalog also declares builders that are not registered yet, and a
- * missing-screenshot *coverage gate* over the catalog is task 3.11's job, not this spec's.
+ * One entry per catalog organelle, **derived from the catalog** rather than hand-listed: every
+ * declared builder now resolves, so the metric band and the roster cannot drift apart. The
+ * missing-screenshot gate over records × cells is `verify/screenshot-coverage.test.ts` (task 3.11);
+ * this spec is the per-organelle metric assertion.
  *
  * Run with `UPDATE_BASELINES=1 npm run test:e2e` to re-record the committed screenshots and
  * baselines — that is what a deliberate visual change does, in the same commit as the change.
  */
 
 const FIXTURE = 'organelle';
-const ORGANELLES = [
-  'membrane',
-  'nucleus',
-  'mitochondrion',
-  'endoplasmic-reticulum',
-  'golgi',
-  'ribosome',
-  'lysosome',
-  'chloroplast',
-  'vacuole',
-  'cell-wall',
-] as const;
+const ORGANELLES = ORGANELLE_FIXTURE_SUBJECTS;
 
 /** The organelle the byte-identical determinism check runs on. */
 const REPEAT_SUBJECT = 'mitochondrion';
