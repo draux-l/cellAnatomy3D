@@ -25,7 +25,7 @@ describe('the fallback declarations', () => {
     // two controls the viewer owns.
     expect([...FALLBACK_UNAVAILABLE_SURFACES]).toEqual([
       'fallback.unavailable.annotations',
-      'fallback.unavailable.disassembly',
+      'fallback.unavailable.explodedView',
       'fallback.unavailable.isolate',
       'fallback.unavailable.processes',
       'fallback.unavailable.quiz',

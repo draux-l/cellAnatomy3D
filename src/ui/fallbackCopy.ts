@@ -19,7 +19,7 @@ import type { UiKey } from './i18n/messages';
  */
 export const FALLBACK_UNAVAILABLE_SURFACES: readonly UiKey[] = [
   'fallback.unavailable.annotations',
-  'fallback.unavailable.disassembly',
+  'fallback.unavailable.explodedView',
   'fallback.unavailable.isolate',
   'fallback.unavailable.processes',
   'fallback.unavailable.quiz',

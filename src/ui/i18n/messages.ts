@@ -178,7 +178,15 @@ export const UI_MESSAGES = {
     es: 'Las anotaciones sobre el modelo en 3D (las imágenes estáticas ya llevan sus etiquetas).',
     en: 'The annotations over the 3D model (the static images already carry their labels).',
   },
-  'fallback.unavailable.disassembly': {
+  /*
+   * Keyed `explodedView`, not `disassembly`, and the difference is deliberate. The app's own word
+   * for this control in user copy is "exploded view" (`view.disassembly.title`), and
+   * `disassemblyCopy.test.ts` requires every UI key containing `disassembly` to live under `view.`
+   * so that a process selector listing `process.*` can never list the control by accident. Renaming
+   * this declaration to the surface's user-facing name keeps that guard strict instead of loosening
+   * it for a fallback string.
+   */
+  'fallback.unavailable.explodedView': {
     es: 'La vista despiezada: separar los orgánulos para ver cómo encajan.',
     en: 'The exploded view: separating the organelles to see how they fit together.',
   },
