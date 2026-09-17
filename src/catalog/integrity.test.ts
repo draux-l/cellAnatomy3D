@@ -1,24 +1,31 @@
 import { describe, expect, it } from 'vitest';
-import { BUILDER_IDS as REGISTERED_BUILDER_IDS } from '../scene/builders/registry';
+import { REGISTERED_BUILDER_IDS } from '../scene/builders/registry';
 import { ORGANELLE_RECORDS, getRecord } from './cells';
 import {
+  PENDING_BUILDER_IDS,
   assertCatalogIntegrity,
   formatIssues,
   isValidRecord,
+  validateBuilderResolution,
   validateCatalog,
   validateRecord,
 } from './integrity';
 import { BUILDER_IDS } from './types';
 
 /**
- * Gate behaviour for the catalog (tasks 2.3, 2.5).
+ * Gate behaviour for the catalog (tasks 2.3, 2.5, 3.2).
  *
  * The committed catalog must pass; every other test injects exactly one defect into a copy of a
  * real record and asserts that the gate fails **naming the record and the field** — a gate that
  * fails without saying who is at fault is not usable in a build log.
+ *
+ * Builder resolution (3.2) is wired in by injecting the registry's id list, because
+ * `src/catalog/` must stay three-free and `scene/builders/registry.ts` imports every builder.
  */
 
 const BASE = getRecord('mitochondrion')!;
+
+const RESOLUTION = { registeredBuilderIds: REGISTERED_BUILDER_IDS } as const;
 
 function withDefect(overrides: Record<string, unknown>): Record<string, unknown> {
   return { ...BASE, ...overrides };
@@ -28,6 +35,11 @@ describe('catalog integrity — the committed catalog', () => {
   it('passes with no issues', () => {
     expect(validateCatalog(ORGANELLE_RECORDS)).toEqual([]);
     expect(() => assertCatalogIntegrity()).not.toThrow();
+  });
+
+  it('passes with builder resolution wired in', () => {
+    expect(validateCatalog(ORGANELLE_RECORDS, RESOLUTION)).toEqual([]);
+    expect(() => assertCatalogIntegrity(ORGANELLE_RECORDS, RESOLUTION)).not.toThrow();
   });
 
   it('accepts the explicit "never separates" zero vector', () => {
@@ -41,15 +53,69 @@ describe('catalog integrity — the committed catalog', () => {
   });
 
   it('validates the declared builder vocabulary without requiring registry resolution', () => {
-    // Task 2.3's sequencing rule: the builder registry grows across PR 3 and PR 4, so a
-    // resolution check here would leave CI red in the interim. The gate validates the catalog's
-    // declared vocabulary only; task 3.2 adds resolution once the registry covers the catalog.
+    // Task 2.3's sequencing rule: resolution is opt-in, so a partial registry can never fail a
+    // caller that did not ask about it. Task 3.2 owns the opt-in check below.
     expect(REGISTERED_BUILDER_IDS.length).toBeLessThan(BUILDER_IDS.length);
 
     const declaredButUnbuilt = getRecord('chloroplast')!;
 
     expect(REGISTERED_BUILDER_IDS).not.toContain(declaredButUnbuilt.geometry.builder);
     expect(validateRecord(declaredButUnbuilt)).toEqual([]);
+  });
+});
+
+describe('catalog integrity — builder resolution (D3, task 3.2)', () => {
+  it('tolerates the declared builders a later milestone owns', () => {
+    // The M1a/M1b window: the plant three are referenced by the catalog and not registered yet.
+    const gaps = BUILDER_IDS.filter((id) => !REGISTERED_BUILDER_IDS.includes(id));
+
+    expect(gaps.length).toBeGreaterThan(0);
+    expect([...PENDING_BUILDER_IDS].sort()).toEqual([...gaps].sort());
+    expect(validateBuilderResolution(ORGANELLE_RECORDS, RESOLUTION)).toEqual([]);
+  });
+
+  it('fails when a referenced builder has no registry entry', () => {
+    const issues = validateCatalog(ORGANELLE_RECORDS, {
+      registeredBuilderIds: REGISTERED_BUILDER_IDS.filter((id) => id !== 'nucleus'),
+      // A pending allowance cannot hide a gap the author did not declare as pending.
+      pendingBuilderIds: PENDING_BUILDER_IDS,
+    });
+    const offender = issues.find((issue) => issue.recordId === 'nucleus');
+
+    expect(offender?.field).toBe('geometry.builder');
+    expect(offender?.message).toContain('no registry entry');
+    expect(formatIssues(issues)).toContain('[nucleus] geometry.builder:');
+    // The gap is only in one record: the tolerance for the plant three still holds.
+    expect(issues).toHaveLength(1);
+  });
+
+  it('fails when a pending allowance is withdrawn before the builder exists', () => {
+    const issues = validateCatalog(ORGANELLE_RECORDS, {
+      registeredBuilderIds: REGISTERED_BUILDER_IDS,
+      pendingBuilderIds: [],
+    });
+
+    expect(issues.map((issue) => issue.recordId).sort()).toEqual([
+      'cell-wall',
+      'chloroplast',
+      'vacuole',
+    ]);
+  });
+
+  it('fails on a builder registered under an id the catalog never declares', () => {
+    const issues = validateBuilderResolution(ORGANELLE_RECORDS, {
+      registeredBuilderIds: [...REGISTERED_BUILDER_IDS, 'photosystem'],
+    });
+    const offender = issues.find((issue) => issue.recordId === '<registry>');
+
+    expect(offender?.field).toBe('geometry.builder');
+    expect(offender?.message).toContain('photosystem');
+  });
+
+  it('does not resolve anything when no registry is supplied', () => {
+    expect(
+      validateBuilderResolution([{ ...BASE, geometry: { ...BASE.geometry, builder: 'chloroplast' } }]),
+    ).toEqual([]);
   });
 });
 

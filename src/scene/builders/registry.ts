@@ -1,5 +1,11 @@
 import type { BuilderId } from '../../catalog/types';
+import { buildEndoplasmicReticulum } from './er';
+import { buildGolgi } from './golgi';
+import { buildLysosome } from './lysosome';
+import { buildMembrane } from './membrane';
 import { buildMitochondrion } from './mitochondrion';
+import { buildNucleus } from './nucleus';
+import { buildRibosome } from './ribosome';
 import type { OrganelleBuild } from './primitives';
 
 /**
@@ -10,14 +16,14 @@ import type { OrganelleBuild } from './primitives';
  *
  * The map holds **pure geometry factories**, not React components. Design D2 sketches them as
  * components, but a factory keeps the deterministic-identity and triangle/draw-call budgets
- * unit-testable in Node, with no WebGL context; the React host (M1's `OrganelleHost`) consumes
+ * unit-testable in Node, with no WebGL context; the React host (M1d's `OrganelleHost`) consumes
  * the result. Same extension point, testable side.
  *
  * `BuilderId` is the catalog's declared vocabulary (`src/catalog/types.ts`), not a local type.
- * This map is deliberately **partial** while the builders land across PR 3 and PR 4: the
- * catalog declares all ten ids, and `integrity.ts` validates record *data* against that
- * vocabulary without resolving it here. Task 3.2 adds registry-resolution validation once this
- * map covers the catalog — until then, a partial registry must not be able to fail the build.
+ * M1b registers the seven shared organelles that do not belong to the plant cell; the plant three
+ * (cell wall, chloroplast, vacuole) land in M1c / PR 4, so this map stays **partial** on purpose.
+ * `catalog/integrity.ts` validates that every *referenced* builder either resolves here or is
+ * explicitly listed as pending — the sequencing rule is data, not a comment.
  */
 
 export type { BuilderId };
@@ -25,16 +31,28 @@ export type { BuilderId };
 export type OrganelleBuilder = (params?: Record<string, number | string | boolean>) => OrganelleBuild;
 
 export const BUILDER_REGISTRY: Partial<Record<BuilderId, OrganelleBuilder>> = {
+  membrane: buildMembrane,
+  nucleus: buildNucleus,
   mitochondrion: buildMitochondrion,
+  'endoplasmic-reticulum': buildEndoplasmicReticulum,
+  golgi: buildGolgi,
+  ribosome: buildRibosome,
+  lysosome: buildLysosome,
 };
 
-/** The builders that actually exist today. */
-export const BUILDER_IDS = Object.keys(BUILDER_REGISTRY) as BuilderId[];
+/**
+ * The builders that actually exist today.
+ *
+ * Named distinctly from `catalog/types.ts`'s `BUILDER_IDS` (the *declared* vocabulary) on
+ * purpose: two lists with the same name, one of them partial, is how a resolution check gets
+ * miswired. `catalog/integrity.ts` takes this list as data.
+ */
+export const REGISTERED_BUILDER_IDS = Object.keys(BUILDER_REGISTRY) as BuilderId[];
 
-const REGISTERED_BUILDER_IDS: ReadonlySet<string> = new Set<string>(BUILDER_IDS);
+const REGISTERED: ReadonlySet<string> = new Set<string>(REGISTERED_BUILDER_IDS);
 
 export function isBuilderId(value: string): value is BuilderId {
-  return REGISTERED_BUILDER_IDS.has(value);
+  return REGISTERED.has(value);
 }
 
 export function getBuilder(id: string): OrganelleBuilder {
@@ -42,7 +60,7 @@ export function getBuilder(id: string): OrganelleBuilder {
 
   if (!builder) {
     throw new Error(
-      `No builder registered for "${id}". Registered builders: ${BUILDER_IDS.join(', ')}`,
+      `No builder registered for "${id}". Registered builders: ${REGISTERED_BUILDER_IDS.join(', ')}`,
     );
   }
 

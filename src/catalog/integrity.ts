@@ -19,9 +19,11 @@ import {
  *
  * 1. **It is pure.** No three.js, no filesystem, no clock — so it runs as a fast unit test in
  *    Node and (later) as a build step without dragging the 3D chunk into the shell graph.
- * 2. **It validates the declared builder *vocabulary*, not registry resolution.** The builders
- *    land across PR 3 and PR 4, so a resolution check here would leave CI red in the interim.
- *    Task 3.2 owns that check and adds it once `builders/registry.ts` covers the catalog.
+ * 2. **It validates the declared builder *vocabulary* by default, and registry resolution only
+ *    when the registry is injected.** `src/catalog/` must stay three-free, and
+ *    `scene/builders/registry.ts` imports every builder, so the gate cannot import the registry.
+ *    It takes the registered id list as data instead (task 3.2): the callers that own both sides
+ *    — the integrity test and, later, the build step — pass it in.
  * 3. **It validates `unknown` input**, so tests can inject defects by spreading a real record
  *    without fighting the type system — the gate has to survive data it did not author.
  */
@@ -32,6 +34,28 @@ export interface IntegrityIssue {
   /** Dotted path to the offending field, e.g. `funFact.es` or `disassembly.direction`. */
   field: string;
   message: string;
+}
+
+/**
+ * Declared builders the catalog already references but that no registry entry serves *yet*.
+ *
+ * M1c / PR 4 builds the plant three, and this list is how the gate stays honest in the interim:
+ * a referenced builder that is neither registered nor pending is a hard failure, so the check
+ * cannot be quietly loosened by omission. It is a **shrinking allowlist, not a permanent hole** —
+ * a test asserts it is exactly the declared-but-unregistered gap, which means PR 4 cannot merge
+ * without emptying it.
+ */
+export const PENDING_BUILDER_IDS = ['cell-wall', 'chloroplast', 'vacuole'] as const;
+
+export interface BuilderResolutionOptions {
+  /**
+   * The builder ids `src/scene/builders/registry.ts` resolves today. Omit it to validate the
+   * declared vocabulary only — the M1a sequencing rule, kept as the default so no caller can
+   * accidentally start failing on a partial registry.
+   */
+  registeredBuilderIds?: readonly string[];
+  /** Defaults to `PENDING_BUILDER_IDS`. */
+  pendingBuilderIds?: readonly string[];
 }
 
 /** `‖direction‖` below this is a zero vector: "never separates" only when `distance` is also 0. */
@@ -290,10 +314,76 @@ export function validateRecord(record: unknown, index = 0): IntegrityIssue[] {
 }
 
 /**
- * Validates a whole catalog: every record, plus the catalog-level rules that no single record
- * can answer for (duplicate ids, roster canonicality, out-of-scope structures).
+ * Validates that the catalog's builder references resolve (task 3.2, design D3: the gate "fails
+ * the build on a builder id with no registry entry").
+ *
+ * Two directions, and both matter:
+ *
+ * - **Registry → vocabulary.** Every registered builder id must be a declared `BuilderId`. A
+ *   typo'd registration the catalog can never reference is otherwise invisible until a viewer
+ *   throws at runtime.
+ * - **Record → resolution.** Every builder a record *references* must resolve, or be on the
+ *   explicit pending list. This is the check that would have made the M1a/M1b sequencing a
+ *   build failure instead of a comment.
+ *
+ * Pure: the registry arrives as data. See `BuilderResolutionOptions`.
  */
-export function validateCatalog(records: readonly unknown[]): IntegrityIssue[] {
+export function validateBuilderResolution(
+  records: readonly unknown[],
+  options: BuilderResolutionOptions = {},
+): IntegrityIssue[] {
+  const registeredIds = options.registeredBuilderIds;
+
+  if (registeredIds === undefined) {
+    // Resolution was not requested: this run validates the declared vocabulary only.
+    return [];
+  }
+
+  const registered = new Set(registeredIds);
+  const pending = new Set(options.pendingBuilderIds ?? PENDING_BUILDER_IDS);
+  const declared = new Set<string>(BUILDER_IDS);
+  const issues: IntegrityIssue[] = [];
+
+  for (const id of registered) {
+    if (!declared.has(id)) {
+      issues.push({
+        recordId: '<registry>',
+        field: 'geometry.builder',
+        message: `registers "${id}", which is not a declared builder id (declared: ${BUILDER_IDS.join(', ')})`,
+      });
+    }
+  }
+
+  records.forEach((record, index) => {
+    if (!isPlainObject(record) || !isPlainObject(record.geometry)) {
+      return;
+    }
+
+    const builder = record.geometry.builder;
+
+    if (!isNonEmptyString(builder) || registered.has(builder) || pending.has(builder)) {
+      return;
+    }
+
+    issues.push({
+      recordId: labelOf(record, index),
+      field: 'geometry.builder',
+      message: `is "${builder}", which has no registry entry and is not a pending builder — the viewer would throw while building this record`,
+    });
+  });
+
+  return issues;
+}
+
+/**
+ * Validates a whole catalog: every record, plus the catalog-level rules that no single record
+ * can answer for (duplicate ids, roster canonicality, out-of-scope structures, and — when the
+ * registry ids are supplied — builder resolution).
+ */
+export function validateCatalog(
+  records: readonly unknown[],
+  options: BuilderResolutionOptions = {},
+): IntegrityIssue[] {
   const issues: IntegrityIssue[] = [];
   const seen = new Set<string>();
 
@@ -382,6 +472,8 @@ export function validateCatalog(records: readonly unknown[]): IntegrityIssue[] {
     }
   }
 
+  issues.push(...validateBuilderResolution(records, options));
+
   return issues;
 }
 
@@ -392,9 +484,15 @@ export function formatIssues(issues: readonly IntegrityIssue[]): string {
 
 /**
  * The gate itself. Throws with every offender named, so a broken catalog cannot reach a build.
+ *
+ * Pass `registeredBuilderIds` to include builder resolution; omit it to validate record data and
+ * the declared vocabulary only.
  */
-export function assertCatalogIntegrity(records: readonly unknown[] = ORGANELLE_RECORDS): void {
-  const issues = validateCatalog(records);
+export function assertCatalogIntegrity(
+  records: readonly unknown[] = ORGANELLE_RECORDS,
+  options: BuilderResolutionOptions = {},
+): void {
+  const issues = validateCatalog(records, options);
 
   if (issues.length > 0) {
     throw new Error(
