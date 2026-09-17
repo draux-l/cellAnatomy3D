@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { PERFORMANCE_BUDGETS } from '../budgets.mjs';
 import {
   baselineKey,
   loadBaselines,
@@ -133,5 +134,15 @@ test.describe('organelle metric fixture', () => {
     expect(metrics.coverage).toBeLessThan(loadBaselines().thresholds.coverageMin);
     expect(metrics.occupiedAreaPx).toBe(0);
     expect(() => assertCoverage(metrics)).toThrow(/rendered nothing/);
+  });
+
+  test('keeps the cell inside its draw-call and triangle budgets', async ({ page }) => {
+    const debug = await openFixture(page, FIXTURE, { id: SUBJECT });
+
+    // Deterministic and hardware-independent, so this is a hard gate rather than a report line.
+    expect(debug.drawCalls).toBeGreaterThan(0);
+    expect(debug.drawCalls).toBeLessThanOrEqual(PERFORMANCE_BUDGETS.drawCallsPerCell);
+    expect(debug.triangles).toBeLessThanOrEqual(PERFORMANCE_BUDGETS.trianglesPerCell);
+    expect(debug.triangles).toBeLessThanOrEqual(PERFORMANCE_BUDGETS.trianglesPerOrganelle);
   });
 });

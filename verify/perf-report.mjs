@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium } from '@playwright/test';
+import { PERFORMANCE_BUDGETS } from './budgets.mjs';
 import { BUDGETS, auditEntries, collectDistEntries, formatBytes } from './size-audit.mjs';
 
 /**
@@ -25,14 +26,7 @@ const WARM_UP_MS = 1500;
 const STEADY_STATE_MS = 5000;
 const MIN_FRAMES = 30;
 
-const TARGETS = {
-  drawCallsPerCell: 150,
-  drawCallsComparison: 300,
-  trianglesPerOrganelle: 25_000,
-  first3dPaintMs: 3000,
-  steadyStateFps: 60,
-  p95Fps: 55,
-};
+const TARGETS = PERFORMANCE_BUDGETS;
 
 function isSoftwareRasteriser(renderer) {
   return /swiftshader|llvmpipe|software/i.test(renderer ?? '');
