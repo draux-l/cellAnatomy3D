@@ -2,9 +2,14 @@ import type { BufferGeometry } from 'three';
 import { describe, expect, it, vi } from 'vitest';
 import { countTriangles, hashGeometryPositions } from './primitives';
 import {
-  CRISTA_HEIGHT_RATIO,
-  CRISTA_INNER_RADIUS,
+  CRISTA_AXIAL_WOBBLE_RATIO,
+  CRISTA_FREE_MAX,
+  CRISTA_LATERAL_WOBBLE_RATIO,
+  CRISTA_SURFACE_SAMPLES,
   CRISTA_THICKNESS_RATIO,
+  CRISTA_WALL_REACH,
+  CRISTA_WIDTH_JITTER,
+  CRISTA_WIDTH_RATIO,
   MITOCHONDRION_LENGTH_PER_SIZE,
   MITOCHONDRION_PARAMS,
   MITOCHONDRION_RADIUS_PER_SIZE,
@@ -12,6 +17,7 @@ import {
   capsuleProfile,
   cristaPath,
   cristaShape,
+  cristaWidthScale,
 } from './mitochondrion';
 
 const PER_ORGANELLE_TRIANGLE_BUDGET = 25_000;
@@ -73,31 +79,93 @@ describe('capsuleProfile', () => {
   });
 });
 
-describe('cristaPath', () => {
-  it('stays inside the interior radius', () => {
-    const path = cristaPath(0, 12, STRAIGHT_HALF, RADIUS, MITOCHONDRION_PARAMS.seed);
-    const points = path.getSpacedPoints(24);
+describe('cristaPath — the M0 radiator correction (task 3.5)', () => {
+  const SEED = MITOCHONDRION_PARAMS.seed;
 
-    for (const point of points) {
-      expect(Math.abs(point.x)).toBeLessThanOrEqual(RADIUS * CRISTA_INNER_RADIUS + 1e-6);
-      expect(Math.abs(point.z)).toBeLessThanOrEqual(1e-6);
+  it('stays inside the interior radius', () => {
+    const path = cristaPath(0, 12, STRAIGHT_HALF, RADIUS, SEED);
+
+    for (const point of path.getSpacedPoints(CRISTA_SURFACE_SAMPLES * 3)) {
+      expect(Math.hypot(point.x, point.z)).toBeLessThanOrEqual(RADIUS * CRISTA_WALL_REACH + 1e-6);
+    }
+  });
+
+  it('starts at the inner membrane and stops short of the far side', () => {
+    const path = cristaPath(4, 12, STRAIGHT_HALF, RADIUS, SEED);
+    const start = path.getPoint(0);
+    const end = path.getPoint(1);
+
+    // Attached to the wall: the fold begins at the wall reach.
+    expect(Math.hypot(start.x, start.z)).toBeGreaterThan(RADIUS * 0.8);
+    // A fold, not a septum: it ends inside the interior, short of the far side.
+    expect(Math.hypot(end.x, end.z)).toBeLessThan(RADIUS * (CRISTA_FREE_MAX + 0.15));
+  });
+
+  it('is not coplanar: each fold points its own way about the long axis', () => {
+    // The M0 signature was every fold running along the same diameter in the same plane. The
+    // correction rotates each fold about the long axis by its own seeded angle, so the fold
+    // directions have to cover a wide arc rather than all pointing the same way.
+    const angles = Array.from({ length: 12 }, (_, index) => {
+      const path = cristaPath(index, 12, STRAIGHT_HALF, RADIUS, SEED);
+      const start = path.getPoint(0);
+      const end = path.getPoint(1);
+
+      return Math.atan2(end.z - start.z, end.x - start.x);
+    });
+
+    const spread = Math.max(...angles) - Math.min(...angles);
+
+    expect(spread).toBeGreaterThan(Math.PI * 0.6);
+  });
+
+  it('gives no two folds the same profile', () => {
+    const profiles = Array.from({ length: 12 }, (_, index) =>
+      cristaPath(index, 12, STRAIGHT_HALF, RADIUS, SEED)
+        .getSpacedPoints(CRISTA_SURFACE_SAMPLES)
+        .map((point) => point.toArray()),
+    );
+
+    for (let a = 0; a < profiles.length; a += 1) {
+      for (let b = a + 1; b < profiles.length; b += 1) {
+        expect(profiles[a]).not.toEqual(profiles[b]);
+      }
     }
   });
 
   it('spreads the folds along the long axis', () => {
-    const first = cristaPath(0, 12, STRAIGHT_HALF, RADIUS, MITOCHONDRION_PARAMS.seed);
-    const last = cristaPath(11, 12, STRAIGHT_HALF, RADIUS, MITOCHONDRION_PARAMS.seed);
+    const first = cristaPath(0, 12, STRAIGHT_HALF, RADIUS, SEED);
+    const last = cristaPath(11, 12, STRAIGHT_HALF, RADIUS, SEED);
 
     expect(last.getPoint(0).y).toBeGreaterThan(first.getPoint(0).y);
   });
 
   it('is deterministic per seed and differs across seeds', () => {
-    const a = cristaPath(3, 12, STRAIGHT_HALF, RADIUS, MITOCHONDRION_PARAMS.seed).getSpacedPoints(8);
-    const b = cristaPath(3, 12, STRAIGHT_HALF, RADIUS, MITOCHONDRION_PARAMS.seed).getSpacedPoints(8);
+    const a = cristaPath(3, 12, STRAIGHT_HALF, RADIUS, SEED).getSpacedPoints(8);
+    const b = cristaPath(3, 12, STRAIGHT_HALF, RADIUS, SEED).getSpacedPoints(8);
     const c = cristaPath(3, 12, STRAIGHT_HALF, RADIUS, 'mitochondrion/v2').getSpacedPoints(8);
 
     expect(a.map((point) => point.toArray())).toEqual(b.map((point) => point.toArray()));
     expect(a.map((point) => point.toArray())).not.toEqual(c.map((point) => point.toArray()));
+  });
+
+  it('keeps the undulation budget small enough to stay inside the wall', () => {
+    // The lateral waver plus the widest fold half-width is what could reach the membrane.
+    const worstHalfWidth = (CRISTA_WIDTH_RATIO * (1 + CRISTA_WIDTH_JITTER)) / 2;
+    const worstLateral = CRISTA_LATERAL_WOBBLE_RATIO * 1.3;
+
+    expect(Math.hypot(CRISTA_WALL_REACH, worstHalfWidth + worstLateral)).toBeLessThan(1);
+    expect(CRISTA_AXIAL_WOBBLE_RATIO).toBeLessThan(0.2);
+  });
+
+  it('gives every fold its own width, not one stamped plate repeated', () => {
+    const scales = Array.from({ length: 12 }, (_, index) => cristaWidthScale(index, SEED));
+
+    for (const scale of scales) {
+      expect(scale).toBeGreaterThan(1 - CRISTA_WIDTH_JITTER);
+      expect(scale).toBeLessThan(1 + CRISTA_WIDTH_JITTER);
+    }
+
+    expect(new Set(scales.map((scale) => scale.toFixed(4))).size).toBe(scales.length);
   });
 });
 
@@ -109,9 +177,9 @@ describe('cristaShape', () => {
     const thickness =
       Math.max(...points.map((point) => point.y)) - Math.min(...points.map((point) => point.y));
 
-    expect(width).toBeCloseTo(RADIUS * CRISTA_HEIGHT_RATIO, 6);
+    expect(width).toBeCloseTo(RADIUS * CRISTA_WIDTH_RATIO, 6);
     expect(thickness).toBeCloseTo(RADIUS * CRISTA_THICKNESS_RATIO, 6);
-    // A fold, not a block: the sheet is an order of magnitude thinner than it is tall.
+    // A fold, not a block: the sheet is an order of magnitude thinner than it is wide.
     expect(thickness).toBeLessThan(width * 0.2);
   });
 });
@@ -122,7 +190,9 @@ describe('countTriangles', () => {
     const shell = build.parts[0]!;
 
     expect(countTriangles(shell.geometry)).toBeGreaterThan(0);
-    expect(build.triangles).toBe(build.parts.reduce((total, part) => total + countTriangles(part.geometry), 0));
+    expect(build.triangles).toBe(
+      build.parts.reduce((total, part) => total + countTriangles(part.geometry), 0),
+    );
 
     build.dispose();
   });

@@ -5,10 +5,11 @@ import {
   Shape,
   Vector2,
   Vector3,
+  type BufferGeometry,
 } from 'three';
 import {
-  createBuild,
   createSeededNoise,
+  createBuild,
   meshPart,
   ORGANELLE_PARAM_DEFAULTS,
   type OrganelleBuild,
@@ -17,13 +18,27 @@ import {
 } from './primitives';
 
 /**
- * Mitochondrion — the M0 organelle.
+ * Mitochondrion.
  *
  * Technique comes from the project skill's decision table verbatim: a `LatheGeometry`
  * capsule for the smooth outer membrane, and `ExtrudeGeometry` with `extrudePath` for each
  * crista, because cristae are folds of the inner membrane and must be **real surfaces** —
  * a textured or noise-bumped shell could not be isolated and animated by the respiration
  * process in M2.
+ *
+ * **Cristae correction (task 3.5).** The M0 cristae were neat, evenly spaced, coplanar plates:
+ * every fold spanned the same full chord in the same plane with the same wave, which reads as a
+ * radiator and teaches the wrong shape. Four properties were wrong and all four are fixed here:
+ *
+ * 1. **Orientation.** Each fold is now rotated about the long axis by its own seeded angle, so
+ *    the folds are no longer coplanar.
+ * 2. **Extent.** Each fold starts at the inner membrane and stops at its own seeded depth
+ *    (0.06–0.50 of the radius) instead of spanning the full diameter, so the "comb" of equal
+ *    chords is gone.
+ * 3. **Profile.** Each fold undulates in two directions — laterally within the cross-section
+ *    and along the axis — with its own frequency, phase and amplitude, tapered to zero at the
+ *    wall so the attachment stays clean.
+ * 4. **Spacing.** Axial positions carry a seeded jitter of up to ±35% of the fold pitch.
  *
  * Built along +Y; the viewer rotates the group so the long axis lies on X.
  */
@@ -48,15 +63,27 @@ export const MITOCHONDRION_LENGTH_PER_SIZE = 2.5;
 /** Capsule radius, per unit of `size`. */
 export const MITOCHONDRION_RADIUS_PER_SIZE = 0.48;
 
-export const CRISTA_SURFACE_SAMPLES = 5;
-/** Fraction of the straight body that the crista stack spans. */
-export const CRISTA_SPREAD = 0.86;
-/** Fraction of the capsule radius the cristae reach across at their widest. */
-export const CRISTA_INNER_RADIUS = 0.72;
-/** Crista sheet height, as a fraction of the capsule radius. */
-export const CRISTA_HEIGHT_RATIO = 0.5;
-/** Crista sheet thickness, as a fraction of the capsule radius. */
-export const CRISTA_THICKNESS_RATIO = 0.04;
+/** Control points in each fold's centreline. */
+export const CRISTA_SURFACE_SAMPLES = 8;
+/** Fraction of the straight body over which folds are distributed. */
+export const CRISTA_SPREAD = 0.82;
+/** How far along the radius a fold's attached end reaches; it meets the inner membrane. */
+export const CRISTA_WALL_REACH = 0.9;
+/** Shortest and longest free reach of a fold, as a fraction of the radius. */
+export const CRISTA_FREE_MIN = 0.24;
+export const CRISTA_FREE_MAX = 0.46;
+/** Per-fold width spread, as a fraction of `CRISTA_WIDTH_RATIO`. No two folds are the same width. */
+export const CRISTA_WIDTH_JITTER = 0.28;
+/** Fold width across the cross-section, as a fraction of the radius. */
+export const CRISTA_WIDTH_RATIO = 0.34;
+/** Fold sheet thickness, as a fraction of the radius. */
+export const CRISTA_THICKNESS_RATIO = 0.05;
+/** Peak lateral (cross-section) undulation of a fold centreline, before per-fold jitter. */
+export const CRISTA_LATERAL_WOBBLE_RATIO = 0.14;
+/** Peak axial undulation of a fold centreline, before per-fold jitter. */
+export const CRISTA_AXIAL_WOBBLE_RATIO = 0.1;
+/** Peak axial position jitter, as a fraction of one fold pitch. */
+export const CRISTA_AXIAL_JITTER = 0.7;
 
 /**
  * Capsule silhouette for `LatheGeometry`.
@@ -83,8 +110,13 @@ export function capsuleProfile(totalLength: number, radius: number, capSegments:
 }
 
 /**
- * The centre line of one crista: a wavy fold reaching across the interior, its ends bowing
- * toward whichever pole it sits nearer. Seeded, so the same record always folds the same way.
+ * The centre line of one crista, expressed in the capsule's own frame and already rotated
+ * about the long axis.
+ *
+ * The fold leaves the inner membrane at `CRISTA_WALL_REACH` of the radius in its own seeded
+ * direction, crosses the interior, and stops at its own seeded free reach on the far side. Its
+ * undulation is tapered to zero at both ends, so the wall attachment stays clean and the
+ * snake lives in the middle of the fold — which is where the reference shows it.
  */
 export function cristaPath(
   index: number,
@@ -93,42 +125,107 @@ export function cristaPath(
   radius: number,
   seed: string,
 ): CatmullRomCurve3 {
-  const noise = createSeededNoise(seed);
-  const innerRadius = radius * CRISTA_INNER_RADIUS;
+  // A per-fold stream, so inserting or removing a fold does not re-roll the others.
+  const noise = createSeededNoise(`${seed}/crista-${index}`);
   const span = straightHalfLength * CRISTA_SPREAD;
-  const centreY = cristaeCount > 1 ? -span + ((index + 0.5) / cristaeCount) * 2 * span : 0;
-  const bowDirection = centreY >= 0 ? 1 : -1;
+  const pitch = cristaeCount > 1 ? (2 * span) / cristaeCount : 0;
+  const baseY = cristaeCount > 1 ? -span + ((index + 0.5) / cristaeCount) * 2 * span : 0;
+
+  const centreY = baseY + (noise.random() - 0.5) * pitch * CRISTA_AXIAL_JITTER;
+  const turn = noise.random() * Math.PI * 2;
+  const wallReach = radius * CRISTA_WALL_REACH;
+  const freeReach =
+    radius * (CRISTA_FREE_MIN + noise.random() * (CRISTA_FREE_MAX - CRISTA_FREE_MIN));
+
+  const lateralAmplitude =
+    radius * CRISTA_LATERAL_WOBBLE_RATIO * (0.6 + noise.random() * 0.7);
+  const lateralFrequency = 1.2 + noise.random() * 1.8;
+  const lateralPhase = noise.random() * Math.PI * 2;
+
+  const axialAmplitude = radius * CRISTA_AXIAL_WOBBLE_RATIO * (0.6 + noise.random() * 0.4);
+  const axialFrequency = 1.1 + noise.random() * 1.3;
+  const axialPhase = noise.random() * Math.PI * 2;
+
+  const cos = Math.cos(turn);
+  const sin = Math.sin(turn);
   const points: Vector3[] = [];
 
   for (let i = 0; i <= CRISTA_SURFACE_SAMPLES; i += 1) {
     const u = i / CRISTA_SURFACE_SAMPLES;
-    const x = -innerRadius + u * 2 * innerRadius;
-    const wobble = noise.noise3D(index * 1.37 + u * 2.2, u * 1.1, index * 0.41) * radius * 0.12;
-    const bow = (Math.abs(u - 0.5) * 2) ** 2 * radius * 0.2 * bowDirection;
+    // Zero at both ends, maximal mid-fold: the fold meets the wall without a lateral step.
+    const taper = Math.sin(Math.PI * u);
+    const x = -wallReach + u * (wallReach + freeReach);
+    const z = taper * lateralAmplitude * Math.sin(lateralPhase + lateralFrequency * Math.PI * u);
+    const y = centreY + taper * axialAmplitude * Math.sin(axialPhase + axialFrequency * Math.PI * u);
 
-    points.push(new Vector3(x, centreY + wobble + bow, 0));
+    // Rotating here rather than on the mesh keeps the radius bound the tests check.
+    points.push(new Vector3(x * cos + z * sin, y, -x * sin + z * cos));
   }
 
   return new CatmullRomCurve3(points, false, 'centripetal', 0.5);
 }
 
-/**
- * A thin rectangle swept along a curve. The shape's x maps to the Frenet normal and its y
- * to the binormal, so for a mostly-X path this yields a vertical sheet of height
- * `heightRatio * radius` and thickness `thicknessRatio * radius`.
- */
-export function cristaShape(radius: number): Shape {
-  const halfHeight = (radius * CRISTA_HEIGHT_RATIO) / 2;
-  const halfThickness = (radius * CRISTA_THICKNESS_RATIO) / 2;
-  const shape = new Shape();
+/** Segments per capped end of a fold's cross-section. */
+export const CRISTA_CAP_SEGMENTS = 4;
 
-  shape.moveTo(-halfHeight, -halfThickness);
-  shape.lineTo(halfHeight, -halfThickness);
-  shape.lineTo(halfHeight, halfThickness);
-  shape.lineTo(-halfHeight, halfThickness);
+/**
+ * A fold's cross-section: a rounded bar, swept along a curve.
+ *
+ * The shape's x maps to the Frenet normal and its y to the binormal, so for a mostly-radial path
+ * this yields a vertical sheet of width `widthRatio * radius * widthScale` and thickness
+ * `thicknessRatio * radius`.
+ *
+ * The ends are rounded rather than square on purpose: a rectangle's end cap is a flat cut, and a
+ * dozen flat cuts read as tabs stacked in a housing — which is the M0 problem in a new costume.
+ * A rounded cap reads as the free edge of a fold.
+ *
+ * `widthScale` is per-fold: identical widths were also part of what made the M0 folds look
+ * stamped from one plate.
+ */
+export function cristaShape(radius: number, widthScale = 1): Shape {
+  const halfWidth = (radius * CRISTA_WIDTH_RATIO * widthScale) / 2;
+  const halfThickness = (radius * CRISTA_THICKNESS_RATIO) / 2;
+  const capRadius = Math.min(halfThickness, halfWidth * 0.5);
+  const straightHalf = Math.max(0, halfWidth - capRadius);
+  const steps = Math.max(2, Math.round(CRISTA_CAP_SEGMENTS));
+  const shape = new Shape();
+  const outline: [number, number][] = [];
+
+  // Right cap, bottom to top, then the left cap, top to bottom: one counter-clockwise loop.
+  for (let i = 0; i <= steps; i += 1) {
+    const angle = -Math.PI / 2 + (i / steps) * Math.PI;
+
+    outline.push([
+      straightHalf + capRadius * Math.cos(angle),
+      capRadius * Math.sin(angle),
+    ]);
+  }
+
+  for (let i = 0; i <= steps; i += 1) {
+    const angle = Math.PI / 2 + (i / steps) * Math.PI;
+
+    outline.push([
+      -straightHalf + capRadius * Math.cos(angle),
+      capRadius * Math.sin(angle),
+    ]);
+  }
+
+  shape.moveTo(outline[0]![0], outline[0]![1]);
+
+  for (const [x, y] of outline.slice(1)) {
+    shape.lineTo(x, y);
+  }
+
   shape.closePath();
 
   return shape;
+}
+
+/** One fold's width multiplier, from its own seeded stream: 1 ± `CRISTA_WIDTH_JITTER`. */
+export function cristaWidthScale(index: number, seed: string): number {
+  const noise = createSeededNoise(`${seed}/crista-${index}/width`);
+
+  return 1 + (noise.random() * 2 - 1) * CRISTA_WIDTH_JITTER;
 }
 
 export function buildMitochondrion(
@@ -149,21 +246,25 @@ export function buildMitochondrion(
 
   const parts: OrganellePart[] = [];
 
-  const shell = new LatheGeometry(capsuleProfile(totalLength, radius, capSegments), radialSegments);
+  const shell: BufferGeometry = new LatheGeometry(
+    capsuleProfile(totalLength, radius, capSegments),
+    radialSegments,
+  );
+
   shell.computeVertexNormals();
   parts.push(meshPart({ name: 'outer-membrane', materialKey: 'outerMembrane', geometry: shell }));
 
-  const shape = cristaShape(radius);
   // Enough steps that the swept fold edge reads as a curve, not a staircase.
-  const pathSteps = Math.max(6, Math.round(24 * detail));
+  const pathSteps = Math.max(8, Math.round(40 * detail));
 
   for (let i = 0; i < cristaeCount; i += 1) {
     const path = cristaPath(i, cristaeCount, straightHalfLength, radius, seed);
-    const crista = new ExtrudeGeometry(shape, {
+    const crista = new ExtrudeGeometry(cristaShape(radius, cristaWidthScale(i, seed)), {
       extrudePath: path,
       steps: pathSteps,
       bevelEnabled: false,
     });
+
     crista.computeVertexNormals();
     parts.push(meshPart({ name: `crista-${i}`, materialKey: 'innerMembrane', geometry: crista }));
   }
