@@ -54,6 +54,43 @@ export interface AnnotationMirrorEntry {
   hovered: boolean;
 }
 
+/**
+ * One running process instance, mirrored for the harness (task 5.5).
+ *
+ * The `time`/`rate` pair is what makes the light requirement *measurable* rather than visible: the
+ * rate of a process is the derivative of its own clock, so a window's delta answers "did the slider
+ * change the rate?" and "did pausing stop it?" with a number. `uniformWrites` is the strongest
+ * available proof that respiration and photosynthesis are not conflated — it counts the writes of
+ * the one `uLightIntensity` uniform in the app, and respiration's stays at zero at every slider
+ * position.
+ */
+export interface ProcessMirrorEntry {
+  /** The sub-process id: `respiration` or `photosynthesis`. */
+  id: string;
+  processId: string;
+  cell: 'animal' | 'plant';
+  /** The organelle the animation happens inside. */
+  organelleId: string;
+  /** True when a GSAP timeline drives it. */
+  scripted: boolean;
+  /** True when its motion depends on light. */
+  lightDriven: boolean;
+  /** Seconds this instance has advanced at its own rate. The measurable process clock. */
+  time: number;
+  /** This frame's rate multiplier. Zero while paused or with no light. */
+  rate: number;
+  /** The active scripted label, or null. */
+  label: string | null;
+  /** Phase within the current cycle, 0..1, or null for a continuous process. */
+  progress: number | null;
+  /** True when the process is stopped for lack of light. */
+  lightRequired: boolean;
+  /** Light-uniform writes since the instance was built. Respiration must stay at 0. */
+  uniformWrites: number;
+  /** Completed emissions since the instance was built. */
+  emitted: { atp: number; oxygen: number; glucose: number };
+}
+
 export interface CellDebug {
   /** Active `?fixture=` name, or null for the real app. */
   fixture: string | null;
@@ -83,6 +120,16 @@ export interface CellDebug {
   /** The per-frame solver output the annotation layer wrote, mirrored for the harness. */
   annotations: AnnotationMirrorEntry[];
   /**
+   * The running processes, mirrored every frame (task 5.5).
+   *
+   * The nutrition capability's claims are about *rates* and about an *absence*: the light slider
+   * must change photosynthesis's rate measurably, respiration's must not change at all, and a
+   * paused process must hold. None of those are readable from a static value, so each instance
+   * publishes its own clock, its rate, its active timeline label and how many light-uniform writes
+   * it has made. It is a measurement of the animation, never an input to it.
+   */
+  processes: ProcessMirrorEntry[];
+  /**
    * The quality tier the renderer is actually running (task 4.8).
    *
    * Recorded rather than derived: the perf report has to state what was applied, and a fixture
@@ -97,6 +144,8 @@ export interface CellDebug {
   recordSceneRender: () => void;
   /** Replaces the annotation mirror with this frame's solver output. */
   setAnnotations: (entries: readonly AnnotationMirrorEntry[]) => void;
+  /** Replaces the process mirror with this frame's instances. */
+  setProcesses: (entries: readonly ProcessMirrorEntry[]) => void;
   /** Records a draw-call/triangle sample, throttled to 1 Hz. */
   sampleRenderer: (calls: number, triangles: number, nowMs: number) => boolean;
   /** Clears measurements without touching the app. */
@@ -150,6 +199,7 @@ export function createCellDebug(options: CellDebugOptions = {}): CellDebug {
     frameStats: emptyFrameStats(),
     qualityTier: 'high',
     annotations: [],
+    processes: [],
     clock: { elapsed: 0, scale: processClock.scale },
 
     recordFrame(deltaMs, nowMs) {
@@ -195,6 +245,24 @@ export function createCellDebug(options: CellDebugOptions = {}): CellDebug {
         opacity: entry.opacity,
         occluded: entry.occluded,
         hovered: entry.hovered,
+      }));
+    },
+
+    setProcesses(entries) {
+      debug.processes = entries.map((entry) => ({
+        id: entry.id,
+        processId: entry.processId,
+        cell: entry.cell,
+        organelleId: entry.organelleId,
+        scripted: entry.scripted,
+        lightDriven: entry.lightDriven,
+        time: entry.time,
+        rate: entry.rate,
+        label: entry.label,
+        progress: entry.progress,
+        lightRequired: entry.lightRequired,
+        uniformWrites: entry.uniformWrites,
+        emitted: { ...entry.emitted },
       }));
     },
 

@@ -11,6 +11,7 @@ import { PickController } from './interaction/Picking';
 import { IsolateCamera, type OrbitControlsHandle } from './interaction/useIsolateCamera';
 import type { QualityTier } from './quality';
 import { DisassemblyDriver, type DisassemblyHudTarget } from './disassembly';
+import { ProcessStage } from './ProcessStage';
 import { AnnotationDriver, type AnnotationLayerTarget } from '../ui/annotations/AnnotationLayer';
 
 /**
@@ -99,6 +100,15 @@ export function CellStage({
         and writes the readout when the whole percent changes.
       */}
       <DisassemblyDriver cell={cell} frozenValue={fixture.disassemblyValue} hudTarget={hudTarget} />
+
+      {/*
+        The running process, if any. It parents itself to the organelle root it animates inside,
+        which is why its position in this list is *not* load-bearing: the animation rides whatever
+        transform the driver above writes. It sits here so the frame's work reads in order — cell,
+        then process, then overlay — and so the harness's process mirror is written before anything
+        reads it.
+      */}
+      <ProcessStage cell={cell} fixtureLightPercent={fixture.lightPercent} />
 
       {/*
         Mounted **after** the driver on purpose: within a frame, `useFrame` subscribers run in

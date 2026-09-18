@@ -26,10 +26,22 @@ import {
  * | `hover` | the composed cell with `hoveredId` set directly |
  * | `isolate` | the composed cell with one organelle isolated and the camera framed on it |
  * | `disassembly` | the composed cell with target **and** damped value frozen at N |
+ * | `process` | a running process, optionally framed on one organelle |
  *
  * `isolate` and `disassembly` are the two the spec's verification scenarios name, and both are
  * only meaningful because the fixture bypasses the live damping/camera tweens: a screenshot has to
  * be a function of the URL, not of how long the page has been open.
+ *
+ * The `process` fixture is the M2 addition, and it is the first one whose clock is **optional**: a
+ * screenshot needs the clock pinned (`&t=1.6`), while the light-rate measurement needs it running,
+ * so `t` decides. Its parameters are:
+ *
+ * | Parameter | Effect |
+ * |---|---|
+ * | `id=<processId>` | which process runs (defaults to `nutrition`) |
+ * | `focus=<organelleId>` | frames one organelle, which is how the cristae read at all |
+ * | `light=<0…100>` | pins the transient light state, so `light=0` is the honesty scenario |
+ * | `t=<seconds>` | pins the clock; absent means the animation actually runs |
  *
  * M1d-2 adds three URL controls used by the annotation and readout checks:
  *
@@ -40,7 +52,7 @@ import {
  * | `fps=off` | mounts the viewer without the FPS readout, so its effect on the render count is measurable |
  */
 
-export type FixtureName = 'organelle' | 'cell' | 'hover' | 'isolate' | 'disassembly';
+export type FixtureName = 'organelle' | 'cell' | 'hover' | 'isolate' | 'disassembly' | 'process';
 
 export const FIXTURE_NAMES: readonly FixtureName[] = [
   'organelle',
@@ -48,6 +60,7 @@ export const FIXTURE_NAMES: readonly FixtureName[] = [
   'hover',
   'isolate',
   'disassembly',
+  'process',
 ];
 
 /** The composer's default camera pose, re-exported so consumers need one import. */
@@ -60,6 +73,7 @@ export const FIXTURE_POSES = {
   hover: CELL_POSE,
   isolate: CELL_POSE,
   disassembly: DISASSEMBLY_POSE,
+  process: CELL_POSE,
 } satisfies Record<FixtureName, CameraPose>;
 
 /** The only organelle the M0 fixture could render. Kept as the fallback for every fixture. */
@@ -92,6 +106,17 @@ export interface FixtureConfig {
   showAnnotations: boolean;
   /** False when `?fps=off`: mount the viewer without the FPS readout. */
   showFps: boolean;
+  /** Process the fixture runs, or null. */
+  processId: string | null;
+  /** Light percent the fixture pins, or null to leave the control where it is. */
+  lightPercent: number | null;
+  /**
+   * Organelle the fixture frames, or null.
+   *
+   * A process fixture with a focus is the close-up the spec's verification needs: the whole point of
+   * "respiration happens on the cristae" is only inspectable when the cristae fill the frame.
+   */
+  focusOrganelleId: string | null;
 }
 
 export interface ParseFixtureOptions {
@@ -99,7 +124,13 @@ export interface ParseFixtureOptions {
   defaultOrganelleId?: string;
 }
 
-const COMPOSED_FIXTURES: readonly FixtureName[] = ['cell', 'hover', 'isolate', 'disassembly'];
+const COMPOSED_FIXTURES: readonly FixtureName[] = [
+  'cell',
+  'hover',
+  'isolate',
+  'disassembly',
+  'process',
+];
 
 function isFixtureName(value: string | null): value is FixtureName {
   return value !== null && (FIXTURE_NAMES as readonly string[]).includes(value);
@@ -170,9 +201,46 @@ function parseToggle(raw: string | null): boolean {
   return raw !== 'off';
 }
 
+/**
+ * The light percent a fixture pins, or null when the URL does not name one.
+ *
+ * Null and zero are different states on purpose: `?light=0` is the zero-light scenario the spec's
+ * honesty requirement is about, while an absent parameter means "leave the control where it is".
+ */
+function parseLight(raw: string | null): number | null {
+  if (raw === null) {
+    return null;
+  }
+
+  const parsed = Number.parseFloat(raw);
+
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+
+  return Math.min(100, Math.max(0, Math.round(parsed)));
+}
+
+/**
+ * Whether a fixture mounts the annotation overlay.
+ *
+ * Every other composed fixture defaults to on (`?annotations=off` disables it), because its subject
+ * is the cell and the labels are part of what it looks like. A **process** fixture is the opposite:
+ * its subject is the animation inside one organelle, and the overlay would sit on top of the very
+ * thing being inspected — so there it is opt-in (`?annotations=on`).
+ */
+function parseAnnotations(raw: string | null, name: FixtureName | null): boolean {
+  if (name === 'process') {
+    return raw === 'on';
+  }
+
+  return parseToggle(raw);
+}
+
 function cameraFor(
   name: FixtureName | null,
   organelleId: string,
+  focusOrganelleId: string | null,
   yaw: number,
 ): CameraPose {
   if (name === null) {
@@ -181,6 +249,13 @@ function cameraFor(
 
   if (name === 'isolate') {
     return yawPose(isolateCameraPose(positionOf(organelleId), extentOf(organelleId)), yaw);
+  }
+
+  if (name === 'process' && focusOrganelleId !== null) {
+    return yawPose(
+      isolateCameraPose(positionOf(focusOrganelleId), extentOf(focusOrganelleId)),
+      yaw,
+    );
   }
 
   return yawPose(FIXTURE_POSES[name], yaw);
@@ -197,25 +272,41 @@ export function parseFixture(search: string, options: ParseFixtureOptions = {}):
 
   // tasks.md writes `?fixture=organelle&id=…`; design.md writes `&organelle=…`.
   // Accept both so neither artifact's example is wrong.
+  //
+  // A process fixture uses `id` for the *process* (matches the plan's URL shape) and `focus` for the
+  // organelle it frames, so `?fixture=process&id=nutrition&focus=chloroplast` reads the way the task
+  // list writes it.
+  const focusOrganelleId = name === 'process' ? params.get('focus') ?? params.get('organelle') : null;
   const organelleId =
-    params.get('id') ?? params.get('organelle') ?? options.defaultOrganelleId ?? DEFAULT_ORGANELLE_ID;
+    focusOrganelleId ??
+    params.get('id') ??
+    params.get('organelle') ??
+    options.defaultOrganelleId ??
+    DEFAULT_ORGANELLE_ID;
 
   const composed = name !== null && COMPOSED_FIXTURES.includes(name);
   const yaw = parseYaw(params.get('yaw'));
+  // `tasks.md` writes the cell as `cell=`, `design.md` and the M1 fixtures write it as `view=`.
+  const cellParam = params.get('view') ?? params.get('cell');
 
   return {
     name,
     organelleId,
     frozenTime: parseFrozenTime(params.get('t')),
-    freezeClock: name !== null,
+    // A process fixture runs its clock unless the URL pins a time: the light-rate measurement needs
+    // the animation actually advancing, while a screenshot needs it not to.
+    freezeClock: name === 'process' ? params.has('t') : name !== null,
     showLabels: name === null,
-    camera: cameraFor(name, organelleId, yaw),
-    cell: composed ? parseCell(params.get('view')) : null,
+    camera: cameraFor(name, organelleId, focusOrganelleId, yaw),
+    cell: composed ? parseCell(cellParam) : null,
     hoveredId: name === 'hover' ? organelleId : null,
     selectedId: name === 'isolate' ? organelleId : null,
     disassemblyValue: name === 'disassembly' ? parseDisassembly(params.get('value')) ?? 0 : null,
     yaw,
-    showAnnotations: parseToggle(params.get('annotations')),
+    showAnnotations: parseAnnotations(params.get('annotations'), name),
     showFps: parseToggle(params.get('fps')),
+    processId: name === 'process' ? params.get('id') ?? 'nutrition' : null,
+    lightPercent: name === 'process' ? parseLight(params.get('light')) : null,
+    focusOrganelleId,
   };
 }
