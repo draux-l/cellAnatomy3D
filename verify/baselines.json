@@ -183,6 +183,51 @@
       "measuredAt": "2026-09-17",
       "measuredWith": "playwright chromium 153 / three 0.186.0",
       "notes": "Frozen organelle fixture (seed-locked, clock-frozen). Draw calls 2, triangles 5042; the per-organelle cost report lives in artifacts/perf/report.json."
+    },
+    "process:respiration-animal": {
+      "screenshot": "artifacts/screens/process/respiration-animal.png",
+      "coverage": 0.774608,
+      "occupiedAreaPx": 477780,
+      "regionColor": "#434b57",
+      "measuredAt": "2026-09-18",
+      "measuredWith": "playwright chromium 153 / three 0.186.0",
+      "notes": "Respiration, frozen mid-reaction in the isolated mitochondrion. ATP markers on the cristae; no light input exists in this cell."
+    },
+    "process:photosynthesis-plant": {
+      "screenshot": "artifacts/screens/process/photosynthesis-plant.png",
+      "coverage": 0.925322,
+      "occupiedAreaPx": 947258,
+      "regionColor": "#4e5653",
+      "measuredAt": "2026-09-18",
+      "measuredWith": "playwright chromium 153 / three 0.186.0",
+      "notes": "Photosynthesis, frozen mid-cycle in the isolated chloroplast. The thylakoid flow spirals along the grana."
+    },
+    "process:nutrition-animal": {
+      "screenshot": "artifacts/screens/process/nutrition-animal.png",
+      "coverage": 0.193207,
+      "occupiedAreaPx": 191810,
+      "regionColor": "#38434b",
+      "measuredAt": "2026-09-18",
+      "measuredWith": "playwright chromium 153 / three 0.186.0",
+      "notes": "The whole animal cell with nutrition running: respiration only, because it has no chloroplast."
+    },
+    "process:nutrition-plant": {
+      "screenshot": "artifacts/screens/process/nutrition-plant.png",
+      "coverage": 0.44372,
+      "occupiedAreaPx": 449507,
+      "regionColor": "#494d47",
+      "measuredAt": "2026-09-18",
+      "measuredWith": "playwright chromium 153 / three 0.186.0",
+      "notes": "The whole plant cell with nutrition running: both processes, each inside its own organelle."
+    },
+    "process:light-zero": {
+      "screenshot": "artifacts/screens/process/light-zero.png",
+      "coverage": 0.925322,
+      "occupiedAreaPx": 947258,
+      "regionColor": "#4e5653",
+      "measuredAt": "2026-09-18",
+      "measuredWith": "playwright chromium 153 / three 0.186.0",
+      "notes": "Zero light, the same frozen time as the photosynthesis close-up: the flow is absent, which is what \"the light-dependent animation stops\" looks like."
     }
   },
   "annotationMatrix": [

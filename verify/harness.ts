@@ -89,6 +89,117 @@ export async function readFpsTicks(page: Page): Promise<number | null> {
   return raw === null ? null : Number.parseInt(raw, 10);
 }
 
+/** One running process, as the driver mirrored it (the `__cellDebug.processes` surface). */
+export interface ProcessSnapshot {
+  id: string;
+  processId: string;
+  cell: 'animal' | 'plant';
+  organelleId: string;
+  scripted: boolean;
+  lightDriven: boolean;
+  time: number;
+  rate: number;
+  label: string | null;
+  progress: number | null;
+  lightRequired: boolean;
+  uniformWrites: number;
+  emitted: { atp: number; oxygen: number; glucose: number };
+}
+
+/** The running processes, as the harness reads them. Empty when no process is entered. */
+export async function readProcesses(page: Page): Promise<ProcessSnapshot[]> {
+  return page.evaluate(() => (window.__cellDebug?.processes ?? []).map((entry) => ({
+    id: entry.id,
+    processId: entry.processId,
+    cell: entry.cell,
+    organelleId: entry.organelleId,
+    scripted: entry.scripted,
+    lightDriven: entry.lightDriven,
+    time: entry.time,
+    rate: entry.rate,
+    label: entry.label,
+    progress: entry.progress,
+    lightRequired: entry.lightRequired,
+    uniformWrites: entry.uniformWrites,
+    emitted: { ...entry.emitted },
+  })));
+}
+
+/** One process by id, or null. A sub-process that is not running is not an error. */
+export async function readProcess(page: Page, id: string): Promise<ProcessSnapshot | null> {
+  const processes = await readProcesses(page);
+
+  return processes.find((entry) => entry.id === id) ?? null;
+}
+
+/**
+ * Measures one frame-bounded window and returns how far each named process advanced in it.
+ *
+ * **Every process must be measured in the same window, and this is why the helper takes a list
+ * rather than an id.** The rate measurement compares photosynthesis's clock with respiration's, and
+ * two sequential measurements would be two different windows — which is exactly the kind of
+ * difference that would make a noisy comparison look like a signal.
+ *
+ * A frame-bounded window rather than a wall-clock one, because a slow machine delivers fewer frames
+ * and the processes advance with the frames.
+ */
+export async function measureProcessAdvance(
+  page: Page,
+  ids: readonly string[],
+  frames = 120,
+): Promise<Map<string, number>> {
+  const before = new Map<string, number>();
+  const startFrame = (await readCellDebug(page))!.frames;
+
+  for (const id of ids) {
+    const entry = await readProcess(page, id);
+
+    if (!entry) {
+      throw new Error(`no running process "${id}" to measure`);
+    }
+
+    before.set(id, entry.time);
+  }
+
+  await page.waitForFunction(
+    (target) => (window.__cellDebug?.frames ?? 0) >= target,
+    startFrame + frames,
+    { timeout: FRAME_TIMEOUT_MS },
+  );
+
+  const advance = new Map<string, number>();
+
+  for (const id of ids) {
+    const entry = await readProcess(page, id);
+
+    if (!entry) {
+      throw new Error(`the running process "${id}" disappeared mid-window`);
+    }
+
+    advance.set(id, entry.time - (before.get(id) ?? 0));
+  }
+
+  return advance;
+}
+
+/**
+ * The draw-call sample, once it has been taken **after** the scene reached its final shape.
+ *
+ * Draw calls are sampled at 1 Hz (`DRAW_CALL_SAMPLE_INTERVAL_MS`), so the field can hold a reading
+ * from up to a second ago — long enough for a fixture that enters a process in an effect to be
+ * reported at its pre-process cost. Requiring a few samples makes the reading a measurement of what
+ * is on screen now.
+ */
+export async function readSettledDrawCalls(page: Page, minSamples = 3): Promise<number> {
+  await page.waitForFunction(
+    (minimum) => (window.__cellDebug?.drawCallSampleTimesMs.length ?? 0) >= minimum,
+    minSamples,
+    { timeout: FRAME_TIMEOUT_MS },
+  );
+
+  return (await readCellDebug(page))!.drawCalls;
+}
+
 export interface PageProblems {
   readonly messages: string[];
 }
