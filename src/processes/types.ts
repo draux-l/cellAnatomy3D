@@ -5,6 +5,7 @@ import type {} from 'gsap';
 import type { Object3D } from 'three';
 import type { CellId } from '../catalog/types';
 import type { ProcessId } from './ids';
+import type { CytokinesisMechanism } from './reproduction/stages';
 
 /**
  * The process contract (task 5.1, design D5).
@@ -42,6 +43,14 @@ export interface ProcessFrame {
   readonly delta: number;
   /** Light intensity, 0..1, from the transient light state. */
   readonly light: number;
+  /**
+   * Which cytokinesis mechanism the single-cell view is showing (M3).
+   *
+   * A frame-carried discrete input, exactly like `light`: the phase toggle writes one store value and
+   * the running animation reads it once per frame, so switching mechanisms mid-sequence costs no
+   * re-render and no rebuild. `auto` means "the mechanism of the cell being viewed".
+   */
+  readonly cytokinesis: CytokinesisMechanism;
   /** The time a fixture pinned the clock at, or null while the clock is running. */
   readonly frozen: number | null;
 }
@@ -90,6 +99,17 @@ export interface ProcessInstance {
   readonly lightRequired: boolean;
   /** Light-uniform writes this instance has made since it was built. Respiration stays at 0. */
   readonly uniformWrites: number;
+  /**
+   * Process-specific scalar readouts, mirrored for the harness (M3).
+   *
+   * `ProcessInstance` publishes the generic measurements every process has (`time`, `rate`, `label`,
+   * `progress`); a process whose own claims are structural needs to publish its own. Reproduction
+   * reports the chromosome groups and the two cytokinesis mechanisms here, which is what turns
+   * "no separation before metaphase" and "the two mechanisms differ" into assertions the browser can
+   * read instead of screenshots a reviewer has to judge. Absent means "this process has nothing extra
+   * to say", so the nutrition instances are unchanged.
+   */
+  readonly extra?: Readonly<Record<string, number>>;
   readonly emitted: EmittedCounts;
   /** Advances and writes exactly one frame. Called once per instance per frame. */
   update(frame: ProcessFrame): void;

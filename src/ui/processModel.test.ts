@@ -9,6 +9,11 @@ import {
   processInstanceTitleKey,
   processOption,
 } from './processModel';
+import {
+  REPRODUCTION_PHASE_KEYS,
+  REPRODUCTION_PHASE_ORDER,
+  processRowsFor,
+} from './controls/scrubModel';
 
 /**
  * The process panel's model (task 5.1).
@@ -38,10 +43,10 @@ describe('the process options', () => {
     }
   });
 
-  it('offers nutrition today and declares the other two as pending', () => {
+  it('offers nutrition and reproduction, and declares movement as pending', () => {
     expect(processOption('nutrition')?.available).toBe(true);
     expect(processOption('movement')?.available).toBe(false);
-    expect(processOption('reproduction')?.available).toBe(false);
+    expect(processOption('reproduction')?.available).toBe(true);
     expect(processOption('disassembly')).toBeUndefined();
   });
 });
@@ -69,6 +74,7 @@ describe('the running instance copy', () => {
     expect(processInstanceTitleKey('photosynthesis')).toBe(
       'process.nutrition.photosynthesis.title',
     );
+    expect(processInstanceTitleKey('mitosis')).toBe('process.reproduction.title');
   });
 
   it('turns a timeline label into the stage it names', () => {
@@ -85,9 +91,32 @@ describe('the running instance copy', () => {
     );
   });
 
+  it('turns a mitosis label into its own phase copy, in the spec\'s vocabulary', () => {
+    for (const phase of REPRODUCTION_PHASE_ORDER) {
+      expect(processInstanceStageKey({ id: 'mitosis', label: phase })).toBe(
+        REPRODUCTION_PHASE_KEYS[phase],
+      );
+    }
+
+    // The same fallback rule as respiration's: a label-less frame reads as the first phase.
+    expect(processInstanceStageKey({ id: 'mitosis', label: null })).toBe(
+      'process.reproduction.phase.prophase',
+    );
+  });
+
   it('has one statement for the continuous process', () => {
     expect(processInstanceStageKey({ id: 'photosynthesis', label: null })).toBe(
       'process.nutrition.photosynthesis.stage',
     );
+  });
+});
+
+describe('the panel rows', () => {
+  it('shows the instances the running process actually has', () => {
+    expect(processRowsFor('nutrition')).toEqual(['respiration', 'photosynthesis']);
+    expect(processRowsFor('reproduction')).toEqual(['mitosis']);
+    // No process, no rows — and a process that runs no sub-instance claims none.
+    expect(processRowsFor(null)).toEqual([]);
+    expect(processRowsFor('movement')).toEqual([]);
   });
 });

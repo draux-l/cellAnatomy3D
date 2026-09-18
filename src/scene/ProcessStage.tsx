@@ -7,6 +7,7 @@ import { getRecord } from '../catalog/cells';
 import type { CellId } from '../catalog/types';
 import { processLight } from '../processes/light';
 import { getProcessDefinition } from '../processes/registry';
+import { processTransport } from '../processes/transport';
 import type { ProcessFrame, ProcessInstance } from '../processes/types';
 import { registeredOrganelleRoot } from './anchors';
 
@@ -55,6 +56,10 @@ export function ProcessStage({ cell, fixtureLightPercent }: ProcessStageProps) {
   useEffect(() => {
     const definition = getProcessDefinition(processId);
     const built: ProcessInstance[] = [];
+
+    // A scrub or a phase seek from a previous session must never be applied to a timeline that did
+    // not exist when it was requested.
+    processTransport.reset();
 
     if (definition !== null) {
       for (const target of definition.targets(cell)) {
@@ -114,12 +119,31 @@ export function ProcessStage({ cell, fixtureLightPercent }: ProcessStageProps) {
       scale,
       delta: Number.isFinite(delta) ? Math.min(Math.max(0, delta), MAX_FRAME_DELTA_SECONDS) : 0,
       light: processLight.intensity,
+      cytokinesis: useAppStore.getState().cytokinesisMechanism,
       frozen: processClock.frozen ? processClock.elapsed : null,
     };
+    // One request per frame at most, consumed before the instances advance: a seek has to be applied
+    // *and then* rendered, or the frame would show the playhead the request just replaced.
+    const request = processTransport.consume();
     const mirrors: ProcessMirrorEntry[] = [];
+    let scripted: ProcessInstance | null = null;
 
     for (const instance of running) {
+      if (request !== null && instance.timeline !== null) {
+        if (request.label !== null) {
+          instance.timeline.seek(request.label);
+        } else if (request.progress !== null) {
+          instance.timeline.progress(request.progress);
+        }
+      }
+
+      // The seek (if any) has moved the playhead; `update` is what renders it and what records it.
       instance.update(frame);
+
+      if (scripted === null && instance.scripted) {
+        scripted = instance;
+      }
+
       mirrors.push({
         id: instance.id,
         processId: instance.processId,
@@ -133,8 +157,16 @@ export function ProcessStage({ cell, fixtureLightPercent }: ProcessStageProps) {
         progress: instance.progress,
         lightRequired: instance.lightRequired,
         uniformWrites: instance.uniformWrites,
+        extra: { ...(instance.extra ?? {}) },
         emitted: { ...instance.emitted },
       });
+    }
+
+    // The scrub bar's readout is a measurement of the timeline, so it is published from the timeline.
+    if (scripted !== null) {
+      processTransport.publish(scripted.progress ?? 0, scripted.label);
+    } else {
+      processTransport.publish(0, null);
     }
 
     cellDebug.setProcesses(mirrors);

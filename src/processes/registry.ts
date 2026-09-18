@@ -1,5 +1,6 @@
 import { isProcessId, type ProcessId } from './ids';
 import { nutritionProcess } from './nutrition';
+import { reproductionProcess } from './reproduction';
 import type { ProcessDefinition } from './types';
 
 /**
@@ -7,8 +8,8 @@ import type { ProcessDefinition } from './types';
  *
  * `processId → ProcessDefinition` is the extension point the design names: a new process is one
  * entry here plus its own module, and the viewer, the store, the panel and the i18n table are
- * untouched. Nutrition is the only registered process today, and that is stated rather than
- * implied — `PROCESS_IDS` declares all three vital processes, and M3/M4 register the other two.
+ * untouched. Nutrition (M2) and reproduction (M3) are registered; movement's plant slice is M4 and
+ * its animal slice is user-owned and blocked (design D11), so it is not declared here yet.
  *
  * **This module is part of the 3D chunk.** Its definitions import three.js and GSAP, which is why
  * the UI's process list lives in `src/ui/processModel.ts` (a three-free table) and not here: one
@@ -18,6 +19,7 @@ import type { ProcessDefinition } from './types';
 
 export const PROCESS_REGISTRY: Partial<Record<ProcessId, ProcessDefinition>> = {
   nutrition: nutritionProcess,
+  reproduction: reproductionProcess,
 };
 
 /** The definitions that exist today, in `PROCESS_IDS` order. */

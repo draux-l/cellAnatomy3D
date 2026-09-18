@@ -40,7 +40,7 @@ const PHOTOSYNTHESIS_SOURCE = readFileSync(
 );
 
 function runningFrame(delta: number, light: number, scale = 1): ProcessFrame {
-  return { elapsed: 0, scale, delta, light, frozen: null };
+  return { elapsed: 0, scale, delta, light, cytokinesis: 'auto', frozen: null };
 }
 
 function withPhotosynthesis(run: (instance: ProcessInstance) => void): void {
@@ -244,7 +244,7 @@ describe('the light-rate mapping', () => {
 
       withPhotosynthesis((instance) => {
         for (const time of [0, 0.8, 3.2, 9.6]) {
-          instance.update({ elapsed: time, scale: 1, delta: 0, light: 1, frozen: time });
+          instance.update({ elapsed: time, scale: 1, delta: 0, light: 1, cytokinesis: 'auto', frozen: time });
           times.push(instance.time);
         }
       });

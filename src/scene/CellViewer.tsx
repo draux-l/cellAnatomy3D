@@ -101,8 +101,9 @@ function ComposedCellView({ fixture }: { fixture: FixtureConfig }) {
     setSelected(fixture.selectedId);
     useAppStore.getState().setDisassembly(fixture.disassemblyValue ?? 0);
     // The process fixture enters its process the same way the panel button does — one store write,
-    // no fixture-only code path in the driver.
+    // no fixture-only code path in the driver. The cytokinesis toggle is the same kind of pin.
     useAppStore.getState().setProcess(fixture.processId);
+    useAppStore.getState().setCytokinesis(fixture.cytokinesisMechanism);
     hudTarget.current.lastWritten = -1;
   }, [fixture, setHovered, setSelected]);
 

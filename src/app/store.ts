@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { CytokinesisMechanism } from '../processes/reproduction/stages';
 
 /**
  * The one Zustand store. It holds **discrete** UI state only.
@@ -55,6 +56,15 @@ export interface AppState {
   processId: string | null;
   /** Shared speed setting for every process. */
   speed: SpeedSetting;
+  /**
+   * Which cytokinesis mechanism the single-cell reproduction view shows (task 6.5).
+   *
+   * `auto` follows the cell being viewed; `animal` and `plant` are the explicit phase toggle. It is a
+   * discrete control value, so it belongs here rather than in a transient module — and the 3D side
+   * reads it once per frame through the process driver, so flipping it mid-sequence re-renders
+   * nothing.
+   */
+  cytokinesisMechanism: CytokinesisMechanism;
   /** Active palette id (M5). */
   paletteId: string;
   /** UI language. Content is bilingual in the catalog; this selects which side. */
@@ -70,6 +80,7 @@ export interface AppState {
   resetToSelection: () => void;
   setProcess: (id: string | null) => void;
   setSpeed: (speed: SpeedSetting) => void;
+  setCytokinesis: (mechanism: CytokinesisMechanism) => void;
   setPalette: (paletteId: string) => void;
   setLocale: (locale: Locale) => void;
   setQuizActive: (quizActive: boolean) => void;
@@ -83,6 +94,7 @@ export const DISCRETE_STATE_KEYS = [
   'disassemblyTarget',
   'processId',
   'speed',
+  'cytokinesisMechanism',
   'paletteId',
   'locale',
   'quizActive',
@@ -110,6 +122,7 @@ export const LOCALE_PRESERVED_KEYS = [
   'disassemblyTarget',
   'processId',
   'speed',
+  'cytokinesisMechanism',
   'paletteId',
   'quizActive',
 ] as const satisfies readonly (keyof AppState)[];
@@ -136,6 +149,8 @@ export const useAppStore = create<AppState>()((set) => ({
   disassemblyTarget: DISASSEMBLY_MIN,
   processId: null,
   speed: 'realtime',
+  // The cell's own mechanism: an animal cell pinches, a plant cell builds a plate.
+  cytokinesisMechanism: 'auto',
   paletteId: 'default',
   // The spec's default content language is Spanish.
   locale: 'es',
@@ -168,6 +183,7 @@ export const useAppStore = create<AppState>()((set) => ({
 
   setProcess: (processId) => set({ processId }),
   setSpeed: (speed) => set({ speed }),
+  setCytokinesis: (cytokinesisMechanism) => set({ cytokinesisMechanism }),
   setPalette: (paletteId) => set({ paletteId }),
   /**
    * The language switch (spec: `Language Switch Is Non-Destructive`).

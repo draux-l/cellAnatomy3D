@@ -1,4 +1,5 @@
 import { InstancedMesh, Matrix4, Mesh, Object3D, type BufferGeometry } from 'three';
+import { rosterFor } from '../catalog/cells';
 import type { CellId } from '../catalog/types';
 import { paramsForRecord, positionForRecord } from '../catalog/params';
 import { getRecord } from '../catalog/cells';
@@ -85,5 +86,61 @@ export function mountOrganelle(organelleId: string, cell: CellId = 'animal'): Mo
     build,
     parts,
     dispose: () => build.dispose(),
+  };
+}
+
+export interface MountedCell {
+  /** The cell group every organelle root is a child of — the shape `CellGroup.tsx` produces. */
+  group: Object3D;
+  /** Each record's root object, by organelle id. */
+  roots: Map<string, Object3D>;
+  dispose: () => void;
+}
+
+/**
+ * Builds one whole cell's roster and mounts it under a cell group, in Node.
+ *
+ * The whole-cell processes (M3's mitosis) animate across several organelles at once — chromatids
+ * leave the nucleus, the furrow closes the membrane, the plate spans the cytosol — so a test that
+ * wants to exercise one needs the same multi-organelle graph the viewer composes, with the same
+ * placements and the same per-cell parameter resolution. `mountOrganelle` is the single-organelle
+ * half of the same idea; this is the other half.
+ *
+ * Like `partMount`, nothing in the application imports this: it never reaches the shipped bundle.
+ */
+export function mountCell(cell: CellId = 'animal'): MountedCell {
+  const group = new Object3D();
+  const roots = new Map<string, Object3D>();
+  const builds: OrganelleBuild[] = [];
+
+  group.name = `cell:${cell}`;
+
+  for (const record of rosterFor(cell)) {
+    const build = getBuilder(record.geometry.builder)(paramsForRecord(record, cell));
+    const root = new Object3D();
+    const [x, y, z] = positionForRecord(record, cell);
+
+    root.name = record.id;
+    root.position.set(x, y, z);
+
+    for (const part of build.parts) {
+      root.add(mountPart(part));
+    }
+
+    group.add(root);
+    roots.set(record.id, root);
+    builds.push(build);
+  }
+
+  group.updateMatrixWorld(true);
+
+  return {
+    group,
+    roots,
+    dispose: () => {
+      for (const build of builds) {
+        build.dispose();
+      }
+    },
   };
 }

@@ -87,6 +87,15 @@ export interface ProcessMirrorEntry {
   lightRequired: boolean;
   /** Light-uniform writes since the instance was built. Respiration must stay at 0. */
   uniformWrites: number;
+  /**
+   * Process-specific scalar readouts (M3).
+   *
+   * The generic fields above answer "is it running, how fast, where is its playhead". A process whose
+   * own spec claim is **structural** — reproduction's "no chromatids separate before metaphase, two
+   * condensed groups after", and "the two cytokinesis mechanisms are not the same motion" — needs to
+   * publish the structures themselves, so the claim is asserted against what the frame drew.
+   */
+  extra: Record<string, number>;
   /** Completed emissions since the instance was built. */
   emitted: { atp: number; oxygen: number; glucose: number };
 }
@@ -262,6 +271,7 @@ export function createCellDebug(options: CellDebugOptions = {}): CellDebug {
         progress: entry.progress,
         lightRequired: entry.lightRequired,
         uniformWrites: entry.uniformWrites,
+        extra: { ...entry.extra },
         emitted: { ...entry.emitted },
       }));
     },

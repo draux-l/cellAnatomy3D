@@ -2,6 +2,7 @@ import type { ProcessMirrorEntry } from '../app/debug';
 import type { CellId } from '../catalog/types';
 import type { ProcessId } from '../processes/ids';
 import { nutritionHasLightDrivenTarget } from '../processes/nutrition/targets';
+import { reproductionPhaseKey } from './controls/scrubModel';
 import type { UiKey } from './i18n/messages';
 
 /**
@@ -32,14 +33,14 @@ export interface ProcessOption {
 /**
  * The three vital processes, in the proposal's order.
  *
- * Nutrition is the one M2 delivers. Movement and reproduction are declared and disabled rather
- * than absent: their milestones come later (M4, M3), and a panel that offered them today would be a
- * false affordance — the same argument `navModel` records for comparison mode.
+ * Nutrition (M2) and reproduction (M3) exist. Movement's plant slice is M4 and its animal slice is
+ * user-owned and blocked (design D11), so it stays declared and disabled — the same honesty pattern
+ * `navModel` uses for comparison mode. A panel that offered it today would be a false affordance.
  */
 export const PROCESS_OPTIONS: readonly ProcessOption[] = [
   { id: 'nutrition', labelKey: 'process.nutrition.name', available: true },
   { id: 'movement', labelKey: 'process.movement.name', available: false },
-  { id: 'reproduction', labelKey: 'process.reproduction.name', available: false },
+  { id: 'reproduction', labelKey: 'process.reproduction.name', available: true },
 ];
 
 export function processOption(id: string): ProcessOption | undefined {
@@ -53,19 +54,30 @@ export function processHasLightControl(processId: string | null, cell: CellId): 
 
 /** The heading for one running instance. */
 export function processInstanceTitleKey(instanceId: string): UiKey {
-  return instanceId === 'photosynthesis'
-    ? 'process.nutrition.photosynthesis.title'
-    : 'process.nutrition.respiration.title';
+  if (instanceId === 'photosynthesis') {
+    return 'process.nutrition.photosynthesis.title';
+  }
+
+  if (instanceId === 'mitosis') {
+    return 'process.reproduction.title';
+  }
+
+  return 'process.nutrition.respiration.title';
 }
 
 /**
  * The copy for one running instance's current state.
  *
- * Respiration is scripted, so its key comes from the timeline label; photosynthesis is continuous
- * and has a single statement about what it is doing. The label vocabulary lives in
- * `processes/nutrition/stages.ts` and this is the only place it becomes words.
+ * Respiration and mitosis are both scripted, so their key comes from the timeline label; the label
+ * vocabularies live in the process modules (`nutrition/stages.ts`, `reproduction/stages.ts`) and this
+ * is the only place either becomes words. Photosynthesis is continuous and has a single statement
+ * about what it is doing.
  */
 export function processInstanceStageKey(instance: Pick<ProcessMirrorEntry, 'id' | 'label'>): UiKey {
+  if (instance.id === 'mitosis') {
+    return reproductionPhaseKey(instance.label);
+  }
+
   if (instance.id !== 'respiration') {
     return 'process.nutrition.photosynthesis.stage';
   }

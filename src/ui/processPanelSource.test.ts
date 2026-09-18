@@ -24,9 +24,15 @@ const SHELL_MODULES = [
   'src/ui/processModel.ts',
   'src/ui/controls/SpeedControl.tsx',
   'src/ui/controls/speedModel.ts',
+  'src/ui/controls/ScrubBar.tsx',
+  'src/ui/controls/scrubModel.ts',
+  'src/ui/controls/CytokinesisToggle.tsx',
   'src/processes/light.ts',
+  'src/processes/transport.ts',
   'src/processes/nutrition/stages.ts',
   'src/processes/nutrition/targets.ts',
+  'src/processes/reproduction/stages.ts',
+  'src/processes/reproduction/chromosomes.ts',
   'src/processes/ids.ts',
 ];
 
@@ -68,6 +74,26 @@ describe('the process panel', () => {
     const source = code('src/ui/ProcessPanel.tsx');
 
     expect(source).toContain('process.light.required');
+  });
+
+  it('writes the scrub through the transient transport, never through React state', () => {
+    const source = code('src/ui/controls/ScrubBar.tsx');
+
+    expect(source).not.toContain('useState');
+    expect(source).toContain('processTransport.scrub');
+    expect(source).toContain('processTransport.seek');
+    // The slider is uncontrolled on purpose: a `value` prop would make React own the playhead and
+    // re-render the tree on every pointer move. `defaultValue` is the uncontrolled form.
+    expect(source).toContain('defaultValue=');
+    expect(source).not.toMatch(/[^a-zA-Z]value=\{/);
+  });
+
+  it('writes the cytokinesis mechanism as one discrete store value', () => {
+    const source = code('src/ui/controls/CytokinesisToggle.tsx');
+
+    expect(source).not.toContain('useState');
+    expect(source).toContain('setCytokinesis');
+    expect(source).toContain('CYTOKINESIS_DIFFERENCE_KEY');
   });
 });
 
@@ -119,5 +145,17 @@ describe('the process driver', () => {
     const source = readFileSync(PANEL, 'utf8');
 
     expect(source).not.toContain('getProcessDefinition');
+  });
+
+  it('applies a pending scrub to the running timeline, then publishes what it holds', () => {
+    const source = code('src/scene/ProcessStage.tsx');
+
+    expect(source).toContain('processTransport.consume()');
+    expect(source).toContain('timeline.seek(');
+    expect(source).toContain('timeline.progress(');
+    // The readout is the timeline's own playhead, not a copy the driver keeps.
+    expect(source).toContain('processTransport.publish(');
+    // And a request from a previous process is never applied to a new one.
+    expect(source).toContain('processTransport.reset()');
   });
 });

@@ -1,6 +1,11 @@
 import { CELL_IDS, type CellId } from '../catalog/types';
 import { getRecord } from '../catalog/cells';
 import {
+  mitosisLabelTime,
+  mitosisProgressTime,
+  type CytokinesisMechanism,
+} from '../processes/reproduction/stages';
+import {
   CELL_POSE,
   DISASSEMBLY_POSE,
   HERO_POSE,
@@ -42,6 +47,9 @@ import {
  * | `focus=<organelleId>` | frames one organelle, which is how the cristae read at all |
  * | `light=<0…100>` | pins the transient light state, so `light=0` is the honesty scenario |
  * | `t=<seconds>` | pins the clock; absent means the animation actually runs |
+ * | `label=<phase>` | pins a reproduction phase **by name** (M3), resolved to the timeline's own time |
+ * | `progress=<0…1>` | pins a fraction of the reproduction sequence (M3) — a frame *inside* a phase |
+ * | `cytokinesis=<animal\|plant>` | pins the reproduction phase toggle (M3), so the contrast is screenshottable |
  *
  * M1d-2 adds three URL controls used by the annotation and readout checks:
  *
@@ -89,6 +97,14 @@ export interface FixtureConfig {
   /** Seconds the clock is pinned at. Always 0 for the static fixtures. */
   frozenTime: number;
   freezeClock: boolean;
+  /**
+   * The process phase the fixture pinned by name, or null.
+   *
+   * A reproduction screenshot has to be a function of the URL *and* legible in the URL, so
+   * `&label=cytokinesis` is resolved to the timeline time the same table the timeline itself uses
+   * produced. The raw `&t=` control still exists for the nutrition measurements.
+   */
+  frozenLabel: string | null;
   /** False under a fixture so nothing floats between two runs. */
   showLabels: boolean;
   camera: CameraPose;
@@ -117,6 +133,8 @@ export interface FixtureConfig {
    * "respiration happens on the cristae" is only inspectable when the cristae fill the frame.
    */
   focusOrganelleId: string | null;
+  /** Which cytokinesis mechanism a reproduction fixture pins, or `auto` for the cell's own. */
+  cytokinesisMechanism: CytokinesisMechanism;
 }
 
 export interface ParseFixtureOptions {
@@ -199,6 +217,16 @@ function parseYaw(raw: string | null): number {
 /** `off` disables; anything else, or absence, leaves the surface on. */
 function parseToggle(raw: string | null): boolean {
   return raw !== 'off';
+}
+
+/**
+ * The cytokinesis mechanism a reproduction fixture pins.
+ *
+ * Only the two mechanisms are accepted: `auto` is the default and is also what an unparseable value
+ * degrades to, so a typo'd URL renders the cell's own mechanism rather than a half-pinned one.
+ */
+function parseCytokinesis(raw: string | null): CytokinesisMechanism {
+  return raw === 'animal' || raw === 'plant' ? raw : 'auto';
 }
 
 /**
@@ -288,14 +316,34 @@ export function parseFixture(search: string, options: ParseFixtureOptions = {}):
   const yaw = parseYaw(params.get('yaw'));
   // `tasks.md` writes the cell as `cell=`, `design.md` and the M1 fixtures write it as `view=`.
   const cellParam = params.get('view') ?? params.get('cell');
+  /*
+   * A process fixture pins its time by phase name when the URL names one, by a sequence fraction
+   * when it names one, and by raw seconds otherwise. `mitosisLabelTime` is the single conversion from
+   * the phase vocabulary to the timeline's own clock, so a labelled fixture and a scrubbed one cannot
+   * disagree about where a phase begins.
+   */
+  const labelParam = name === 'process' ? params.get('label') : null;
+  const labelledTime = labelParam === null ? null : mitosisLabelTime(labelParam);
+  const frozenLabel = labelledTime === null ? null : labelParam;
+  /*
+   * A fraction of the sequence, for a frame *inside* a phase: the label pins where a phase begins,
+   * and a mechanism is at its most legible later than that. `label` wins when both are present, so a
+   * URL that names a phase is unambiguous.
+   */
+  const progressParam = name === 'process' ? Number.parseFloat(params.get('progress') ?? '') : NaN;
+  const progressTime = Number.isFinite(progressParam) ? mitosisProgressTime(progressParam) : null;
 
   return {
     name,
     organelleId,
-    frozenTime: parseFrozenTime(params.get('t')),
+    frozenTime: labelledTime ?? progressTime ?? parseFrozenTime(params.get('t')),
+    frozenLabel,
     // A process fixture runs its clock unless the URL pins a time: the light-rate measurement needs
     // the animation actually advancing, while a screenshot needs it not to.
-    freezeClock: name === 'process' ? params.has('t') : name !== null,
+    freezeClock:
+      name === 'process'
+        ? labelledTime !== null || progressTime !== null || params.has('t')
+        : name !== null,
     showLabels: name === null,
     camera: cameraFor(name, organelleId, focusOrganelleId, yaw),
     cell: composed ? parseCell(cellParam) : null,
@@ -308,5 +356,6 @@ export function parseFixture(search: string, options: ParseFixtureOptions = {}):
     processId: name === 'process' ? params.get('id') ?? 'nutrition' : null,
     lightPercent: name === 'process' ? parseLight(params.get('light')) : null,
     focusOrganelleId,
+    cytokinesisMechanism: name === 'process' ? parseCytokinesis(params.get('cytokinesis')) : 'auto',
   };
 }

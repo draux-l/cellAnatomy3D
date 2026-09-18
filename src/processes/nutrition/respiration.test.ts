@@ -32,11 +32,11 @@ const RESPRATION_SOURCE = readFileSync(
 
 /** A frame with no fixture pinning the clock. */
 function runningFrame(delta: number, light: number, scale = 1): ProcessFrame {
-  return { elapsed: 0, scale, delta, light, frozen: null };
+  return { elapsed: 0, scale, delta, light, cytokinesis: 'auto', frozen: null };
 }
 
 function frozenFrame(time: number, light = 1): ProcessFrame {
-  return { elapsed: time, scale: 1, delta: 0, light, frozen: time };
+  return { elapsed: time, scale: 1, delta: 0, light, cytokinesis: 'auto', frozen: time };
 }
 
 function withRespiration(run: (instance: ProcessInstance) => void): void {

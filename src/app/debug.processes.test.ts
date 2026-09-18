@@ -28,6 +28,7 @@ function entry() {
     lightRequired: false,
     uniformWrites: 0,
     emitted: { atp: 12, oxygen: 0, glucose: 0 },
+    extra: {},
   };
 }
 

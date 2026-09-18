@@ -263,6 +263,63 @@ export const UI_MESSAGES = {
     en: 'Flow at the grana: glucose and oxygen are produced',
   },
   /*
+   * The reproduction process (M3).
+   *
+   * The phase names are the spec's own five, in the spec's order (prophase, metaphase, anaphase,
+   * telophase, cytokinesis), and the scrub bar's buttons are built from the same tuple the timeline
+   * inserts its labels from — so the copy cannot get out of step with the animation.
+   *
+   * The cytokinesis keys state the difference between the two mechanisms, because the spec requires
+   * the contrast to be taught inside the single-cell view rather than deferred to comparison mode.
+   * The wording is the spec's own biological fact, restated and nothing more: an animal cell pinches
+   * inward with a contractile ring that forms a cleavage furrow, a plant cell builds a cell plate
+   * outward from the centre and that plate becomes the new cell wall.
+   */
+  'process.reproduction.title': {
+    es: 'Mitosis',
+    en: 'Mitosis',
+  },
+  'process.reproduction.phase.prophase': {
+    es: 'Profase',
+    en: 'Prophase',
+  },
+  'process.reproduction.phase.metaphase': {
+    es: 'Metafase',
+    en: 'Metaphase',
+  },
+  'process.reproduction.phase.anaphase': {
+    es: 'Anafase',
+    en: 'Anaphase',
+  },
+  'process.reproduction.phase.telophase': {
+    es: 'Telofase',
+    en: 'Telophase',
+  },
+  'process.reproduction.phase.cytokinesis': {
+    es: 'Citocinesis',
+    en: 'Cytokinesis',
+  },
+  'process.reproduction.scrub.title': {
+    es: 'Avance de la mitosis',
+    en: 'Mitosis progress',
+  },
+  'process.reproduction.cytokinesis.title': {
+    es: 'Mecanismo de la citocinesis',
+    en: 'Cytokinesis mechanism',
+  },
+  'process.reproduction.cytokinesis.animal': {
+    es: 'Animal: anillo contráctil',
+    en: 'Animal: contractile ring',
+  },
+  'process.reproduction.cytokinesis.plant': {
+    es: 'Vegetal: placa celular',
+    en: 'Plant: cell plate',
+  },
+  'process.reproduction.cytokinesis.difference': {
+    es: 'En la célula animal, un anillo contráctil estrecha la membrana y forma un surco; en la vegetal, la placa celular se construye desde el centro hacia fuera y pasa a ser la nueva pared.',
+    en: 'In the animal cell a contractile ring pinches the membrane into a cleavage furrow; in the plant cell the cell plate is built outward from the centre and becomes the new wall.',
+  },
+  /*
    * The speed control's three ratified settings.
    *
    * `realtime` is the spec's "real time", not "fast": the control scales the process's clock, and

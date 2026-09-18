@@ -11,6 +11,9 @@ import {
   processInstanceStageKey,
   processInstanceTitleKey,
 } from './processModel';
+import { CytokinesisToggle } from './controls/CytokinesisToggle';
+import { ScrubBar } from './controls/ScrubBar';
+import { processRowsFor } from './controls/scrubModel';
 import { SpeedControl } from './controls/SpeedControl';
 
 /**
@@ -29,6 +32,10 @@ import { SpeedControl } from './controls/SpeedControl';
  * 4. **What the processes are doing** — a read-only projection of `__cellDebug.processes`, written by
  *    one interval at `PROCESS_READOUT_INTERVAL_MS` through `textContent` and `data-active`. No React
  *    state, no per-frame render: the same mechanism the FPS readout and the disassembly HUD use.
+ * 5. **The reproduction sequence's transport** — `ScrubBar` (scrub by progress, seek by phase label)
+ *    and `CytokinesisToggle` (which mechanism the single-cell view shows). Both write transient or
+ *    discrete state; neither re-renders anything per frame. They are mounted only for reproduction,
+ *    because a scrub bar under a continuous process would offer a control with nothing to move.
  *
  * **The zero-light statement is part of the requirement, not a nicety.** With the slider at zero the
  * light-dependent animation stops, and this panel says in the active language that light is
@@ -43,9 +50,6 @@ import { SpeedControl } from './controls/SpeedControl';
  * affect what is being read.
  */
 export const PROCESS_READOUT_INTERVAL_MS = 125;
-
-/** The sub-processes a row can show. Declared, so the panel's DOM never grows per frame. */
-export const PROCESS_ROWS = ['respiration', 'photosynthesis'] as const;
 
 interface RowTargets {
   root: HTMLElement;
@@ -171,7 +175,7 @@ export function ProcessPanel() {
       {processId === null ? null : (
         <>
           <div className="process-panel__rows">
-            {PROCESS_ROWS.map((id) => (
+            {processRowsFor(processId).map((id) => (
               <div
                 key={id}
                 className="process-panel__row"
@@ -198,6 +202,14 @@ export function ProcessPanel() {
           </div>
 
           <SpeedControl />
+
+          {/* The reproduction sequence's own controls: where in the sequence, and which mechanism. */}
+          {processId === 'reproduction' ? (
+            <>
+              <ScrubBar />
+              <CytokinesisToggle cell={cell} />
+            </>
+          ) : null}
 
           {lightControl ? (
             <div className="process-panel__light" data-light-control>

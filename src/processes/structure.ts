@@ -180,7 +180,7 @@ export function readInstancePlacements(object: Object3D): InstancePlacement[] {
  * `size` keeps an animation that fits inside it. Positions are transformed into the root's local
  * space first, for the same reason as the site sampling.
  */
-export function partsRadius(parts: readonly Object3D[], root: Object3D): number {
+export function partsBounds(parts: readonly Object3D[], root: Object3D): Box3 | null {
   const box = new Box3();
 
   for (const part of parts) {
@@ -211,9 +211,25 @@ export function partsRadius(parts: readonly Object3D[], root: Object3D): number 
     }
   }
 
-  if (box.isEmpty()) {
-    return 0;
-  }
+  return box.isEmpty() ? null : box;
+}
 
-  return box.getBoundingSphere(new Sphere()).radius;
+export function partsRadius(parts: readonly Object3D[], root: Object3D): number {
+  const box = partsBounds(parts, root);
+
+  return box === null ? 0 : box.getBoundingSphere(new Sphere()).radius;
+}
+
+/**
+ * The centre of the parts' combined bounds, in the root's local space.
+ *
+ * The reproduction sequence needs the **nucleus's** own centre rather than a catalog constant: the
+ * chromosomes condense inside the envelope it was actually built with, and the nucleus sits at a
+ * different place in the plant cell (pressed to the periphery by the vacuole). Reading it from the
+ * geometry is what keeps that placement a catalog fact instead of a second copy of the same number.
+ */
+export function partsCentre(parts: readonly Object3D[], root: Object3D): Vector3 {
+  const box = partsBounds(parts, root);
+
+  return box === null ? new Vector3() : box.getCenter(new Vector3());
 }
