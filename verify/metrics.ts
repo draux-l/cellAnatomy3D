@@ -192,6 +192,10 @@ interface RegionStats {
   sumR: number;
   sumG: number;
   sumB: number;
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
 }
 
 /**
@@ -220,7 +224,16 @@ function largestRegion(
     stack[top] = start;
     visited[start] = 1;
 
-    const region: RegionStats = { size: 0, sumR: 0, sumG: 0, sumB: 0 };
+    const region: RegionStats = {
+      size: 0,
+      sumR: 0,
+      sumG: 0,
+      sumB: 0,
+      minX: width,
+      minY: height,
+      maxX: -1,
+      maxY: -1,
+    };
 
     while (top >= 0) {
       const index = stack[top]!;
@@ -234,6 +247,10 @@ function largestRegion(
       region.sumR += color.r;
       region.sumG += color.g;
       region.sumB += color.b;
+      region.minX = Math.min(region.minX, x);
+      region.maxX = Math.max(region.maxX, x);
+      region.minY = Math.min(region.minY, y);
+      region.maxY = Math.max(region.maxY, y);
 
       // Neighbours: left, right, up, down.
       if (x > 0 && mask[index - 1] === 1 && visited[index - 1] === 0) {
@@ -448,6 +465,161 @@ export function nearestSubjectDistance(
   }
 
   return best;
+}
+
+/**
+ * The subject's bounding box, measured from the largest connected non-background region.
+ *
+ * Two reproduction assertions need it and neither can use the aggregate metrics: the cell's
+ * **equator** is a row through the middle of the subject, and the plate-versus-furrow contrast is a
+ * comparison of the same row between two frames. Taking the box from the largest region rather than
+ * from every non-background pixel is what keeps a stray antialiased speck from moving the "centre of
+ * the cell".
+ */
+export interface SubjectBounds {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+  widthPx: number;
+  heightPx: number;
+  areaPx: number;
+  centerX: number;
+  centerY: number;
+}
+
+export function measureSubjectBounds(
+  buffer: Buffer,
+  thresholds: MetricsThresholds = DEFAULT_THRESHOLDS,
+): SubjectBounds | null {
+  const png = readPng(buffer);
+  const { width, height, data } = png;
+  const background = sampleBackground(png);
+  const mask = new Uint8Array(width * height);
+  const pixel = (x: number, y: number): Rgb => {
+    const index = (y * width + x) * 4;
+
+    return { r: data[index] ?? 0, g: data[index + 1] ?? 0, b: data[index + 2] ?? 0 };
+  };
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      if (colorDistance(pixel(x, y), background) > thresholds.backgroundDistance) {
+        mask[y * width + x] = 1;
+      }
+    }
+  }
+
+  const region = largestRegion(mask, width, height, pixel);
+
+  if (region === null || region.size === 0) {
+    return null;
+  }
+
+  return {
+    minX: region.minX,
+    minY: region.minY,
+    maxX: region.maxX,
+    maxY: region.maxY,
+    widthPx: region.maxX - region.minX + 1,
+    heightPx: region.maxY - region.minY + 1,
+    areaPx: region.size,
+    centerX: (region.minX + region.maxX) / 2,
+    centerY: (region.minY + region.maxY) / 2,
+  };
+}
+
+/**
+ * One horizontal slice of the frame, measured inside a caller-chosen span.
+ *
+ * The span matters: the reproduction contrast is *"the cell is a filled band here"* versus *"the cell
+ * has pinched away from these x positions"*, and both statements are about the width the cell has at
+ * rest. Passing the resting frame's own span makes the comparison self-calibrating — no scene unit is
+ * ever converted to pixels by a constant, which is what would make one projection's numbers wrong.
+ */
+export interface RowBandMetrics {
+  rowY: number;
+  /** Pixels sampled, i.e. the span's width. */
+  spanPx: number;
+  /** Sampled pixels that are not background. */
+  filledPx: number;
+  /** `filledPx / spanPx`. */
+  filledFraction: number;
+  /** Leftmost and rightmost non-background pixel inside the span, or null when the row is empty. */
+  left: number | null;
+  right: number | null;
+  /** `right - left + 1`, or 0 when the row is empty. */
+  widthPx: number;
+  /** Mean colour of the filled pixels — the plate's own colour shows up here. */
+  meanColor: Rgb;
+}
+
+export interface RowBandOptions {
+  rowY: number;
+  fromX: number;
+  toX: number;
+  thresholds?: MetricsThresholds;
+}
+
+export function measureRowBand(buffer: Buffer, options: RowBandOptions): RowBandMetrics {
+  const thresholds = options.thresholds ?? DEFAULT_THRESHOLDS;
+  const png = readPng(buffer);
+  const background = sampleBackground(png);
+  const rowY = Math.min(png.height - 1, Math.max(0, Math.round(options.rowY)));
+  const fromX = Math.min(png.width - 1, Math.max(0, Math.round(Math.min(options.fromX, options.toX))));
+  const toX = Math.min(png.width - 1, Math.max(0, Math.round(Math.max(options.fromX, options.toX))));
+  let filledPx = 0;
+  let left: number | null = null;
+  let right: number | null = null;
+  let sumR = 0;
+  let sumG = 0;
+  let sumB = 0;
+
+  for (let x = fromX; x <= toX; x += 1) {
+    const index = (rowY * png.width + x) * 4;
+    const color: Rgb = {
+      r: png.data[index] ?? 0,
+      g: png.data[index + 1] ?? 0,
+      b: png.data[index + 2] ?? 0,
+    };
+
+    if (colorDistance(color, background) <= thresholds.backgroundDistance) {
+      continue;
+    }
+
+    filledPx += 1;
+    sumR += color.r;
+    sumG += color.g;
+    sumB += color.b;
+    left = left === null ? x : Math.min(left, x);
+    right = right === null ? x : Math.max(right, x);
+  }
+
+  const spanPx = toX - fromX + 1;
+
+  return {
+    rowY,
+    spanPx,
+    filledPx,
+    filledFraction: spanPx === 0 ? 0 : filledPx / spanPx,
+    left,
+    right,
+    widthPx: left === null || right === null ? 0 : right - left + 1,
+    meanColor:
+      filledPx === 0
+        ? background
+        : { r: sumR / filledPx, g: sumG / filledPx, b: sumB / filledPx },
+  };
+}
+
+/**
+ * How much narrower a frame is than the resting one at the same row, as a percentage.
+ *
+ * Positive means the frame is narrower — the animal cell's cleavage furrow. A resting width of zero
+ * (an empty row) reports zero rather than infinity: there is no measurement to make.
+ */
+export function narrowingPct(restingWidthPx: number, measuredWidthPx: number): number {
+  return restingWidthPx === 0 ? 0 : ((restingWidthPx - measuredWidthPx) / restingWidthPx) * 100;
 }
 
 export function assertCoverage(metrics: ScreenshotMetrics, thresholds = DEFAULT_THRESHOLDS): void {

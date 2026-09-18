@@ -103,6 +103,14 @@ export interface ProcessSnapshot {
   progress: number | null;
   lightRequired: boolean;
   uniformWrites: number;
+  /**
+   * Process-specific scalar readouts (M3).
+   *
+   * Reproduction publishes the chromosome groups and the two cytokinesis mechanisms here, so a spec
+   * can assert "no sisters separate before metaphase", "two condensed groups after" and "the two
+   * mechanisms are different" against what the frame drew rather than against a screenshot.
+   */
+  extra: Record<string, number>;
   emitted: { atp: number; oxygen: number; glucose: number };
 }
 
@@ -121,6 +129,7 @@ export async function readProcesses(page: Page): Promise<ProcessSnapshot[]> {
     progress: entry.progress,
     lightRequired: entry.lightRequired,
     uniformWrites: entry.uniformWrites,
+    extra: { ...entry.extra },
     emitted: { ...entry.emitted },
   })));
 }

@@ -228,6 +228,69 @@
       "measuredAt": "2026-09-18",
       "measuredWith": "playwright chromium 153 / three 0.186.0",
       "notes": "Zero light, the same frozen time as the photosynthesis close-up: the flow is absent, which is what \"the light-dependent animation stops\" looks like."
+    },
+    "process:reproduction-prophase": {
+      "screenshot": "artifacts/screens/process/reproduction-prophase.png",
+      "coverage": 0.28102,
+      "occupiedAreaPx": 281727,
+      "regionColor": "#2b394b",
+      "measuredAt": "2026-09-18",
+      "measuredWith": "playwright chromium 153 / three 0.186.0",
+      "notes": "Prophase, animal cell, seen from the azimuth where the nucleus is in front. The chromatids are condensed bodies inside the nuclear envelope, and nothing has separated."
+    },
+    "process:reproduction-metaphase": {
+      "screenshot": "artifacts/screens/process/reproduction-metaphase.png",
+      "coverage": 0.28102,
+      "occupiedAreaPx": 281727,
+      "regionColor": "#293847",
+      "measuredAt": "2026-09-18",
+      "measuredWith": "playwright chromium 153 / three 0.186.0",
+      "notes": "Metaphase, same azimuth. Every chromosome lies on the cell's equator plane, in a row across the plate; the sisters are still paired."
+    },
+    "process:reproduction-anaphase": {
+      "screenshot": "artifacts/screens/process/reproduction-anaphase.png",
+      "coverage": 0.28102,
+      "occupiedAreaPx": 281727,
+      "regionColor": "#2b3948",
+      "measuredAt": "2026-09-18",
+      "measuredWith": "playwright chromium 153 / three 0.186.0",
+      "notes": "Anaphase. The sister chromatids have parted and the two groups are travelling to opposite poles."
+    },
+    "process:reproduction-telophase": {
+      "screenshot": "artifacts/screens/process/reproduction-telophase.png",
+      "coverage": 0.281029,
+      "occupiedAreaPx": 281737,
+      "regionColor": "#2c3a4b",
+      "measuredAt": "2026-09-18",
+      "measuredWith": "playwright chromium 153 / three 0.186.0",
+      "notes": "Telophase. Two condensed groups, each inside its own newly formed nuclear envelope — the two nuclei."
+    },
+    "process:reproduction-cytokinesis-animal": {
+      "screenshot": "artifacts/screens/process/reproduction-cytokinesis-animal.png",
+      "coverage": 0.253184,
+      "occupiedAreaPx": 252987,
+      "regionColor": "#40494e",
+      "measuredAt": "2026-09-18",
+      "measuredWith": "playwright chromium 153 / three 0.186.0",
+      "notes": "Animal cytokinesis. The membrane and the cytosol are pinched at the equator by the contractile ring; there is no plate."
+    },
+    "process:reproduction-cytokinesis-plant": {
+      "screenshot": "artifacts/screens/process/reproduction-cytokinesis-plant.png",
+      "coverage": 0.621532,
+      "occupiedAreaPx": 634772,
+      "regionColor": "#545b52",
+      "measuredAt": "2026-09-18",
+      "measuredWith": "playwright chromium 153 / three 0.186.0",
+      "notes": "Plant cytokinesis. An opaque cell plate has grown from the centre outward and meets the wall; the boundary is untouched."
+    },
+    "process:reproduction-toggle-plate-animal": {
+      "screenshot": "artifacts/screens/process/reproduction-toggle-plate-animal.png",
+      "coverage": 0.285103,
+      "occupiedAreaPx": 285654,
+      "regionColor": "#586a6a",
+      "measuredAt": "2026-09-18",
+      "measuredWith": "playwright chromium 153 / three 0.186.0",
+      "notes": "The phase toggle: the plant mechanism shown inside the animal cell. The plate is built here too, so the contrast is taught inside one view."
     }
   },
   "annotationMatrix": [
