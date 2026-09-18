@@ -5,6 +5,7 @@ import { FallbackView } from './ui/FallbackView';
 import { useT } from './ui/i18n';
 import { LanguageSelector } from './ui/i18n/LanguageSelector';
 import { Nav } from './ui/Nav';
+import { ProcessPanel } from './ui/ProcessPanel';
 import { SpecSheet } from './ui/SpecSheet';
 
 /**
@@ -79,6 +80,7 @@ export function App() {
         <Suspense fallback={<p className="app__note">{t('app.loading3d')}</p>}>
           <CellViewer fixture={fixture} />
         </Suspense>
+        <ProcessPanel />
         <SpecSheet />
       </div>
     </main>

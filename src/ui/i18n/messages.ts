@@ -206,6 +206,98 @@ export const UI_MESSAGES = {
     es: 'Fichas de los orgánulos',
     en: 'Organelle sheets',
   },
+  /*
+   * The nutrition process (M2).
+   *
+   * Everything under `process.` is one of the three vital processes the spec's vocabulary has.
+   * Movement and reproduction are *declared and disabled* — the same honesty pattern as comparison
+   * mode above — so a user sees the product's real scope rather than only the part that is built.
+   *
+   * The stage copy is deliberately a restatement of the spec's own biological sentences and nothing
+   * more: respiration releases energy from glucose in the mitochondrion, and the cristae are where
+   * the reactions producing most of the ATP happen; photosynthesis uses light on the grana. The app
+   * does not have a source for the steps between those clauses, so it does not draw any.
+   */
+  'process.title': {
+    es: 'Procesos',
+    en: 'Processes',
+  },
+  'process.exit': {
+    es: 'Salir del proceso',
+    en: 'Exit the process',
+  },
+  'process.pending': {
+    es: 'Se añade en una etapa posterior',
+    en: 'Added in a later stage',
+  },
+  'process.nutrition.name': {
+    es: 'Nutrición',
+    en: 'Nutrition',
+  },
+  'process.movement.name': {
+    es: 'Movimiento',
+    en: 'Movement',
+  },
+  'process.reproduction.name': {
+    es: 'Reproducción',
+    en: 'Reproduction',
+  },
+  'process.nutrition.respiration.title': {
+    es: 'Respiración',
+    en: 'Respiration',
+  },
+  'process.nutrition.photosynthesis.title': {
+    es: 'Fotosíntesis',
+    en: 'Photosynthesis',
+  },
+  'process.nutrition.respiration.stage.reactions': {
+    es: 'Reacciones en las crestas',
+    en: 'Reactions in the cristae',
+  },
+  'process.nutrition.respiration.stage.atp': {
+    es: 'Se libera ATP',
+    en: 'ATP is released',
+  },
+  'process.nutrition.photosynthesis.stage': {
+    es: 'Flujo en los grana: se produce glucosa y oxígeno',
+    en: 'Flow at the grana: glucose and oxygen are produced',
+  },
+  /*
+   * The speed control's three ratified settings.
+   *
+   * `realtime` is the spec's "real time", not "fast": the control scales the process's clock, and
+   * calling 1× "fast" would imply a base rate the app does not claim.
+   */
+  'process.speed.title': {
+    es: 'Velocidad',
+    en: 'Speed',
+  },
+  'process.speed.pause': {
+    es: 'Pausa',
+    en: 'Pause',
+  },
+  'process.speed.slow': {
+    es: 'Lento',
+    en: 'Slow',
+  },
+  'process.speed.realtime': {
+    es: 'Tiempo real',
+    en: 'Real time',
+  },
+  'process.light.title': {
+    es: 'Intensidad de luz',
+    en: 'Light intensity',
+  },
+  /*
+   * The zero-light statement (spec: `Zero light is honest`).
+   *
+   * It has to say *why* the animation stopped, not merely that it did: a viewer who sees the flow
+   * halt with no explanation learns the wrong thing about what photosynthesis needs.
+   */
+  'process.light.required': {
+    es: 'Sin luz no hay fotosíntesis: la luz es necesaria.',
+    en: 'Without light there is no photosynthesis: light is required.',
+  },
 } as const satisfies Record<string, Localized>;
 
 /** Every UI key the app can ask for. `t()` refuses anything else at compile time. */
