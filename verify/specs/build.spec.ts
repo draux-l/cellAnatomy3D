@@ -16,7 +16,7 @@ test('contacts no origin other than its own', async ({ page }) => {
 
   page.on('request', (request) => requested.push(request.url()));
 
-  await page.goto(fixtureUrl('organelle', { id: 'mitochondrion' }), { waitUntil: 'load' });
+  await page.goto(fixtureUrl('cell', { view: 'animal' }), { waitUntil: 'load' });
   await page.waitForSelector('canvas', { state: 'attached' });
 
   const external = requested.filter((url) => {
@@ -37,7 +37,7 @@ test('starts up with no page errors and no failed requests', async ({ page }) =>
 
   page.on('requestfailed', (request) => failed.push(`${request.url()} ${request.failure()?.errorText ?? ''}`));
 
-  await page.goto(fixtureUrl('organelle', { id: 'mitochondrion' }), { waitUntil: 'load' });
+  await page.goto(fixtureUrl('cell', { view: 'animal' }), { waitUntil: 'load' });
   await page.waitForSelector('canvas', { state: 'attached' });
 
   expect(problems.messages).toEqual([]);

@@ -79,36 +79,17 @@ describe('auditEntries', () => {
     expect(audit.ok).toBe(true);
     expect(audit.failures).toEqual([]);
     expect(audit.totals.shellGzipBytes).toBe(60_000);
-    // The initial payload is entry + 3D chunk + the largest model (only one model loads first).
+    // The initial payload is the entry graph plus the 3D chunk.
     expect(audit.totals.initialGzipBytes).toBe(60_800 + 264_700);
     expect(audit.totals.lazyGzipBytes).toBe(264_700);
     expect(audit.totals.threeChunkFiles).toEqual(['assets/CellViewer-abc123.js']);
-    expect(audit.totals.modelRows).toEqual([]);
-  });
-
-  it('reports each shipped cell model as its own row', () => {
-    const audit = auditEntries([
-      entry({ file: 'assets/index.js', gzipBytes: 60_000 }),
-      threeChunk(),
-      entry({ file: 'models/animal-cell.glb', role: ROLES.lazy, rawBytes: 2_187_596, gzipBytes: 2_100_000 }),
-      entry({ file: 'models/plant-cell.glb', role: ROLES.lazy, rawBytes: 2_616_236, gzipBytes: 2_500_000 }),
-    ]);
-
-    expect(audit.ok).toBe(true);
-    expect(audit.totals.modelRows.map((row: { file: string }) => row.file)).toEqual([
-      'models/animal-cell.glb',
-      'models/plant-cell.glb',
-    ]);
-    // Only the larger model counts toward the initial payload.
-    expect(audit.totals.initialGzipBytes).toBe(60_000 + 264_700 + 2_500_000);
-    expect(audit.totals.totalStaticAssetsBytes).toBeGreaterThan(4_800_000);
   });
 
   it('fails when total static assets exceed the 6.5 MB ceiling', () => {
     const audit = auditEntries([
       entry({ file: 'assets/index.js', gzipBytes: 60_000 }),
       threeChunk(),
-      entry({ file: 'models/animal-cell.glb', role: ROLES.lazy, rawBytes: 7_000_000, gzipBytes: 7_000_000 }),
+      entry({ file: 'assets/oversized.bin', role: ROLES.lazy, rawBytes: 7_000_000, gzipBytes: 7_000_000 }),
     ]);
 
     expect(audit.ok).toBe(false);
@@ -232,7 +213,7 @@ describe('auditEntries', () => {
     expect(BUDGETS.maxFileBytes).toBe(25 * 1024 * 1024);
     expect(BUDGETS.shellGzipBytes).toBe(350 * 1024);
     expect(BUDGETS.postSplitShellGzipBytes).toBe(150 * 1024);
-    // Re-ratified for the mesh path (task 11.8): ≤6 MB initial, ≤6.5 MB total static assets.
+    // The ceiling a future cell model and the bundle have to fit under.
     expect(BUDGETS.initialGzipBytes).toBe(6 * 1024 * 1024);
     expect(BUDGETS.totalStaticAssetsBytes).toBe(6.5 * 1024 * 1024);
   });

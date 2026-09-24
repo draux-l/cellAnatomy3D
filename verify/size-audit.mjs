@@ -29,15 +29,14 @@ export const BUDGETS = {
    */
   postSplitShellGzipBytes: 150 * 1024,
   /**
-   * Everything loaded before the first 3D render, gzipped: the entry graph, the lazy 3D chunk, and
-   * **one** cell's model (only the selected cell loads first — design D25).
+   * Everything loaded before the first 3D render, gzipped: the entry graph and the lazy 3D chunk.
    *
-   * Re-ratified from ≤2.5 MB to **≤6 MB** when the mesh path ships two GLB models (task 11.8,
-   * spec `build-verify · Payload Budget`). This budget ends the app's zero-download character, and
-   * the spec states that plainly rather than presenting the app as zero-download.
+   * The former ≤6 MB allowance covered one cell's model (design D25); the catalog is empty while the
+   * cell models are reset, so the initial payload is the shell and the 3D chunk alone. The budget is
+   * kept as the ceiling a model will have to fit under when one ships.
    */
   initialGzipBytes: 6 * 1024 * 1024,
-  /** Every static asset the build emits, uncompressed. Both models, both chunks, all of it. */
+  /** Every static asset the build emits, uncompressed: both chunks, the images, all of it. */
   totalStaticAssetsBytes: 6.5 * 1024 * 1024,
 };
 
@@ -151,11 +150,6 @@ export function collectDistEntries(distDirectory) {
   });
 }
 
-/** A committed cell model, as it lands in `dist/`. Reported separately from the JS chunks. */
-export function isCellModel(entry) {
-  return entry.file.startsWith('models/') && entry.file.endsWith('.glb');
-}
-
 export function auditEntries(entries, budgets = BUDGETS) {
   const failures = [];
   const initialRoles = [ROLES.entryJs, ROLES.entryCss, ROLES.html];
@@ -171,18 +165,12 @@ export function auditEntries(entries, budgets = BUDGETS) {
   );
 
   // The lazy chunk that carries three.js is fetched before the first 3D render, so it counts toward
-  // the initial payload. Only the largest model does: a cold load opens one cell, not both.
+  // the initial payload.
   const threeChunk = entries.filter(
     (entry) => entry.role === ROLES.lazy && entry.file.endsWith('.js') && entry.has3dModule,
   );
   const threeChunkGzipBytes = threeChunk.reduce((total, entry) => total + entry.gzipBytes, 0);
-  const models = entries.filter(isCellModel);
-  const largestModel = models.reduce(
-    (biggest, entry) => (biggest === null || entry.rawBytes > biggest.rawBytes ? entry : biggest),
-    null,
-  );
-  const initialGzipBytes =
-    sumGzip(initialRoles) + threeChunkGzipBytes + (largestModel ? largestModel.gzipBytes : 0);
+  const initialGzipBytes = sumGzip(initialRoles) + threeChunkGzipBytes;
   const totalStaticAssetsBytes = entries.reduce((total, entry) => total + entry.rawBytes, 0);
 
   for (const entry of entries) {
@@ -201,7 +189,7 @@ export function auditEntries(entries, budgets = BUDGETS) {
 
   if (initialGzipBytes > budgets.initialGzipBytes) {
     failures.push(
-      `initial payload is ${formatBytes(initialGzipBytes)} gzipped (entry + 3D chunk + one model), over the ${formatBytes(budgets.initialGzipBytes)} budget`,
+      `initial payload is ${formatBytes(initialGzipBytes)} gzipped (entry + 3D chunk), over the ${formatBytes(budgets.initialGzipBytes)} budget`,
     );
   }
 
@@ -247,16 +235,6 @@ export function auditEntries(entries, budgets = BUDGETS) {
       lazyGzipBytes,
       threeChunkGzipBytes,
       threeChunkFiles: lazyWith3d.map((entry) => entry.file),
-      /**
-       * The per-cell model rows (task 11.8, spec `Payload Budget`). An absent model is **not** a
-       * failure: the audit is green with the models still unshipped, and the row says so rather
-       * than reporting a phantom zero.
-       */
-      modelRows: models.map((entry) => ({
-        file: entry.file,
-        rawBytes: entry.rawBytes,
-        gzipBytes: entry.gzipBytes,
-      })),
       largestFile: largest ? { file: largest.file, rawBytes: largest.rawBytes } : null,
       fileCount: entries.length,
       entryCount: entries.filter((entry) => initialRoles.includes(entry.role)).length,
@@ -302,18 +280,8 @@ function main() {
     `  3D chunk (gz)            ${formatBytes(audit.totals.threeChunkGzipBytes)} — ${audit.totals.threeChunkFiles.length > 0 ? `lazy: ${audit.totals.threeChunkFiles.join(', ')}` : 'NOT IN A LAZY CHUNK'}`,
   );
 
-  if (audit.totals.modelRows.length === 0) {
-    console.log('  cell models              absent (not a failure — the assets may not have shipped yet)');
-  } else {
-    for (const row of audit.totals.modelRows) {
-      console.log(
-        `  cell model               ${row.file.padEnd(34)} ${formatBytes(row.rawBytes).padStart(10)} raw ${formatBytes(row.gzipBytes).padStart(10)} gz`,
-      );
-    }
-  }
-
   console.log(
-    `  initial payload (gz)     ${formatBytes(audit.totals.initialGzipBytes)} / ${formatBytes(BUDGETS.initialGzipBytes)} budget (entry + 3D chunk + one model)`,
+    `  initial payload (gz)     ${formatBytes(audit.totals.initialGzipBytes)} / ${formatBytes(BUDGETS.initialGzipBytes)} budget (entry + 3D chunk)`,
   );
   console.log(
     `  total static assets      ${formatBytes(audit.totals.totalStaticAssetsBytes)} / ${formatBytes(BUDGETS.totalStaticAssetsBytes)} budget`,

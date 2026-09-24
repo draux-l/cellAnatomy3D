@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "3D Cell Anatomy Explorer (Animal vs. Plant) - educational static web app built with procedural Three.js geometry.",
+  "description": "3D Cell Anatomy Explorer (Animal vs. Plant) - educational static web app. Cell models are being rebuilt; this base ships the shell, the inspection mechanisms and the verification harness.",
   "engines": {
     "node": ">=20"
   },
@@ -16,9 +16,8 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "audit:sizes": "node verify/size-audit.mjs",
-    "audit:models": "node verify/model-audit.mjs",
     "perf": "node verify/perf-report.mjs",
-    "verify": "npm run build && npm run audit:models && npm run audit:sizes && npm test && npm run test:e2e"
+    "verify": "npm run build && npm run audit:sizes && npm test && npm run test:e2e"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.8",
