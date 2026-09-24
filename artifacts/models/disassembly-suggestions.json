@@ -1,0 +1,265 @@
+{
+  "generatedBy": "verify/model-audit.mjs",
+  "generatedAt": "2026-09-24T06:09:21.810Z",
+  "cells": {
+    "animal": {
+      "nucleus": {
+        "meshCount": 7,
+        "center": [
+          -38.424,
+          60.695,
+          -46.381
+        ],
+        "radius": 153.692,
+        "suggestedDistance": 230.538,
+        "suggestedDirection": [
+          -0.4494,
+          0.7098,
+          -0.5424
+        ]
+      },
+      "membrane": {
+        "meshCount": 1,
+        "center": [
+          -24.648,
+          -68.361,
+          30.208
+        ],
+        "radius": 380.176,
+        "suggestedDistance": 570.263,
+        "suggestedDirection": [
+          -0.3132,
+          -0.8687,
+          0.3839
+        ]
+      },
+      "golgi": {
+        "meshCount": 1,
+        "center": [
+          117.304,
+          -70.061,
+          161.869
+        ],
+        "radius": 133.844,
+        "suggestedDistance": 200.765,
+        "suggestedDirection": [
+          0.5538,
+          -0.3307,
+          0.7642
+        ]
+      },
+      "mitochondrion": {
+        "meshCount": 2,
+        "center": [
+          -89.775,
+          9.747,
+          162.04
+        ],
+        "radius": 282.267,
+        "suggestedDistance": 423.401,
+        "suggestedDirection": [
+          -0.484,
+          0.0525,
+          0.8735
+        ]
+      },
+      "endoplasmic-reticulum": {
+        "meshCount": 1,
+        "center": [
+          -40.432,
+          22.203,
+          -44.796
+        ],
+        "radius": 230.201,
+        "suggestedDistance": 345.301,
+        "suggestedDirection": [
+          -0.6288,
+          0.3453,
+          -0.6967
+        ]
+      },
+      "ribosome": {
+        "meshCount": 3,
+        "center": [
+          -41.677,
+          24.543,
+          -46.85
+        ],
+        "radius": 235.154,
+        "suggestedDistance": 352.731,
+        "suggestedDirection": [
+          -0.6189,
+          0.3645,
+          -0.6958
+        ]
+      },
+      "cytoplasm": {
+        "meshCount": 1,
+        "center": [
+          -21.369,
+          3.001,
+          36.714
+        ],
+        "radius": 282.368,
+        "suggestedDistance": 423.552,
+        "suggestedDirection": [
+          -0.5018,
+          0.0705,
+          0.8621
+        ]
+      }
+    },
+    "plant": {
+      "cytoplasm": {
+        "meshCount": 1,
+        "center": [
+          0,
+          11.846,
+          14.627
+        ],
+        "radius": 100.079,
+        "suggestedDistance": 150.118,
+        "suggestedDirection": [
+          0,
+          0.6294,
+          0.7771
+        ]
+      },
+      "chloroplast": {
+        "meshCount": 2,
+        "center": [
+          4.45,
+          28.833,
+          -29.914
+        ],
+        "radius": 100.592,
+        "suggestedDistance": 150.888,
+        "suggestedDirection": [
+          0.1065,
+          0.69,
+          -0.7159
+        ]
+      },
+      "nucleus": {
+        "meshCount": 1,
+        "center": [
+          -24.173,
+          -0.923,
+          -23.941
+        ],
+        "radius": 104.47,
+        "suggestedDistance": 156.706,
+        "suggestedDirection": [
+          -0.7103,
+          -0.0271,
+          -0.7034
+        ]
+      },
+      "ribosome": {
+        "meshCount": 1,
+        "center": [
+          10.147,
+          -9.497,
+          39.509
+        ],
+        "radius": 13.455,
+        "suggestedDistance": 20.183,
+        "suggestedDirection": [
+          0.2423,
+          -0.2268,
+          0.9433
+        ]
+      },
+      "endoplasmic-reticulum": {
+        "meshCount": 2,
+        "center": [
+          -17.25,
+          -23.382,
+          15.738
+        ],
+        "radius": 81.338,
+        "suggestedDistance": 122.007,
+        "suggestedDirection": [
+          -0.522,
+          -0.7076,
+          0.4763
+        ]
+      },
+      "golgi": {
+        "meshCount": 1,
+        "center": [
+          -36.475,
+          29.055,
+          -40.257
+        ],
+        "radius": 80.617,
+        "suggestedDistance": 120.925,
+        "suggestedDirection": [
+          -0.5921,
+          0.4716,
+          -0.6535
+        ]
+      },
+      "lysosome": {
+        "meshCount": 1,
+        "center": [
+          26.762,
+          -9.82,
+          37.137
+        ],
+        "radius": 74.146,
+        "suggestedDistance": 111.219,
+        "suggestedDirection": [
+          0.5716,
+          -0.2097,
+          0.7932
+        ]
+      },
+      "vacuole": {
+        "meshCount": 1,
+        "center": [
+          18.425,
+          -1.942,
+          -5.649
+        ],
+        "radius": 66.953,
+        "suggestedDistance": 100.429,
+        "suggestedDirection": [
+          0.9513,
+          -0.1003,
+          -0.2917
+        ]
+      },
+      "cell-wall": {
+        "meshCount": 1,
+        "center": [
+          0,
+          0.524,
+          -0.086
+        ],
+        "radius": 135.843,
+        "suggestedDistance": 203.764,
+        "suggestedDirection": [
+          0,
+          0.9869,
+          -0.1616
+        ]
+      },
+      "mitochondrion": {
+        "meshCount": 1,
+        "center": [
+          -1.586,
+          -10.638,
+          31.582
+        ],
+        "radius": 62.023,
+        "suggestedDistance": 93.035,
+        "suggestedDirection": [
+          -0.0475,
+          -0.3189,
+          0.9466
+        ]
+      }
+    }
+  }
+}
