@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { PROCESS_IDS, isProcessId } from '../../processes/ids';
 import { UI_MESSAGES } from '../i18n/messages';
 import { disassemblyStateKey, formatDisassemblyPercent } from './disassemblyCopy';
 
@@ -7,9 +6,8 @@ import { disassemblyStateKey, formatDisassemblyPercent } from './disassemblyCopy
  * The disassembly control's copy (tasks 4.11, spec: `Disassembly Is A View Control, Not A Biological
  * Claim`).
  *
- * The requirement is a negative one — disassembly must not read as a fourth vital process — and a
- * negative is only checkable if the three that exist are declared. That is what `PROCESS_IDS` is
- * for, and it is asserted here rather than at M2 when the selector is built.
+ * The requirement is a negative one — disassembly must not read as a biological process — and a
+ * negative is only checkable against the copy that exists.
  */
 
 describe('disassemblyStateKey', () => {
@@ -41,17 +39,7 @@ describe('formatDisassemblyPercent', () => {
   });
 });
 
-describe('the process vocabulary', () => {
-  it('declares exactly the three vital processes', () => {
-    expect(PROCESS_IDS).toEqual(['nutrition', 'movement', 'reproduction']);
-  });
-
-  it('does not include disassembly, and says so loudly', () => {
-    expect(PROCESS_IDS as readonly string[]).not.toContain('disassembly');
-    expect(isProcessId('disassembly')).toBe(false);
-    expect(isProcessId('nutrition')).toBe(true);
-  });
-
+describe('the disassembly copy', () => {
   it('keeps the disassembly copy out of the process namespace', () => {
     // The keys are `view.disassembly.*`, not `process.disassembly.*`: a future process selector
     // that lists `process.*` keys cannot accidentally list this control.

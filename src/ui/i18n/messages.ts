@@ -20,8 +20,8 @@ export const UI_MESSAGES = {
     en: '3D Cell Anatomy Explorer',
   },
   'app.subtitle': {
-    es: 'Célula animal y célula vegetal, modeladas de forma procedural en el navegador.',
-    en: 'Animal cell and plant cell, modelled procedurally in the browser.',
+    es: 'Célula animal y célula vegetal, modeladas en 3D en el navegador.',
+    en: 'Animal cell and plant cell, modelled in 3D in the browser.',
   },
   'app.language': {
     es: 'Idioma',
@@ -86,8 +86,8 @@ export const UI_MESSAGES = {
    *
    * The three views are the proposal's own vocabulary. `comparison` is declared **unavailable**
    * rather than absent: the comparison stage is milestone M6, so a control that switched to it
-   * would render the animal cell under a comparison label. Same honesty pattern as the animal
-   * movement process (design D11): the entry exists, says what it is, and fabricates nothing.
+   * would render the animal cell under a comparison label. The entry exists, says what it is, and
+   * fabricates nothing.
    */
   'nav.view.title': {
     es: 'Vista',
@@ -169,10 +169,10 @@ export const UI_MESSAGES = {
     en: 'Unavailable without WebGL',
   },
   /*
-   * The three model-inspection aids (task 4.22). They are the surfaces the adopted UI reference
-   * makes central — bilingual annotations on the parts, the exploded view, and isolate — and every
-   * one of them is a consequence of having a renderer. Saying so is what keeps the fallback honest:
-   * the static images still carry their labels, but nothing on the page pretends to be interactive.
+   * The model-inspection aids. They are the surfaces the adopted UI reference makes central —
+   * bilingual annotations on the parts, the exploded view, and isolate — and every one of them is a
+   * consequence of having a renderer. Saying so is what keeps the fallback honest: the static images
+   * still carry their labels, but nothing on the page pretends to be interactive.
    */
   'fallback.unavailable.annotations': {
     es: 'Las anotaciones sobre el modelo en 3D (las imágenes estáticas ya llevan sus etiquetas).',
@@ -194,10 +194,6 @@ export const UI_MESSAGES = {
     es: 'Aislar un orgánulo en el modelo para verlo por separado.',
     en: 'Isolating an organelle in the model to see it on its own.',
   },
-  'fallback.unavailable.processes': {
-    es: 'Los procesos: nutrición, movimiento y reproducción.',
-    en: 'The processes: nutrition, movement and reproduction.',
-  },
   'fallback.unavailable.quiz': {
     es: 'El cuestionario, porque hay que señalar orgánulos en el modelo.',
     en: 'The quiz, because it needs organelle pointing on the model.',
@@ -205,155 +201,6 @@ export const UI_MESSAGES = {
   'fallback.sheets.title': {
     es: 'Fichas de los orgánulos',
     en: 'Organelle sheets',
-  },
-  /*
-   * The nutrition process (M2).
-   *
-   * Everything under `process.` is one of the three vital processes the spec's vocabulary has.
-   * Movement and reproduction are *declared and disabled* — the same honesty pattern as comparison
-   * mode above — so a user sees the product's real scope rather than only the part that is built.
-   *
-   * The stage copy is deliberately a restatement of the spec's own biological sentences and nothing
-   * more: respiration releases energy from glucose in the mitochondrion, and the cristae are where
-   * the reactions producing most of the ATP happen; photosynthesis uses light on the grana. The app
-   * does not have a source for the steps between those clauses, so it does not draw any.
-   */
-  'process.title': {
-    es: 'Procesos',
-    en: 'Processes',
-  },
-  'process.exit': {
-    es: 'Salir del proceso',
-    en: 'Exit the process',
-  },
-  'process.pending': {
-    es: 'Se añade en una etapa posterior',
-    en: 'Added in a later stage',
-  },
-  'process.nutrition.name': {
-    es: 'Nutrición',
-    en: 'Nutrition',
-  },
-  'process.movement.name': {
-    es: 'Movimiento',
-    en: 'Movement',
-  },
-  'process.reproduction.name': {
-    es: 'Reproducción',
-    en: 'Reproduction',
-  },
-  'process.nutrition.respiration.title': {
-    es: 'Respiración',
-    en: 'Respiration',
-  },
-  'process.nutrition.photosynthesis.title': {
-    es: 'Fotosíntesis',
-    en: 'Photosynthesis',
-  },
-  'process.nutrition.respiration.stage.reactions': {
-    es: 'Reacciones en las crestas',
-    en: 'Reactions in the cristae',
-  },
-  'process.nutrition.respiration.stage.atp': {
-    es: 'Se libera ATP',
-    en: 'ATP is released',
-  },
-  'process.nutrition.photosynthesis.stage': {
-    es: 'Flujo en los grana: se produce glucosa y oxígeno',
-    en: 'Flow at the grana: glucose and oxygen are produced',
-  },
-  /*
-   * The reproduction process (M3).
-   *
-   * The phase names are the spec's own five, in the spec's order (prophase, metaphase, anaphase,
-   * telophase, cytokinesis), and the scrub bar's buttons are built from the same tuple the timeline
-   * inserts its labels from — so the copy cannot get out of step with the animation.
-   *
-   * The cytokinesis keys state the difference between the two mechanisms, because the spec requires
-   * the contrast to be taught inside the single-cell view rather than deferred to comparison mode.
-   * The wording is the spec's own biological fact, restated and nothing more: an animal cell pinches
-   * inward with a contractile ring that forms a cleavage furrow, a plant cell builds a cell plate
-   * outward from the centre and that plate becomes the new cell wall.
-   */
-  'process.reproduction.title': {
-    es: 'Mitosis',
-    en: 'Mitosis',
-  },
-  'process.reproduction.phase.prophase': {
-    es: 'Profase',
-    en: 'Prophase',
-  },
-  'process.reproduction.phase.metaphase': {
-    es: 'Metafase',
-    en: 'Metaphase',
-  },
-  'process.reproduction.phase.anaphase': {
-    es: 'Anafase',
-    en: 'Anaphase',
-  },
-  'process.reproduction.phase.telophase': {
-    es: 'Telofase',
-    en: 'Telophase',
-  },
-  'process.reproduction.phase.cytokinesis': {
-    es: 'Citocinesis',
-    en: 'Cytokinesis',
-  },
-  'process.reproduction.scrub.title': {
-    es: 'Avance de la mitosis',
-    en: 'Mitosis progress',
-  },
-  'process.reproduction.cytokinesis.title': {
-    es: 'Mecanismo de la citocinesis',
-    en: 'Cytokinesis mechanism',
-  },
-  'process.reproduction.cytokinesis.animal': {
-    es: 'Animal: anillo contráctil',
-    en: 'Animal: contractile ring',
-  },
-  'process.reproduction.cytokinesis.plant': {
-    es: 'Vegetal: placa celular',
-    en: 'Plant: cell plate',
-  },
-  'process.reproduction.cytokinesis.difference': {
-    es: 'En la célula animal, un anillo contráctil estrecha la membrana y forma un surco; en la vegetal, la placa celular se construye desde el centro hacia fuera y pasa a ser la nueva pared.',
-    en: 'In the animal cell a contractile ring pinches the membrane into a cleavage furrow; in the plant cell the cell plate is built outward from the centre and becomes the new wall.',
-  },
-  /*
-   * The speed control's three ratified settings.
-   *
-   * `realtime` is the spec's "real time", not "fast": the control scales the process's clock, and
-   * calling 1× "fast" would imply a base rate the app does not claim.
-   */
-  'process.speed.title': {
-    es: 'Velocidad',
-    en: 'Speed',
-  },
-  'process.speed.pause': {
-    es: 'Pausa',
-    en: 'Pause',
-  },
-  'process.speed.slow': {
-    es: 'Lento',
-    en: 'Slow',
-  },
-  'process.speed.realtime': {
-    es: 'Tiempo real',
-    en: 'Real time',
-  },
-  'process.light.title': {
-    es: 'Intensidad de luz',
-    en: 'Light intensity',
-  },
-  /*
-   * The zero-light statement (spec: `Zero light is honest`).
-   *
-   * It has to say *why* the animation stopped, not merely that it did: a viewer who sees the flow
-   * halt with no explanation learns the wrong thing about what photosynthesis needs.
-   */
-  'process.light.required': {
-    es: 'Sin luz no hay fotosíntesis: la luz es necesaria.',
-    en: 'Without light there is no photosynthesis: light is required.',
   },
 } as const satisfies Record<string, Localized>;
 

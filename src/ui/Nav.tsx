@@ -27,10 +27,9 @@ export function Nav() {
   const setActiveView = useAppStore((state) => state.setActiveView);
   const selectedId = useAppStore((state) => state.selectedId);
   const disassemblyTarget = useAppStore((state) => state.disassemblyTarget);
-  const processId = useAppStore((state) => state.processId);
   const resetToSelection = useAppStore((state) => state.resetToSelection);
   const t = useT();
-  const landing = isLandingState({ selectedId, disassemblyTarget, processId });
+  const landing = isLandingState({ selectedId, disassemblyTarget });
 
   return (
     <nav className="nav" data-nav-view={activeView} data-landing={landing ? 'true' : 'false'}>

@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { useAppStore } from '../app/store';
-import { ORGANELLE_RECORDS } from '../catalog/cells';
 import { t } from './i18n';
 import { UI_MESSAGES } from './i18n/messages';
 import type { UiKey } from './i18n/messages';
@@ -20,14 +19,12 @@ import { FALLBACK_UNAVAILABLE_SURFACES } from './fallbackCopy';
 
 describe('the fallback declarations', () => {
   it('names every 3D-only surface the static path cannot offer', () => {
-    // The 3D path's interactive surface. `hover`/`annotations` are visual consequences of the
-    // renderer, the three processes and the quiz need it to run, and isolate + disassembly are the
-    // two controls the viewer owns.
+    // The 3D path's interactive surface: annotations are a visual consequence of the renderer, the
+    // quiz needs it to run, and isolate + disassembly are the two controls the viewer owns.
     expect([...FALLBACK_UNAVAILABLE_SURFACES]).toEqual([
       'fallback.unavailable.annotations',
       'fallback.unavailable.explodedView',
       'fallback.unavailable.isolate',
-      'fallback.unavailable.processes',
       'fallback.unavailable.quiz',
     ]);
     expect(new Set(FALLBACK_UNAVAILABLE_SURFACES).size).toBe(FALLBACK_UNAVAILABLE_SURFACES.length);
@@ -65,21 +62,6 @@ describe('the fallback declarations', () => {
   it('names both static cell images, one per cell', () => {
     expect(t('fallback.image.animal', 'es')).toContain('animal');
     expect(t('fallback.image.plant', 'es')).toContain('vegetal');
-  });
-
-  it('leaves the spec-sheet content reaching every catalog record', () => {
-    // The fallback renders the sheets from the catalog, so "the full bilingual spec sheet" is a
-    // statement about records rather than about a hand-written list.
-    expect(ORGANELLE_RECORDS.length).toBeGreaterThan(0);
-
-    for (const record of ORGANELLE_RECORDS) {
-      expect(record.name.es.length).toBeGreaterThan(0);
-      expect(record.name.en.length).toBeGreaterThan(0);
-      expect(record.func.es.length).toBeGreaterThan(0);
-      expect(record.func.en.length).toBeGreaterThan(0);
-      expect(record.funFact.es.length).toBeGreaterThan(0);
-      expect(record.funFact.en.length).toBeGreaterThan(0);
-    }
   });
 
   it('is reachable without the store knowing anything about WebGL', () => {

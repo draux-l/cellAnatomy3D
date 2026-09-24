@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { processClock } from './clock';
 import {
   DISASSEMBLY_MAX,
   DISASSEMBLY_MIN,
@@ -16,8 +15,6 @@ const DEFAULTS = {
   selectedId: null,
   hoveredId: null,
   disassemblyTarget: 0,
-  processId: null,
-  speed: 'realtime',
   paletteId: 'default',
   locale: 'es',
   quizActive: false,
@@ -33,7 +30,6 @@ function stateKeys(): string[] {
 
 describe('app store shape', () => {
   beforeEach(() => {
-    processClock.reset();
     useAppStore.setState(DEFAULTS);
   });
 
@@ -65,31 +61,7 @@ describe('app store shape', () => {
     expect(clampDisassembly(Number.NaN)).toBe(DISASSEMBLY_MIN);
   });
 
-  it('never stores the transient clock', () => {
-    const values = Object.values(useAppStore.getState());
-
-    expect(values).not.toContain(processClock);
-  });
-
-  it('does not re-render subscribers when the clock ticks', () => {
-    let notifications = 0;
-    const unsubscribe = useAppStore.subscribe(() => {
-      notifications += 1;
-    });
-
-    const before = useAppStore.getState();
-
-    for (let i = 0; i < 120; i += 1) {
-      processClock.tick(1 / 60);
-    }
-
-    expect(useAppStore.getState()).toBe(before);
-    expect(notifications).toBe(0);
-
-    unsubscribe();
-  });
-
-  it('starts on the animal view in Spanish with the processes at real time', () => {
+  it('starts on the animal view in Spanish with nothing under examination', () => {
     expect(useAppStore.getState()).toMatchObject(DEFAULTS);
   });
 
@@ -129,7 +101,6 @@ describe('app store shape', () => {
  */
 describe('disassembly and isolation are mutually exclusive', () => {
   beforeEach(() => {
-    processClock.reset();
     useAppStore.setState(DEFAULTS);
   });
 
@@ -199,7 +170,6 @@ describe('disassembly and isolation are mutually exclusive', () => {
  */
 describe('language switching is non-destructive', () => {
   beforeEach(() => {
-    processClock.reset();
     useAppStore.setState(DEFAULTS);
   });
 
@@ -221,8 +191,6 @@ describe('language switching is non-destructive', () => {
     store.setActiveView('plant');
     store.setHovered('nucleus');
     store.setSelected('golgi');
-    store.setProcess('nutrition');
-    store.setSpeed('slow');
     store.setPalette('high-contrast');
     store.setQuizActive(true);
   }

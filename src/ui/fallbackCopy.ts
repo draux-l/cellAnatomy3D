@@ -15,12 +15,11 @@ import type { UiKey } from './i18n/messages';
  */
 /**
  * The list is ordered by what the learner reaches for: the three ways of examining the model, then
- * the processes, then the quiz.
+ * the quiz.
  */
 export const FALLBACK_UNAVAILABLE_SURFACES: readonly UiKey[] = [
   'fallback.unavailable.annotations',
   'fallback.unavailable.explodedView',
   'fallback.unavailable.isolate',
-  'fallback.unavailable.processes',
   'fallback.unavailable.quiz',
 ];

@@ -11,9 +11,8 @@ import type { UiKey } from './i18n/messages';
  *    the navigation from being a false affordance — a button that switched to `comparison` today
  *    would keep rendering the animal cell under a "Comparison" label.
  * 2. **What "the landing view state" means.** The spec's `Back to selection returns to the landing
- *    state` is a statement about state, not about copy: no isolate, no disassembly, no running
- *    process. Naming it once here keeps the navigation's disabled state and
- *    `resetToSelection()` from drifting apart.
+ *    state` is a statement about state, not about copy: no isolate, no disassembly. Naming it once
+ *    here keeps the navigation's disabled state and `resetToSelection()` from drifting apart.
  */
 
 export interface ViewOption {
@@ -38,20 +37,15 @@ export const VIEW_OPTIONS: readonly ViewOption[] = [
 export interface LandingStateInput {
   selectedId: string | null;
   disassemblyTarget: number;
-  processId: string | null;
 }
 
 /**
  * True when the viewer is in its landing (view-selection) state.
  *
- * All three conditions are the *same* question asked at different levels: is anything being
- * examined right now? An isolated organelle, a raised disassembly control and a running process are
- * each a departure from the landing state, and `resetToSelection()` clears exactly these three.
+ * Both conditions are the *same* question asked at different levels: is anything being examined
+ * right now? An isolated organelle and a raised disassembly control are each a departure from the
+ * landing state, and `resetToSelection()` clears exactly these two.
  */
 export function isLandingState(state: LandingStateInput): boolean {
-  return (
-    state.selectedId === null &&
-    state.disassemblyTarget === DISASSEMBLY_MIN &&
-    state.processId === null
-  );
+  return state.selectedId === null && state.disassemblyTarget === DISASSEMBLY_MIN;
 }

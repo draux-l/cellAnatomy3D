@@ -8,7 +8,6 @@ import {
   type AnnotationMirrorEntry,
   type CellDebug,
 } from './debug';
-import { processClock } from './clock';
 
 describe('computePercentile', () => {
   it('returns zero for an empty sample set', () => {
@@ -43,12 +42,11 @@ describe('createCellDebug', () => {
   let debug: CellDebug;
 
   beforeEach(() => {
-    debug = createCellDebug({ fixture: 'organelle', capacity: 4 });
-    processClock.reset();
+    debug = createCellDebug({ fixture: 'cell', capacity: 4 });
   });
 
   it('records the fixture name it was created for', () => {
-    expect(debug.fixture).toBe('organelle');
+    expect(debug.fixture).toBe('cell');
     expect(createCellDebug().fixture).toBeNull();
   });
 
@@ -89,14 +87,6 @@ describe('createCellDebug', () => {
     expect(debug.drawCalls).toBe(53);
     expect(debug.triangles).toBe(6200);
     expect(debug.drawCallSampleTimesMs).toEqual([0, 1000]);
-  });
-
-  it('mirrors the transient clock without owning it', () => {
-    processClock.freezeAt(3.5);
-    debug.recordFrame(16, 10);
-
-    expect(debug.frozen).toBe(true);
-    expect(debug.clock.elapsed).toBe(3.5);
   });
 
   it('clears every measurement on reset', () => {

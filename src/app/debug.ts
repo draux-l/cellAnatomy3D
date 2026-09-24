@@ -1,5 +1,3 @@
-import { processClock } from './clock';
-
 /**
  * `window.__cellDebug` — the bridge the verification harness reads.
  *
@@ -54,57 +52,9 @@ export interface AnnotationMirrorEntry {
   hovered: boolean;
 }
 
-/**
- * One running process instance, mirrored for the harness (task 5.5).
- *
- * The `time`/`rate` pair is what makes the light requirement *measurable* rather than visible: the
- * rate of a process is the derivative of its own clock, so a window's delta answers "did the slider
- * change the rate?" and "did pausing stop it?" with a number. `uniformWrites` is the strongest
- * available proof that respiration and photosynthesis are not conflated — it counts the writes of
- * the one `uLightIntensity` uniform in the app, and respiration's stays at zero at every slider
- * position.
- */
-export interface ProcessMirrorEntry {
-  /** The sub-process id: `respiration` or `photosynthesis`. */
-  id: string;
-  processId: string;
-  cell: 'animal' | 'plant';
-  /** The organelle the animation happens inside. */
-  organelleId: string;
-  /** True when a GSAP timeline drives it. */
-  scripted: boolean;
-  /** True when its motion depends on light. */
-  lightDriven: boolean;
-  /** Seconds this instance has advanced at its own rate. The measurable process clock. */
-  time: number;
-  /** This frame's rate multiplier. Zero while paused or with no light. */
-  rate: number;
-  /** The active scripted label, or null. */
-  label: string | null;
-  /** Phase within the current cycle, 0..1, or null for a continuous process. */
-  progress: number | null;
-  /** True when the process is stopped for lack of light. */
-  lightRequired: boolean;
-  /** Light-uniform writes since the instance was built. Respiration must stay at 0. */
-  uniformWrites: number;
-  /**
-   * Process-specific scalar readouts (M3).
-   *
-   * The generic fields above answer "is it running, how fast, where is its playhead". A process whose
-   * own spec claim is **structural** — reproduction's "no chromatids separate before metaphase, two
-   * condensed groups after", and "the two cytokinesis mechanisms are not the same motion" — needs to
-   * publish the structures themselves, so the claim is asserted against what the frame drew.
-   */
-  extra: Record<string, number>;
-  /** Completed emissions since the instance was built. */
-  emitted: { atp: number; oxygen: number; glucose: number };
-}
-
 export interface CellDebug {
   /** Active `?fixture=` name, or null for the real app. */
   fixture: string | null;
-  /** True while the clock is pinned by a fixture. */
-  frozen: boolean;
   /** Total frames rendered since load. */
   frames: number;
   /**
@@ -129,40 +79,18 @@ export interface CellDebug {
   /** The per-frame solver output the annotation layer wrote, mirrored for the harness. */
   annotations: AnnotationMirrorEntry[];
   /**
-   * The running processes, mirrored every frame (task 5.5).
-   *
-   * The nutrition capability's claims are about *rates* and about an *absence*: the light slider
-   * must change photosynthesis's rate measurably, respiration's must not change at all, and a
-   * paused process must hold. None of those are readable from a static value, so each instance
-   * publishes its own clock, its rate, its active timeline label and how many light-uniform writes
-   * it has made. It is a measurement of the animation, never an input to it.
-   */
-  processes: ProcessMirrorEntry[];
-  /**
    * The quality tier the renderer is actually running (task 4.8).
    *
    * Recorded rather than derived: the perf report has to state what was applied, and a fixture
    * pins the tier so a screenshot cannot depend on the host's core count.
    */
   qualityTier: 'high' | 'reduced';
-  /** Read-only mirror of the transient clock, for the perf report. */
-  clock: { elapsed: number; scale: number };
-  /**
-   * How many mesh loads failed. A mesh record falls back to its procedural builder and this counter
-   * increments with a loud log, so a failed fetch/decode is visible in the harness rather than
-   * silently rendering the wrong thing (design D27, task 11.6).
-   */
-  meshLoadErrors: number;
-  /** Records one mesh fetch/decode failure. Called by the cell-model loader's failure path. */
-  recordMeshLoadError: () => void;
   /** Records one rendered frame. Both timestamps are injected so tests are deterministic. */
   recordFrame: (deltaMs: number, nowMs: number) => void;
   /** Records one presented-frame render. Called by the wrapped `renderer.render`. */
   recordSceneRender: () => void;
   /** Replaces the annotation mirror with this frame's solver output. */
   setAnnotations: (entries: readonly AnnotationMirrorEntry[]) => void;
-  /** Replaces the process mirror with this frame's instances. */
-  setProcesses: (entries: readonly ProcessMirrorEntry[]) => void;
   /** Records a draw-call/triangle sample, throttled to 1 Hz. */
   sampleRenderer: (calls: number, triangles: number, nowMs: number) => boolean;
   /** Clears measurements without touching the app. */
@@ -206,7 +134,6 @@ export function createCellDebug(options: CellDebugOptions = {}): CellDebug {
 
   const debug: CellDebug = {
     fixture: options.fixture ?? null,
-    frozen: false,
     frames: 0,
     sceneRenders: 0,
     drawCalls: 0,
@@ -216,13 +143,6 @@ export function createCellDebug(options: CellDebugOptions = {}): CellDebug {
     frameStats: emptyFrameStats(),
     qualityTier: 'high',
     annotations: [],
-    processes: [],
-    clock: { elapsed: 0, scale: processClock.scale },
-    meshLoadErrors: 0,
-
-    recordMeshLoadError() {
-      debug.meshLoadErrors += 1;
-    },
 
     recordFrame(deltaMs, nowMs) {
       debug.frames += 1;
@@ -248,9 +168,6 @@ export function createCellDebug(options: CellDebugOptions = {}): CellDebug {
         p50Fps: msToFps(p50Ms),
         p95Fps: msToFps(p95Ms),
       };
-
-      debug.frozen = processClock.frozen;
-      debug.clock = { elapsed: processClock.elapsed, scale: processClock.scale };
     },
 
     recordSceneRender() {
@@ -267,25 +184,6 @@ export function createCellDebug(options: CellDebugOptions = {}): CellDebug {
         opacity: entry.opacity,
         occluded: entry.occluded,
         hovered: entry.hovered,
-      }));
-    },
-
-    setProcesses(entries) {
-      debug.processes = entries.map((entry) => ({
-        id: entry.id,
-        processId: entry.processId,
-        cell: entry.cell,
-        organelleId: entry.organelleId,
-        scripted: entry.scripted,
-        lightDriven: entry.lightDriven,
-        time: entry.time,
-        rate: entry.rate,
-        label: entry.label,
-        progress: entry.progress,
-        lightRequired: entry.lightRequired,
-        uniformWrites: entry.uniformWrites,
-        extra: { ...entry.extra },
-        emitted: { ...entry.emitted },
       }));
     },
 

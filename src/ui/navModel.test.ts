@@ -40,28 +40,21 @@ describe('the view options', () => {
 
 describe('the landing view state', () => {
   it('is the state resetToSelection produces', () => {
-    expect(isLandingState({ selectedId: null, disassemblyTarget: DISASSEMBLY_MIN, processId: null })).toBe(
-      true,
-    );
+    expect(isLandingState({ selectedId: null, disassemblyTarget: DISASSEMBLY_MIN })).toBe(true);
   });
 
-  it('is left by each of the three departures on its own', () => {
-    expect(isLandingState({ selectedId: 'golgi', disassemblyTarget: DISASSEMBLY_MIN, processId: null })).toBe(
-      false,
-    );
-    expect(isLandingState({ selectedId: null, disassemblyTarget: 1, processId: null })).toBe(false);
-    expect(isLandingState({ selectedId: null, disassemblyTarget: DISASSEMBLY_MIN, processId: 'nutrition' })).toBe(
-      false,
-    );
+  it('is left by each of the two departures on its own', () => {
+    expect(isLandingState({ selectedId: 'golgi', disassemblyTarget: DISASSEMBLY_MIN })).toBe(false);
+    expect(isLandingState({ selectedId: null, disassemblyTarget: 1 })).toBe(false);
   });
 
   it('does not depend on any key the landing question is not about', () => {
     // A language switch, a palette change or a hover must never read as leaving the landing state:
     // those keys are deliberately absent from the input, and the compiler enforces that.
-    const inputs = Object.keys({ selectedId: 1, disassemblyTarget: 1, processId: 1 });
+    const inputs = Object.keys({ selectedId: 1, disassemblyTarget: 1 });
     const stateKeys = [...DISCRETE_STATE_KEYS];
 
-    expect(inputs).toEqual(['selectedId', 'disassemblyTarget', 'processId']);
+    expect(inputs).toEqual(['selectedId', 'disassemblyTarget']);
     expect(stateKeys).toContain('locale');
     expect(inputs).not.toContain('locale');
   });
