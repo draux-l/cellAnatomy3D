@@ -5,6 +5,11 @@ import { cellModelFor, MODEL_MANIFEST } from '../../catalog/models';
 import type { CellId, ModelManifest } from '../../catalog/types';
 import { createOrganelleMaterials, type OrganelleMaterials } from '../materials';
 import { assignCatalogMaterials, type MaterialAssignmentResult } from './assignMaterials';
+import {
+  applyCellFrame,
+  partitionRecordMeshes,
+  type RecordMeshPlan,
+} from './assemblyPlan';
 
 /**
  * The per-cell GLB loader (design D20/D25, task 11.5).
@@ -22,10 +27,11 @@ import { assignCatalogMaterials, type MaterialAssignmentResult } from './assignM
  * The models are gltfpack/meshopt output, so {@link loadCellModel} wires the meshopt decoder;
  * `EXT_texture_webp` is supported natively by `GLTFLoader`.
  *
- * **Runtime consumption:** the parsed root + keyed materials are handed to `MeshOrganelleHost`
- * (scene assembly, the mesh slice). Until that lands, `OrganelleHost` renders each record through
- * its declared procedural builder — design D27's permanent fallback — so the composed-cell
- * screenshots stay byte-identical.
+ * **Runtime consumption:** the parsed root + keyed materials are handed to `MeshCellGroup`, which
+ * mounts the normalised model root and a `MeshOrganelleHost` per mapped record. A record with no
+ * mesh in this cell — the animal `lysosome`, whose only mesh is the plant's — still renders
+ * through its declared procedural builder (design D27's per-record fallback), and so does the whole
+ * cell while the model is in flight or if the load fails.
  */
 
 export interface LoadedCellModel {
@@ -33,6 +39,15 @@ export interface LoadedCellModel {
   root: Object3D;
   materials: OrganelleMaterials;
   assignment: MaterialAssignmentResult;
+  /**
+   * Each mapped catalog record's meshes and their geometry, resolved once at load (task 13.1).
+   *
+   * The reparenting host must not have to re-derive which meshes belong to which record, and it
+   * must not derive it from the live scene graph either — reparenting mutates that graph, so a
+   * second derivation would disagree with the first. This is the derivation, computed while the
+   * model is still whole.
+   */
+  records: Map<string, RecordMeshPlan>;
 }
 
 /** Options for {@link loadCellModel}, all injectable so the loader is testable without a network. */
@@ -97,7 +112,13 @@ async function parseCellModel(
   const materials = createOrganelleMaterials();
   const assignment = assignCatalogMaterials(gltf.scene, cell, (key) => materials[key], manifest);
 
-  return { cell, root: gltf.scene, materials, assignment };
+  // Normalise into the scene frame *before* any bounds work, so every plan's bounds are already
+  // scene units (design D23) and the composed camera's framing applies to the model unchanged.
+  applyCellFrame(gltf.scene, frame);
+
+  const records = partitionRecordMeshes(gltf.scene, cell, manifest);
+
+  return { cell, root: gltf.scene, materials, assignment, records };
 }
 
 /**

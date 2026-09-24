@@ -1,7 +1,7 @@
 import { Mesh, type Material, type Object3D, type Texture } from 'three';
 import { cellModelFor } from '../../catalog/models';
 import type { CellId, ManifestMesh, MaterialKeyName, ModelManifest } from '../../catalog/types';
-
+import { resolveManifestRows } from './manifestLookup';
 /**
  * Discard the GLB's own materials and assign catalog-keyed materials per mesh (design D21, 12.5).
  *
@@ -79,30 +79,17 @@ export function assignCatalogMaterials(
     return result;
   }
 
-  // (name, occurrence) → row, rebuilt from the manifest so traversal can resolve in O(1).
-  const rowsByNode = new Map<string, ManifestMesh[]>();
-
-  for (const row of cellManifest.meshes) {
-    const rows = rowsByNode.get(row.node);
-
-    if (rows) {
-      rows.push(row);
-    } else {
-      rowsByNode.set(row.node, [row]);
-    }
-  }
-
-  const seenByNode = new Map<string, number>();
+  // The runtime→manifest resolution (see `manifestLookup.ts`): `GLTFLoader` sanitises node names
+  // and appends `_1`, `_2`, … to repeats, so the manifest's own name is not the name the loaded
+  // `Mesh` carries. Keyed by the mesh object, so it cannot be consumed twice by accident.
+  const rowByMesh = resolveManifestRows(root, cell, manifest);
 
   root.traverse((object) => {
     if (!(object instanceof Mesh)) {
       return;
     }
 
-    const occurrence = seenByNode.get(object.name) ?? 0;
-    seenByNode.set(object.name, occurrence + 1);
-
-    const row = rowsByNode.get(object.name)?.[occurrence];
+    const row = rowByMesh.get(object);
 
     if (!row) {
       result.unknown.push(object.name);
