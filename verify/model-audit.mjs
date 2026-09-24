@@ -142,7 +142,7 @@ function matrixFromTRS(translation = [0, 0, 0], rotation = [0, 0, 0, 1], scale =
     0,
     2 * (xz + wy) * scale[2],
     2 * (yz - wx) * scale[2],
-    1 - 2 * (xx + yy),
+    (1 - 2 * (xx + yy)) * scale[2],
     0,
     translation[0],
     translation[1],

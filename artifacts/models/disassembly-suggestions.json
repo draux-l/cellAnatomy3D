@@ -1,6 +1,6 @@
 {
   "generatedBy": "verify/model-audit.mjs",
-  "generatedAt": "2026-09-24T06:09:21.810Z",
+  "generatedAt": "2026-09-24T17:43:25.646Z",
   "cells": {
     "animal": {
       "nucleus": {
@@ -8,14 +8,14 @@
         "center": [
           -38.424,
           60.695,
-          -46.381
+          -56.526
         ],
-        "radius": 153.692,
-        "suggestedDistance": 230.538,
+        "radius": 185.988,
+        "suggestedDistance": 278.982,
         "suggestedDirection": [
-          -0.4494,
-          0.7098,
-          -0.5424
+          -0.4204,
+          0.664,
+          -0.6184
         ]
       },
       "membrane": {
@@ -25,8 +25,8 @@
           -68.361,
           30.208
         ],
-        "radius": 380.176,
-        "suggestedDistance": 570.263,
+        "radius": 492.476,
+        "suggestedDistance": 738.714,
         "suggestedDirection": [
           -0.3132,
           -0.8687,
@@ -40,8 +40,8 @@
           -70.061,
           161.869
         ],
-        "radius": 133.844,
-        "suggestedDistance": 200.765,
+        "radius": 159.907,
+        "suggestedDistance": 239.86,
         "suggestedDirection": [
           0.5538,
           -0.3307,
@@ -53,14 +53,14 @@
         "center": [
           -89.775,
           9.747,
-          162.04
+          38.56
         ],
-        "radius": 282.267,
-        "suggestedDistance": 423.401,
+        "radius": 368.101,
+        "suggestedDistance": 552.152,
         "suggestedDirection": [
-          -0.484,
-          0.0525,
-          0.8735
+          -0.9143,
+          0.0993,
+          0.3927
         ]
       },
       "endoplasmic-reticulum": {
@@ -70,8 +70,8 @@
           22.203,
           -44.796
         ],
-        "radius": 230.201,
-        "suggestedDistance": 345.301,
+        "radius": 300.866,
+        "suggestedDistance": 451.299,
         "suggestedDirection": [
           -0.6288,
           0.3453,
@@ -83,14 +83,14 @@
         "center": [
           -41.677,
           24.543,
-          -46.85
+          -47.546
         ],
-        "radius": 235.154,
-        "suggestedDistance": 352.731,
+        "radius": 305.35,
+        "suggestedDistance": 458.025,
         "suggestedDirection": [
-          -0.6189,
-          0.3645,
-          -0.6958
+          -0.6145,
+          0.3619,
+          -0.701
         ]
       },
       "cytoplasm": {
@@ -100,8 +100,8 @@
           3.001,
           36.714
         ],
-        "radius": 282.368,
-        "suggestedDistance": 423.552,
+        "radius": 446.634,
+        "suggestedDistance": 669.951,
         "suggestedDirection": [
           -0.5018,
           0.0705,
@@ -117,8 +117,8 @@
           11.846,
           14.627
         ],
-        "radius": 100.079,
-        "suggestedDistance": 150.118,
+        "radius": 87.108,
+        "suggestedDistance": 130.662,
         "suggestedDirection": [
           0,
           0.6294,
@@ -129,15 +129,15 @@
         "meshCount": 2,
         "center": [
           4.45,
-          28.833,
+          28.911,
           -29.914
         ],
-        "radius": 100.592,
-        "suggestedDistance": 150.888,
+        "radius": 14.486,
+        "suggestedDistance": 21.729,
         "suggestedDirection": [
-          0.1065,
-          0.69,
-          -0.7159
+          0.1064,
+          0.691,
+          -0.715
         ]
       },
       "nucleus": {
@@ -147,8 +147,8 @@
           -0.923,
           -23.941
         ],
-        "radius": 104.47,
-        "suggestedDistance": 156.706,
+        "radius": 37.028,
+        "suggestedDistance": 55.542,
         "suggestedDirection": [
           -0.7103,
           -0.0271,
@@ -162,8 +162,8 @@
           -9.497,
           39.509
         ],
-        "radius": 13.455,
-        "suggestedDistance": 20.183,
+        "radius": 7.35,
+        "suggestedDistance": 11.025,
         "suggestedDirection": [
           0.2423,
           -0.2268,
@@ -177,8 +177,8 @@
           -23.382,
           15.738
         ],
-        "radius": 81.338,
-        "suggestedDistance": 122.007,
+        "radius": 38.61,
+        "suggestedDistance": 57.915,
         "suggestedDirection": [
           -0.522,
           -0.7076,
@@ -192,8 +192,8 @@
           29.055,
           -40.257
         ],
-        "radius": 80.617,
-        "suggestedDistance": 120.925,
+        "radius": 25.725,
+        "suggestedDistance": 38.587,
         "suggestedDirection": [
           -0.5921,
           0.4716,
@@ -207,8 +207,8 @@
           -9.82,
           37.137
         ],
-        "radius": 74.146,
-        "suggestedDistance": 111.219,
+        "radius": 14.105,
+        "suggestedDistance": 21.158,
         "suggestedDirection": [
           0.5716,
           -0.2097,
@@ -222,8 +222,8 @@
           -1.942,
           -5.649
         ],
-        "radius": 66.953,
-        "suggestedDistance": 100.429,
+        "radius": 43.696,
+        "suggestedDistance": 65.545,
         "suggestedDirection": [
           0.9513,
           -0.1003,
@@ -237,8 +237,8 @@
           0.524,
           -0.086
         ],
-        "radius": 135.843,
-        "suggestedDistance": 203.764,
+        "radius": 134.944,
+        "suggestedDistance": 202.416,
         "suggestedDirection": [
           0,
           0.9869,
@@ -252,8 +252,8 @@
           -10.638,
           31.582
         ],
-        "radius": 62.023,
-        "suggestedDistance": 93.035,
+        "radius": 61.48,
+        "suggestedDistance": 92.22,
         "suggestedDirection": [
           -0.0475,
           -0.3189,
