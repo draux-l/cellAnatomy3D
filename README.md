@@ -17,7 +17,7 @@ Educational product for secondary-school biology. Static site, no backend, no ru
 | --- | --- |
 | Renderer | `three` + `@react-three/fiber` + `@react-three/drei` |
 | State | `zustand` (discrete UI state only) |
-| Animation | `gsap` timelines for scripted phases, `useFrame` + uniforms for continuous motion |
+| Animation | `useFrame` + refs for continuous motion (no per-frame React state) |
 | Build | `vite` + `typescript` (strict) |
 | Unit tests | `vitest` |
 | Metrics / E2E | `playwright` + `pngjs` |
