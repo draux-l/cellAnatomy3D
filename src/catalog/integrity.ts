@@ -1,10 +1,15 @@
 import { ORGANELLE_RECORDS } from './cells';
+import { MODEL_MANIFEST, meshRowFor } from './models';
 import {
   BUILDER_IDS,
   CELL_IDS,
+  GEOMETRY_KINDS,
+  MATERIAL_KEY_NAMES,
   PALETTE_ROLES,
   PER_CELL_OVERRIDE_KEYS,
   SIZE_UNITS,
+  type CellId,
+  type ModelManifest,
   type OrganelleRecord,
 } from './types';
 
@@ -57,6 +62,12 @@ export interface BuilderResolutionOptions {
   registeredBuilderIds?: readonly string[];
   /** Defaults to `PENDING_BUILDER_IDS`. */
   pendingBuilderIds?: readonly string[];
+  /**
+   * The committed identification map (design D20/D29). Injected **as data**, the same pattern as
+   * `registeredBuilderIds`, so `src/catalog/` stays three-free and a test can inject a synthetic
+   * manifest. Defaults to the committed `MODEL_MANIFEST`.
+   */
+  manifest?: ModelManifest;
 }
 
 /** `‖direction‖` below this is a zero vector: "never separates" only when `distance` is also 0. */
@@ -162,8 +173,149 @@ function findColourLiterals(value: unknown, path = ''): string[] {
   return found;
 }
 
+type AddIssue = (field: string, message: string) => void;
+
+/**
+ * The procedural half of the union (task 2.3, unchanged): declared builder id, params object, seed.
+ *
+ * Declared vocabulary only. Registry resolution is task 3.2 and must not gate this PR.
+ */
+function validateProceduralGeometry(
+  geometry: Record<string, unknown>,
+  add: AddIssue,
+): void {
+  if (!isNonEmptyString(geometry.builder) || !(BUILDER_IDS as readonly string[]).includes(geometry.builder)) {
+    add(
+      'geometry.builder',
+      `is ${String(geometry.builder)}, which is not a declared builder id (declared: ${BUILDER_IDS.join(', ')})`,
+    );
+  }
+
+  if (!isPlainObject(geometry.params)) {
+    add('geometry.params', 'is required and must be an object');
+  }
+
+  if (!isNonEmptyString(geometry.seed)) {
+    add('geometry.seed', 'is required — deterministic identity is not optional');
+  }
+}
+
+/**
+ * The mesh half of the union (tasks 11.4, 12.3).
+ *
+ * Every failure names the record id and the offending `geometry.meshes[...]` field. The manifest is
+ * injected as data so the catalog stays three-free, and a mesh reference that the manifest does not
+ * know — or knows as a *different* record — is a build failure, never a silent skip.
+ */
+function validateMeshGeometry(
+  geometry: Record<string, unknown>,
+  record: Record<string, unknown>,
+  options: BuilderResolutionOptions,
+  add: AddIssue,
+): void {
+  const manifest = options.manifest ?? MODEL_MANIFEST;
+  const meshes = geometry.meshes;
+
+  if (!Array.isArray(meshes) || meshes.length === 0) {
+    add('geometry.meshes', 'is required and must reference at least one manifest mesh (design D29)');
+  } else {
+    meshes.forEach((ref, index) => {
+      const path = `geometry.meshes[${index}]`;
+
+      if (!isPlainObject(ref)) {
+        add(path, 'must be an object with cell, node and materialKey');
+        return;
+      }
+
+      if (!isNonEmptyString(ref.cell) || !(CELL_IDS as readonly string[]).includes(ref.cell)) {
+        add(`${path}.cell`, `is ${String(ref.cell)}, which is not one of ${CELL_IDS.join(', ')}`);
+        return;
+      }
+
+      if (!isNonEmptyString(ref.node)) {
+        add(`${path}.node`, 'is required and must be a manifest node name');
+        return;
+      }
+
+      if (
+        !isNonEmptyString(ref.materialKey) ||
+        !(MATERIAL_KEY_NAMES as readonly string[]).includes(ref.materialKey)
+      ) {
+        add(
+          `${path}.materialKey`,
+          `is ${String(ref.materialKey)}, which is not a declared material key (declared: ${MATERIAL_KEY_NAMES.join(', ')})`,
+        );
+        return;
+      }
+
+      const occurrence = isFiniteNumber(ref.occurrence) ? ref.occurrence : 0;
+      const row = meshRowFor(ref.cell as CellId, ref.node, occurrence, manifest);
+
+      if (!row) {
+        add(
+          `${path}.node`,
+          `is "${ref.node}"${occurrence > 0 ? ` (occurrence ${occurrence})` : ''}, which is not in the ${ref.cell} model manifest`,
+        );
+        return;
+      }
+
+      if (row.policy !== 'map') {
+        // A record may only own a mesh the manifest maps to it; an `omit`/`unmapped` row that a
+        // record claims is a mapping mistake, not a rendering choice.
+        add(
+          `${path}.node`,
+          `is "${ref.node}", which the manifest marks "${row.policy}" and does not map to a record`,
+        );
+        return;
+      }
+
+      if (row.recordId !== record.id) {
+        add(
+          `${path}.node`,
+          `is mapped to record "${String(row.recordId)}" in the manifest, but this record is "${String(record.id)}"`,
+        );
+      }
+
+      if (row.materialKey !== ref.materialKey) {
+        add(
+          `${path}.materialKey`,
+          `is "${ref.materialKey}", which disagrees with the manifest's "${String(row.materialKey)}" for this node`,
+        );
+      }
+    });
+  }
+
+  const fallback = geometry.fallback;
+
+  if (!isPlainObject(fallback)) {
+    add('geometry.fallback', 'is required — every mesh record declares its procedural fallback (D27)');
+  } else {
+    if (
+      !isNonEmptyString(fallback.builder) ||
+      !(BUILDER_IDS as readonly string[]).includes(fallback.builder)
+    ) {
+      add(
+        'geometry.fallback.builder',
+        `is ${String(fallback.builder)}, which is not a declared builder id (declared: ${BUILDER_IDS.join(', ')})`,
+      );
+    }
+
+    if (!isPlainObject(fallback.params)) {
+      add('geometry.fallback.params', 'is required and must be an object');
+    }
+
+    if (!isNonEmptyString(fallback.seed)) {
+      add('geometry.fallback.seed', 'is required — the fallback reproduces the procedural build exactly');
+    }
+  }
+}
+
 /** Validates one record. Every issue names the record and the field it is about. */
-export function validateRecord(record: unknown, index = 0): IntegrityIssue[] {
+export function validateRecord(
+  record: unknown,
+  index = 0,
+  options: BuilderResolutionOptions = {},
+): IntegrityIssue[] {
   const recordId = labelOf(record, index);
   const issues: IntegrityIssue[] = [];
   const add = (field: string, message: string): void => {
@@ -218,23 +370,18 @@ export function validateRecord(record: unknown, index = 0): IntegrityIssue[] {
   const geometry = record.geometry;
 
   if (!isPlainObject(geometry)) {
-    add('geometry', 'is required and needs a builder, params and a seed');
+    add('geometry', 'is required and needs a kind plus its source');
+  } else if (!isNonEmptyString(geometry.kind) || !(GEOMETRY_KINDS as readonly string[]).includes(geometry.kind)) {
+    // The exhaustiveness half of the union: a record with no `kind`, or an unknown one, fails here
+    // naming the field rather than silently defaulting to procedural.
+    add(
+      'geometry.kind',
+      `is ${String(geometry.kind)}, which is not one of ${GEOMETRY_KINDS.join(', ')}`,
+    );
+  } else if (geometry.kind === 'procedural') {
+    validateProceduralGeometry(geometry, add);
   } else {
-    // Declared vocabulary only. Registry resolution is task 3.2 and must not gate this PR.
-    if (!isNonEmptyString(geometry.builder) || !(BUILDER_IDS as readonly string[]).includes(geometry.builder)) {
-      add(
-        'geometry.builder',
-        `is ${String(geometry.builder)}, which is not a declared builder id (declared: ${BUILDER_IDS.join(', ')})`,
-      );
-    }
-
-    if (!isPlainObject(geometry.params)) {
-      add('geometry.params', 'is required and must be an object');
-    }
-
-    if (!isNonEmptyString(geometry.seed)) {
-      add('geometry.seed', 'is required — deterministic identity is not optional');
-    }
+    validateMeshGeometry(geometry, record, options, add);
   }
 
   if (!Array.isArray(record.cells) || record.cells.length === 0) {
@@ -308,6 +455,18 @@ export function validateRecord(record: unknown, index = 0): IntegrityIssue[] {
             Object.keys(override.geometryParams).length === 0
           ) {
             add(`${path}.geometryParams`, 'must be a non-empty parameter object');
+          }
+
+          // A mesh record has no builder parameters of its own to merge, so a per-cell shape
+          // deviation there is an authoring mistake. The fallback's deviation lives on
+          // `geometry.fallback.perCell` instead (see `ProceduralFallback`).
+          const geometry = record.geometry;
+
+          if (isPlainObject(geometry) && geometry.kind === 'mesh') {
+            add(
+              `${path}.geometryParams`,
+              'is not valid on a mesh record — a baked mesh has no parameters to merge; move it to geometry.fallback.perCell',
+            );
           }
         }
       }
@@ -463,7 +622,16 @@ export function validateBuilderResolution(
       return;
     }
 
-    const builder = record.geometry.builder;
+    const geometry = record.geometry;
+    // A procedural record resolves `geometry.builder`; a mesh record resolves its fallback, which
+    // is what the viewer builds when the model cannot load. Either way, an unregistered builder is
+    // a runtime throw, so both are gated here.
+    const meshRecord = geometry.kind === 'mesh';
+    const builder = meshRecord
+      ? isPlainObject(geometry.fallback)
+        ? geometry.fallback.builder
+        : undefined
+      : geometry.builder;
 
     if (!isNonEmptyString(builder) || registered.has(builder) || pending.has(builder)) {
       return;
@@ -471,10 +639,59 @@ export function validateBuilderResolution(
 
     issues.push({
       recordId: labelOf(record, index),
-      field: 'geometry.builder',
+      field: meshRecord ? 'geometry.fallback.builder' : 'geometry.builder',
       message: `is "${builder}", which has no registry entry and is not a pending builder — the viewer would throw while building this record`,
     });
   });
+
+  return issues;
+}
+
+/**
+ * The per-cell material-key collision rule (task 11.4, design D29).
+ *
+ * Two mesh records in one cell may not draw with the same material key: they would then be
+ * indistinguishable under hover emphasis. **Two keys inside one record are the intended case** —
+ * the mitochondrion's cristae and outer membranes are separate keys on one record — so the check
+ * groups by record and only flags a key two *different* records claim.
+ */
+export function validateMaterialKeyOwnership(records: readonly unknown[]): IntegrityIssue[] {
+  const issues: IntegrityIssue[] = [];
+  const ownerByCellAndKey = new Map<string, string>();
+
+  for (const record of records) {
+    if (!isPlainObject(record) || !isNonEmptyString(record.id) || !isPlainObject(record.geometry)) {
+      continue;
+    }
+
+    const geometry = record.geometry;
+
+    if (geometry.kind !== 'mesh' || !Array.isArray(geometry.meshes)) {
+      continue;
+    }
+
+    for (const ref of geometry.meshes) {
+      if (!isPlainObject(ref) || !isNonEmptyString(ref.cell) || !isNonEmptyString(ref.materialKey)) {
+        continue;
+      }
+
+      const key = `${ref.cell}:${ref.materialKey}`;
+      const owner = ownerByCellAndKey.get(key);
+
+      if (owner === undefined) {
+        ownerByCellAndKey.set(key, record.id);
+        continue;
+      }
+
+      if (owner !== record.id) {
+        issues.push({
+          recordId: record.id,
+          field: 'geometry.meshes.materialKey',
+          message: `is "${ref.materialKey}", already owned by record "${owner}" in the ${ref.cell} cell — two records may not share a material key`,
+        });
+      }
+    }
+  }
 
   return issues;
 }
@@ -496,7 +713,7 @@ export function validateCatalog(
   }
 
   records.forEach((record, index) => {
-    issues.push(...validateRecord(record, index));
+    issues.push(...validateRecord(record, index, options));
 
     if (isPlainObject(record) && isNonEmptyString(record.id)) {
       if (seen.has(record.id)) {
@@ -562,8 +779,12 @@ export function validateCatalog(
       continue;
     }
 
-    const builder = isPlainObject(record.geometry) ? record.geometry.builder : undefined;
-    const haystack = `${record.id} ${isNonEmptyString(builder) ? builder : ''}`.toLowerCase();
+    const geometry = isPlainObject(record.geometry) ? record.geometry : undefined;
+    const builder = isPlainObject(geometry) ? geometry.builder : undefined;
+    const fallbackBuilder =
+      isPlainObject(geometry) && isPlainObject(geometry.fallback) ? geometry.fallback.builder : undefined;
+    const haystack =
+      `${record.id} ${isNonEmptyString(builder) ? builder : ''} ${isNonEmptyString(fallbackBuilder) ? fallbackBuilder : ''}`.toLowerCase();
 
     for (const term of BANNED_ROSTER_TERMS) {
       if (haystack.includes(term)) {
@@ -577,6 +798,7 @@ export function validateCatalog(
   }
 
   issues.push(...validateBuilderResolution(records, options));
+  issues.push(...validateMaterialKeyOwnership(records));
 
   return issues;
 }

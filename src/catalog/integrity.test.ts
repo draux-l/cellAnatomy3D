@@ -10,6 +10,7 @@ import {
   validateCatalog,
   validateRecord,
 } from './integrity';
+import { baseGeometryParamsFor } from './params';
 import { BUILDER_IDS } from './types';
 
 /**
@@ -201,7 +202,7 @@ describe('catalog integrity — no literal colours', () => {
   it('fails when a nested parameter carries a colour value', () => {
     const issues = validateRecord(
       withDefect({
-        geometry: { ...BASE.geometry, params: { ...BASE.geometry.params, tint: 'rgb(12, 34, 56)' } },
+        geometry: { ...BASE.geometry, params: { ...baseGeometryParamsFor(BASE), tint: 'rgb(12, 34, 56)' } },
       }),
     );
 

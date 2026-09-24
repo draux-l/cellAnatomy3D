@@ -10,7 +10,7 @@
  * module has to be safe to pull into the entry graph — and it is plain trigonometry.
  */
 
-import { positionForRecord } from '../../catalog/params';
+import { baseGeometryParamsFor, positionForRecord } from '../../catalog/params';
 import type { CellId, OrganelleRecord } from '../../catalog/types';
 
 export interface CameraPose {
@@ -148,7 +148,7 @@ export function defaultFocus(): FocusState {
  * chunk exists.
  */
 export function focusForRecord(record: OrganelleRecord, cell: CellId): FocusState {
-  const size = record.geometry.params.size;
+  const size = baseGeometryParamsFor(record).size;
   const extent = typeof size === 'number' && Number.isFinite(size) ? size : 0.3;
 
   return {

@@ -90,14 +90,213 @@ export interface DisassemblyVector {
   distance: number;
 }
 
-/** How the record's geometry is built. Addresses the builder registry by id, not by path. */
-export interface GeometrySpec {
+/**
+ * The geometry kind discriminator (design D19/D29).
+ *
+ * A record's geometry is a discriminated union so every consumer is forced by the type checker to
+ * handle both a procedural build and a mesh reference. The union is what lets the integrity gate
+ * branch, and an unknown `kind` fails the gate naming the field — there is no silent default.
+ */
+export type GeometryKind = 'procedural' | 'mesh';
+
+export const GEOMETRY_KINDS = ['procedural', 'mesh'] as const satisfies readonly GeometryKind[];
+
+/**
+ * The catalog's material-key vocabulary (design D21).
+ *
+ * Declared here, in the three-free catalog, because a mesh reference names a material key and
+ * `src/catalog/` may not import three.js. `scene/builders/primitives.ts` re-exports this union and
+ * `scene/materials.ts` resolves each key to a material; the identification map in
+ * `catalog/models.ts` uses these names.
+ */
+export type MaterialKeyName =
+  | 'outerMembrane'
+  | 'innerMembrane'
+  | 'membrane'
+  | 'cytoplasm'
+  | 'nuclearEnvelope'
+  | 'nucleolus'
+  | 'chromatin'
+  | 'nucleus'
+  | 'nuclearPore'
+  | 'granule'
+  | 'lysosome'
+  | 'er'
+  | 'golgi'
+  | 'vesicle'
+  | 'chloroplast'
+  | 'grana'
+  | 'cellWall'
+  | 'vacuole'
+  | 'cytoskeleton'
+  | 'peroxisome'
+  | 'plasmodesma';
+
+export const MATERIAL_KEY_NAMES = [
+  'outerMembrane',
+  'innerMembrane',
+  'membrane',
+  'cytoplasm',
+  'nuclearEnvelope',
+  'nucleolus',
+  'chromatin',
+  'nucleus',
+  'nuclearPore',
+  'granule',
+  'lysosome',
+  'er',
+  'golgi',
+  'vesicle',
+  'chloroplast',
+  'grana',
+  'cellWall',
+  'vacuole',
+  'cytoskeleton',
+  'peroxisome',
+  'plasmodesma',
+] as const satisfies readonly MaterialKeyName[];
+
+/** `size`/`detail`/`count`/`seed` plus structure-specific parameters (cristaeCount, …). */
+export type GeometryParams = Record<string, number | string | boolean>;
+
+/**
+ * One mesh inside a model, addressed through the committed identification map (design D20/D29).
+ *
+ * Nodes are addressed by name because names survive any tool that preserves names at all, whereas
+ * numeric indices shift whenever an optimizer merges or splits nodes. The animal model derives its
+ * node names from material indices (`Nulo__Material.013_0`), so several nodes legitimately share a
+ * name; `occurrence` disambiguates those and is absent when the name is unique. The committed
+ * manifest (`catalog/models.ts`) is what turns `{ cell, node, occurrence }` into `(record, key)`.
+ */
+export interface MeshAssetRef {
+  /** Which model the mesh lives in. */
+  cell: CellId;
+  /** GLB node name — stable, human-auditable. */
+  node: string;
+  /** 0-based occurrence among nodes sharing `node`; absent when the name is unique. */
+  occurrence?: number;
+  /** The catalog material key this mesh is drawn with (design D21). */
+  materialKey: MaterialKeyName;
+}
+
+/** A procedural build: the builder registry resolves `builder`, `params` and `seed` drive it. */
+export interface ProceduralGeometrySpec {
+  kind: 'procedural';
   builder: BuilderId;
-  /** `size`/`detail`/`count`/`seed` plus structure-specific parameters (cristaeCount, …). */
-  params: Record<string, number | string | boolean>;
+  params: GeometryParams;
   /** Deterministic identity: the same record always builds the same geometry. */
   seed: string;
 }
+
+/**
+ * The per-cell geometry deviation a fallback may carry.
+ *
+ * The design's union gives a mesh record a bare `fallback: BuilderId`. That is insufficient to keep
+ * the fallback byte-identical: the nucleus and the cytoplasm deviate per cell (the plant nucleus is
+ * smaller, the plant cytoplasm takes the wall's silhouette), and those deviations live in the
+ * record's procedural parameters. A mesh record rejects `perCell.*.geometryParams` (task 11.4:
+ * a baked mesh has no builder parameters to merge), so the fallback carries the deviation here
+ * instead. Without it a failed mesh load would render at the animal's parameters in the plant cell
+ * and move the composed-plant baselines.
+ */
+export interface FallbackPerCell {
+  geometryParams?: GeometryParams;
+}
+
+/** What a mesh record builds when its model cannot be loaded (design D27). */
+export interface ProceduralFallback {
+  builder: BuilderId;
+  params: GeometryParams;
+  seed: string;
+  /** Fallback-only per-cell parameter deviations, keyed by the cells the record belongs to. */
+  perCell?: Partial<Record<CellId, FallbackPerCell>>;
+}
+
+/**
+ * A mesh build: one or more meshes from a committed model (design D29).
+ *
+ * The mitochondrion is one record referencing two meshes (outer membranes + cristae), so
+ * `meshes` is a list, not a single reference. `fallback` carries the record's **previous**
+ * procedural geometry unchanged, so a failed load reproduces the organelle exactly as the
+ * procedural path renders it — the fallback is byte-identical, not merely similar.
+ */
+export interface MeshGeometrySpec {
+  kind: 'mesh';
+  /** ≥1 reference. An empty list fails the integrity gate naming record + field. */
+  meshes: readonly MeshAssetRef[];
+  fallback: ProceduralFallback;
+}
+
+/** How the record's geometry is built. Addresses the builder registry by id, not by path. */
+export type GeometrySpec = ProceduralGeometrySpec | MeshGeometrySpec;
+
+/** Type guard: true when the spec is a procedural build. */
+export function isProceduralGeometry(spec: GeometrySpec): spec is ProceduralGeometrySpec {
+  return spec.kind === 'procedural';
+}
+
+/** Type guard: true when the spec is a mesh build. */
+export function isMeshGeometry(spec: GeometrySpec): spec is MeshGeometrySpec {
+  return spec.kind === 'mesh';
+}
+
+/**
+ * The committed model manifest vocabulary (design D20/D23).
+ *
+ * `parse`-time metadata for one cell's GLB: the path that ships, the sha256 that fixes its
+ * identity, and the cell-frame normalization that maps the model's own units into scene units.
+ * Nothing here imports three.js — the loader (`scene/models/useCellModel.ts`) consumes it.
+ */
+export interface CellModelFrame {
+  /** Served path, e.g. `/models/animal-cell.glb`. */
+  file: string;
+  /** Lowercase hex sha256 of the bytes that actually ship. */
+  sha256: string;
+  /** Scene-unit scale applied to the raw model. */
+  scale: number;
+  /** Euler XYZ radians that fix the model's up-axis. */
+  rotation: [number, number, number];
+  /** Source-unit centre subtracted before scaling. */
+  center: [number, number, number];
+}
+
+/**
+ * What happens to one model mesh.
+ *
+ * - `map` — has a catalog record: pickable, annotated, drawn with `materialKey`.
+ * - `unmapped` — a real, identified structure with no canonical roster entry: drawn as part of the
+ *   model root, unpickable and unannotated. No label is invented for it (design D26).
+ * - `omit` — hidden: debris, or a mesh whose identification is still an open maintainer decision.
+ */
+export type MeshPolicy = 'map' | 'unmapped' | 'omit';
+
+export const MESH_POLICIES = ['map', 'unmapped', 'omit'] as const satisfies readonly MeshPolicy[];
+
+/** One row of the identification map: a model node turned into (record, material key) or a policy. */
+export interface ManifestMesh {
+  /** GLB node name. */
+  node: string;
+  /** 0-based occurrence among nodes sharing `node`; absent when the name is unique. */
+  occurrence?: number;
+  policy: MeshPolicy;
+  /** The catalog record this mesh belongs to when `policy === 'map'`; otherwise null. */
+  recordId: string | null;
+  /**
+   * The material key the loader assigns. Required for `map` and `unmapped` (both render), null for
+   * `omit`.
+   */
+  materialKey: MaterialKeyName | null;
+}
+
+/** One cell's committed model: its frame plus the identification map over its meshes. */
+export interface CellModelManifest {
+  cell: CellId;
+  frame: CellModelFrame;
+  meshes: readonly ManifestMesh[];
+}
+
+/** Both cells' models, keyed by cell id. */
+export type ModelManifest = Readonly<Record<CellId, CellModelManifest>>;
 
 /**
  * A cell-specific deviation from a record's own data (design D3, extended for composition).

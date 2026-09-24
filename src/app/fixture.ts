@@ -1,5 +1,6 @@
 import { CELL_IDS, type CellId } from '../catalog/types';
 import { getRecord } from '../catalog/cells';
+import { baseGeometryParamsFor } from '../catalog/params';
 import {
   mitosisLabelTime,
   mitosisProgressTime,
@@ -188,7 +189,8 @@ function parseDisassembly(raw: string | null): number | null {
  * organelle without building any geometry — which matters, because this module runs in the shell.
  */
 function extentOf(organelleId: string): number {
-  const size = getRecord(organelleId)?.geometry.params.size;
+  const record = getRecord(organelleId);
+  const size = record ? baseGeometryParamsFor(record).size : undefined;
 
   return typeof size === 'number' && Number.isFinite(size) ? size : 0.3;
 }

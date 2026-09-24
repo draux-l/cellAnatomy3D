@@ -1,7 +1,7 @@
 import { InstancedMesh, Matrix4, Mesh, Object3D, type BufferGeometry } from 'three';
 import { rosterFor } from '../catalog/cells';
 import type { CellId } from '../catalog/types';
-import { paramsForRecord, positionForRecord } from '../catalog/params';
+import { builderIdFor, paramsForRecord, positionForRecord } from '../catalog/params';
 import { getRecord } from '../catalog/cells';
 import { getBuilder } from '../scene/builders/registry';
 import type { OrganelleBuild, OrganellePart } from '../scene/builders/primitives';
@@ -63,7 +63,7 @@ export function mountOrganelle(organelleId: string, cell: CellId = 'animal'): Mo
     throw new Error(`mountOrganelle: no catalog record "${organelleId}"`);
   }
 
-  const build = getBuilder(record.geometry.builder)(paramsForRecord(record, cell));
+  const build = getBuilder(builderIdFor(record))(paramsForRecord(record, cell));
   const root = new Object3D();
   const parts = new Map<string, Object3D>();
   const [x, y, z] = positionForRecord(record, cell);
@@ -116,7 +116,7 @@ export function mountCell(cell: CellId = 'animal'): MountedCell {
   group.name = `cell:${cell}`;
 
   for (const record of rosterFor(cell)) {
-    const build = getBuilder(record.geometry.builder)(paramsForRecord(record, cell));
+    const build = getBuilder(builderIdFor(record))(paramsForRecord(record, cell));
     const root = new Object3D();
     const [x, y, z] = positionForRecord(record, cell);
 

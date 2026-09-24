@@ -1,6 +1,7 @@
 import { Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
 import { getRecord } from '../../catalog/cells';
+import { baseGeometryParamsFor } from '../../catalog/params';
 import { buildCellWall } from '../builders/cell-wall';
 import { buildMembrane } from '../builders/membrane';
 import {
@@ -40,7 +41,7 @@ function outerRadius(geometry: { getAttribute: (name: string) => { count: number
 }
 
 const WALL_RECORD = getRecord('cell-wall')!;
-const WALL_PARAMS = WALL_RECORD.geometry.params as { size: number; detail: number; count: number };
+const WALL_PARAMS = baseGeometryParamsFor(WALL_RECORD) as { size: number; detail: number; count: number };
 
 describe('navigation limits', () => {
   it('keeps the near clamp outside the wall as built', () => {
@@ -54,7 +55,7 @@ describe('navigation limits', () => {
 
   it('keeps the near clamp outside the membrane as built too', () => {
     const membraneRecord = getRecord('membrane')!;
-    const membrane = buildMembrane(membraneRecord.geometry.params);
+    const membrane = buildMembrane(baseGeometryParamsFor(membraneRecord));
     const position = membrane.parts[0]!.geometry.getAttribute('position');
     const vertex = new Vector3();
     let worst = 0;
@@ -138,8 +139,8 @@ describe('isolateCameraPose', () => {
 
   it('produces the same pose for every catalog record, deterministically', () => {
     const record = getRecord('golgi')!;
-    const first = isolateCameraPose(record.position, Number(record.geometry.params.size));
-    const second = isolateCameraPose(record.position, Number(record.geometry.params.size));
+    const first = isolateCameraPose(record.position, Number(baseGeometryParamsFor(record).size));
+    const second = isolateCameraPose(record.position, Number(baseGeometryParamsFor(record).size));
 
     expect(first).toEqual(second);
   });

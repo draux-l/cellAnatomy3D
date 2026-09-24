@@ -62,6 +62,25 @@ export const M0_COLORS = {
   cellWall: '#c9b98f',
   /** `organelles` palette role, the large fluid body that fills the plant cell. */
   vacuole: '#7fb3a6',
+
+  /*
+   * Mesh-path keys (task 12.4). The mesh identification map addresses these surfaces where the
+   * procedural builders had no equivalent layer — the nucleus body behind its envelope, the
+   * chromatin inside it, and the model's own cytoskeleton-like network — plus the two plant
+   * structures that render unlabelled. All five are bodies; every boundary surface on the mesh
+   * path reuses an existing shell key, which is what keeps the ≥17 fps floor in reach (a shell is
+   * `FrontSide` + `depthWrite:false`, never `transmission`).
+   */
+  /** `nucleus` palette role, the nuclear body the envelope wraps. */
+  nucleus: '#6f4fa8',
+  /** `nucleus` palette role, the chromatin strands inside the nuclear body. */
+  chromatin: '#b98fd6',
+  /** `organelles` palette role, the cell-spanning filament network (rendered unlabelled). */
+  cytoskeleton: '#9aa7bd',
+  /** `organelles` palette role, the plant peroxisome (rendered unlabelled, no roster record). */
+  peroxisome: '#a9c06b',
+  /** `membrane` palette role, the wall channels between plant cells (rendered unlabelled). */
+  plasmodesma: '#b9a878',
 } as const satisfies Record<string, string>;
 
 export type OrganelleMaterials = Record<OrganelleMaterialKey, Material> & {
@@ -155,6 +174,14 @@ export function createOrganelleMaterials(): OrganelleMaterials {
     // The vacuole is the largest surface in the cell, so it is the lower opacity of the two:
     // overdraw, not `transmission`, is the cost that matters here.
     vacuole: createShell(M0_COLORS.vacuole, 0.26),
+    // Mesh-path bodies (task 12.4): every one is an opaque body, on the same `createBody` recipe
+    // the procedural organelles use. The nucleus body is opaque because the model's chromatin sits
+    // inside it and must read through; the unlabelled plant/skeleton structures are plain bodies.
+    nucleus: createBody(M0_COLORS.nucleus),
+    chromatin: createBody(M0_COLORS.chromatin),
+    cytoskeleton: createBody(M0_COLORS.cytoskeleton),
+    peroxisome: createBody(M0_COLORS.peroxisome),
+    plasmodesma: createBody(M0_COLORS.plasmodesma),
   };
 
   return {

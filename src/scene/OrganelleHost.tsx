@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import type { Group, Material } from 'three';
 import { useAppStore } from '../app/store';
-import { paramsForRecord, positionForRecord } from '../catalog/params';
+import { builderIdFor, paramsForRecord, positionForRecord } from '../catalog/params';
 import type { CellId, OrganelleRecord } from '../catalog/types';
 import { buildBounds } from '../catalog/vectors';
 import { anchorOffsetFor, registerOrganelleAnchor, unregisterOrganelleAnchor } from './anchors';
@@ -47,8 +47,17 @@ export function OrganelleHost({ record, cell, materials }: OrganelleHostProps) {
   const hoveredId = useAppStore((state) => state.hoveredId);
   const selectedId = useAppStore((state) => state.selectedId);
 
+  /*
+   * `builderIdFor` resolves the builder that draws this record's geometry. For a procedural record
+   * that is `geometry.builder`; for a **mesh** record it is the record's declared procedural
+   * fallback (design D27), applied with the fallback's own parameters so the fallback reproduces
+   * the pre-mesh geometry exactly. The mesh rendering path itself (`MeshOrganelleHost`, cell-frame
+   * normalization, mesh-bounds pick proxies) is scene assembly and lands in the mesh slice; until
+   * then every record renders through its declared builder, which is why the composed-cell
+   * screenshots stay byte-identical.
+   */
   const build = useMemo(
-    () => getBuilder(record.geometry.builder)(paramsForRecord(record, cell)),
+    () => getBuilder(builderIdFor(record))(paramsForRecord(record, cell)),
     [record, cell],
   );
 

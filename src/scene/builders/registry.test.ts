@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ORGANELLE_RECORDS } from '../../catalog/cells';
+import { baseGeometryParamsFor, builderIdFor, seedFor } from '../../catalog/params';
 import { BUILDER_IDS as DECLARED_BUILDER_IDS } from '../../catalog/types';
 import {
   BUILDER_REGISTRY,
@@ -99,15 +100,15 @@ describe('builder registry', () => {
     // builder defaults (records are cell-scaled, defaults are showcase-scaled). This is the test
     // that proves a record's numbers are actually consumed.
     const built = ORGANELLE_RECORDS.filter((record) =>
-      REGISTERED_BUILDER_IDS.includes(record.geometry.builder),
+      REGISTERED_BUILDER_IDS.includes(builderIdFor(record)),
     );
 
     expect(built.length).toBe(REGISTERED_BUILDER_IDS.length);
 
     for (const record of built) {
-      const build = getBuilder(record.geometry.builder)(record.geometry.params);
+      const build = getBuilder(builderIdFor(record))(baseGeometryParamsFor(record));
 
-      expect(build.seed).toBe(record.geometry.seed);
+      expect(build.seed).toBe(seedFor(record));
       expect(build.triangles).toBeGreaterThan(0);
       expect(build.triangles).toBeLessThanOrEqual(PER_ORGANELLE_TRIANGLE_BUDGET);
       expect(build.drawCalls).toBeLessThanOrEqual(PER_CELL_DRAW_CALL_BUDGET);

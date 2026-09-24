@@ -1,5 +1,6 @@
 import alea from 'alea';
 import { createNoise3D } from 'simplex-noise';
+import { MATERIAL_KEY_NAMES, type MaterialKeyName } from '../../catalog/types';
 import {
   BufferAttribute,
   BufferGeometry,
@@ -64,7 +65,12 @@ export interface SeededNoise {
 }
 
 /**
- * Material roles a builder may ask the host for.
+ * Material roles a builder — or a mesh manifest entry — may ask the host for.
+ *
+ * The vocabulary now lives in the three-free catalog (`catalog/types.ts`) because a mesh reference
+ * names a key and `src/catalog/` may not import three.js (design D21, task 11.1). It is re-exported
+ * here so every existing `import { OrganelleMaterialKey } from './builders/primitives'` keeps
+ * working, and `src/scene/materials.ts` remains the one place a key becomes a material.
  *
  * The record carries a `paletteRole`, never a colour; the builder cannot see the record, so it
  * names the *surface* it produced and `src/scene/materials.ts` resolves it. Several keys map to
@@ -72,42 +78,11 @@ export interface SeededNoise {
  * the split exists because a nucleolus must stay distinguishable from the envelope that hides
  * it, and one merged role could not express that.
  */
-export type OrganelleMaterialKey =
-  | 'outerMembrane'
-  | 'innerMembrane'
-  | 'membrane'
-  | 'cytoplasm'
-  | 'nuclearEnvelope'
-  | 'nucleolus'
-  | 'nuclearPore'
-  | 'granule'
-  | 'lysosome'
-  | 'er'
-  | 'golgi'
-  | 'vesicle'
-  | 'chloroplast'
-  | 'grana'
-  | 'cellWall'
-  | 'vacuole';
+type OrganelleMaterialKey = MaterialKeyName;
 
-export const ORGANELLE_MATERIAL_KEYS = [
-  'outerMembrane',
-  'innerMembrane',
-  'membrane',
-  'cytoplasm',
-  'nuclearEnvelope',
-  'nucleolus',
-  'nuclearPore',
-  'granule',
-  'lysosome',
-  'er',
-  'golgi',
-  'vesicle',
-  'chloroplast',
-  'grana',
-  'cellWall',
-  'vacuole',
-] as const satisfies readonly OrganelleMaterialKey[];
+export type { OrganelleMaterialKey };
+export { MATERIAL_KEY_NAMES as ORGANELLE_MATERIAL_KEYS };
+
 
 /** One geometry, one draw call. */
 export interface MeshPart {

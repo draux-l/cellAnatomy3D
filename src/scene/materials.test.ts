@@ -1,5 +1,6 @@
 import { DoubleSide, FrontSide, Material, MeshPhysicalMaterial, MeshStandardMaterial } from 'three';
 import { describe, expect, it } from 'vitest';
+import { MODEL_MANIFEST } from '../catalog/models';
 import { ORGANELLE_MATERIAL_KEYS } from './builders/primitives';
 import { M0_COLORS, createOrganelleMaterials } from './materials';
 
@@ -123,6 +124,27 @@ describe('createOrganelleMaterials', () => {
   it('renders small granules flat-shaded', () => {
     expect((materials.granule as MeshStandardMaterial).flatShading).toBe(true);
     expect((materials.lysosome as MeshStandardMaterial).flatShading).toBe(false);
+  });
+
+  it('resolves every material key the committed manifest assigns (task 12.4)', () => {
+    // The mesh identification map names a key per mesh; every one of them must be a real material,
+    // or the loader would assign `undefined` and the mesh would vanish.
+    const keys = new Set<string>();
+
+    for (const model of Object.values(MODEL_MANIFEST)) {
+      for (const row of model.meshes) {
+        if (row.materialKey !== null) {
+          keys.add(row.materialKey);
+        }
+      }
+    }
+
+    expect(keys.size).toBeGreaterThan(0);
+
+    for (const key of keys) {
+      expect(ORGANELLE_MATERIAL_KEYS).toContain(key);
+      expect(materials[key as keyof typeof materials]).toBeInstanceOf(Material);
+    }
   });
 
   it('disposes every material it created', () => {

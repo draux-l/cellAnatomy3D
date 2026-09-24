@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { getBuilder } from '../scene/builders/registry';
 import { ORGANELLE_RECORDS } from './cells';
+import { baseGeometryParamsFor, builderIdFor } from './params';
 import {
   SUGGESTED_TRAVEL_MULTIPLIER,
   boundingRadius,
@@ -182,7 +183,7 @@ describe('the explicit record distance always wins', () => {
     let overridden = 0;
 
     for (const record of ORGANELLE_RECORDS) {
-      const build = getBuilder(record.geometry.builder)(record.geometry.params);
+      const build = getBuilder(builderIdFor(record))(baseGeometryParamsFor(record));
       const geometries = build.parts.map((part) => part.geometry);
       const suggestion = suggestedDistance(geometries);
 

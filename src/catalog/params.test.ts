@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { getRecord, rosterFor } from './cells';
-import { hasPerCellOverride, paramsForRecord, positionForRecord } from './params';
+import { baseGeometryParamsFor, hasPerCellOverride, paramsForRecord, positionForRecord } from './params';
 
 /**
  * The per-cell resolution rule (composition slice).
@@ -13,7 +13,7 @@ describe('paramsForRecord', () => {
   it('returns the record parameters unchanged for a cell with no override', () => {
     const membrane = getRecord('membrane')!;
 
-    expect(paramsForRecord(membrane, 'animal')).toEqual(membrane.geometry.params);
+    expect(paramsForRecord(membrane, 'animal')).toEqual(baseGeometryParamsFor(membrane));
   });
 
   it('merges the plant override over the base parameters without replacing them', () => {
@@ -23,9 +23,9 @@ describe('paramsForRecord', () => {
     expect(plant.sides).toBe(8);
     expect(plant.cornerRounding).toBe(0.4);
     // Every base key survives the merge: an override is a deviation, not a replacement.
-    expect(plant.size).toBe(membrane.geometry.params.size);
-    expect(plant.noiseAmplitude).toBe(membrane.geometry.params.noiseAmplitude);
-    expect(plant.seed).toBe(membrane.geometry.params.seed);
+    expect(plant.size).toBe(baseGeometryParamsFor(membrane).size);
+    expect(plant.noiseAmplitude).toBe(baseGeometryParamsFor(membrane).noiseAmplitude);
+    expect(plant.seed).toBe(baseGeometryParamsFor(membrane).seed);
   });
 
   it('does not mutate the frozen catalog', () => {

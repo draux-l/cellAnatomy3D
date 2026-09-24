@@ -61,6 +61,7 @@ const CATALOG: readonly OrganelleRecord[] = [
     paletteRole: 'nucleus',
     position: [-0.1, 0.14, 0.04],
     geometry: {
+      kind: 'procedural',
       builder: 'nucleus',
       params: { size: 0.36, detail: 1, count: 0, poreCount: 48 },
       seed: 'nucleus/v1',
@@ -100,6 +101,7 @@ const CATALOG: readonly OrganelleRecord[] = [
     // does not sit inside the nucleus.
     position: [-0.52, -0.3, 0.26],
     geometry: {
+      kind: 'procedural',
       builder: 'mitochondrion',
       params: { size: 0.3, detail: 1, count: 0, cristaeCount: 12 },
       // The same seed M0 shipped, so the first organelle's identity is preserved.
@@ -127,6 +129,7 @@ const CATALOG: readonly OrganelleRecord[] = [
     // but no longer engulfing it.
     position: [0.42, -0.18, 0.12],
     geometry: {
+      kind: 'procedural',
       builder: 'endoplasmic-reticulum',
       params: { size: 0.38, detail: 1, count: 6, branchCount: 6 },
       seed: 'endoplasmic-reticulum/v1',
@@ -150,6 +153,7 @@ const CATALOG: readonly OrganelleRecord[] = [
     paletteRole: 'organelles',
     position: [-0.38, 0.44, -0.2],
     geometry: {
+      kind: 'procedural',
       builder: 'golgi',
       params: { size: 0.3, detail: 1, count: 6, cisternaeCount: 6 },
       seed: 'golgi/v1',
@@ -176,6 +180,7 @@ const CATALOG: readonly OrganelleRecord[] = [
     // cytosol population rather than a solid body.
     position: [0.36, 0.1, 0.12],
     geometry: {
+      kind: 'procedural',
       builder: 'ribosome',
       params: { size: 0.03, detail: 0, count: 220, spread: 0.4 },
       seed: 'ribosome/v1',
@@ -199,6 +204,7 @@ const CATALOG: readonly OrganelleRecord[] = [
     paletteRole: 'organelles',
     position: [-0.62, 0.3, 0.16],
     geometry: {
+      kind: 'procedural',
       builder: 'lysosome',
       params: { size: 0.12, detail: 1, count: 0 },
       seed: 'lysosome/v1',
@@ -232,6 +238,7 @@ const CATALOG: readonly OrganelleRecord[] = [
      */
     position: [0, 0, 0],
     geometry: {
+      kind: 'procedural',
       builder: 'cytoplasm',
       params: { size: 0.94, detail: 1, count: 0, noiseAmplitude: 0.018 },
       seed: 'cytoplasm/v1',
@@ -264,6 +271,7 @@ const CATALOG: readonly OrganelleRecord[] = [
     // The membrane is the cell's own shell, so it is centred on the origin.
     position: [0, 0, 0],
     geometry: {
+      kind: 'procedural',
       builder: 'membrane',
       params: { size: 1, detail: 1, count: 0, noiseAmplitude: 0.035 },
       seed: 'membrane/v1',
@@ -315,6 +323,7 @@ const CATALOG: readonly OrganelleRecord[] = [
      * committed screenshot.
      */
     geometry: {
+      kind: 'procedural',
       builder: 'cell-wall',
       params: { size: 1.12, detail: 1, count: 0 },
       seed: 'cell-wall/v1',
@@ -340,6 +349,7 @@ const CATALOG: readonly OrganelleRecord[] = [
     // cell's peripheral cytoplasm rather than inside the central vacuole.
     position: [0.32, 0.37, -0.26],
     geometry: {
+      kind: 'procedural',
       builder: 'chloroplast',
       params: { size: 0.42, detail: 1, count: 0, granaStacks: 5 },
       seed: 'chloroplast/v1',
@@ -365,6 +375,7 @@ const CATALOG: readonly OrganelleRecord[] = [
     paletteRole: 'organelles',
     position: [-0.02, -0.03, 0.01],
     geometry: {
+      kind: 'procedural',
       // Composition pass: 0.72 made the vacuole swallow every other organelle — its radius alone
       // left no cytoplasm for them to sit in. 0.58 still reads as the cell's dominant central body
       // (its cross-section is ~30% of the cell) while leaving a peripheral band wide enough for the

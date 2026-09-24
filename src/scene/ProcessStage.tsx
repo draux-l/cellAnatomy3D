@@ -4,6 +4,7 @@ import { MAX_FRAME_DELTA_SECONDS, processClock, speedToScale } from '../app/cloc
 import { cellDebug, type ProcessMirrorEntry } from '../app/debug';
 import { useAppStore } from '../app/store';
 import { getRecord } from '../catalog/cells';
+import { seedFor } from '../catalog/params';
 import type { CellId } from '../catalog/types';
 import { processLight } from '../processes/light';
 import { getProcessDefinition } from '../processes/registry';
@@ -74,7 +75,7 @@ export function ProcessStage({ cell, fixtureLightPercent }: ProcessStageProps) {
           cell,
           target,
           root,
-          seed: `${record?.geometry.seed ?? target.organelleId}/${definition.id}`,
+          seed: `${record ? seedFor(record) : target.organelleId}/${definition.id}`,
         });
 
         root.add(instance.object);

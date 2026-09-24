@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ORGANELLE_RECORDS, getRecord, rosterFor } from './cells';
-import { BUILDER_IDS, CELL_IDS, PALETTE_ROLES, SIZE_UNITS } from './types';
+import { builderIdFor, seedFor } from './params';
+import { BUILDER_IDS, CELL_IDS, GEOMETRY_KINDS, PALETTE_ROLES, SIZE_UNITS } from './types';
 
 /**
  * Roster and data-shape assertions for the catalog (tasks 2.1, 2.2).
@@ -73,7 +74,7 @@ describe('organelle catalog rosters', () => {
 
   it('contains no cilia, flagellum, pseudopod or specialized cell type', () => {
     for (const record of ORGANELLE_RECORDS) {
-      const haystack = `${record.id} ${record.geometry.builder}`.toLowerCase();
+      const haystack = `${record.id} ${builderIdFor(record)}`.toLowerCase();
 
       for (const term of BANNED_TERMS) {
         expect(haystack, `"${record.id}" is out of scope (matched "${term}")`).not.toContain(term);
@@ -110,13 +111,21 @@ describe('organelle catalog rosters', () => {
   it('references a palette role and a declared builder on every record', () => {
     for (const record of ORGANELLE_RECORDS) {
       expect(PALETTE_ROLES).toContain(record.paletteRole);
-      expect(BUILDER_IDS).toContain(record.geometry.builder);
-      expect(record.geometry.seed.length).toBeGreaterThan(0);
+      // Both geometry paths must resolve to a declared builder: a procedural record through
+      // `geometry.builder`, a mesh record through its fallback (design D27).
+      expect(BUILDER_IDS).toContain(builderIdFor(record));
+      expect(seedFor(record).length).toBeGreaterThan(0);
       expect(record.cells.length).toBeGreaterThan(0);
 
       for (const cell of record.cells) {
         expect(CELL_IDS).toContain(cell);
       }
+    }
+  });
+
+  it('declares a geometry kind on every record, never defaulting (task 11.2)', () => {
+    for (const record of ORGANELLE_RECORDS) {
+      expect(GEOMETRY_KINDS).toContain(record.geometry.kind);
     }
   });
 
