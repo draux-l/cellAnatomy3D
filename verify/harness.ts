@@ -258,9 +258,50 @@ export async function openFixture(
   await page.goto(fixtureUrl(fixture, params), { waitUntil: 'load' });
 
   await page.waitForSelector('canvas', { state: 'attached', timeout: FRAME_TIMEOUT_MS });
+
+  /*
+   * A composed animal cell now renders from its GLB, and the fetch is not instantaneous. Waiting
+   * only for a frame count would let a capture race the load and photograph whichever geometry was
+   * mounted at the twentieth frame — a fixture whose subject depends on network timing.
+   *
+   * `.cell-view[data-model]` is the loader's own lifecycle written to the DOM (`scene/CellViewer`),
+   * so this waits on the app's real state rather than on a sleep. It is satisfied immediately by a
+   * non-composed fixture (`?fixture=organelle` renders no `.cell-view`) and by the plant cell, which
+   * deliberately never loads a model.
+   */
   await page.waitForFunction(
-    (minFrames) => (window.__cellDebug?.frames ?? 0) >= minFrames,
-    MIN_FRAMES_BEFORE_CAPTURE,
+    () => {
+      const cellView = document.querySelector('.cell-view');
+
+      if (cellView === null || cellView.getAttribute('data-cell') !== 'animal') {
+        return true;
+      }
+
+      const status = cellView.getAttribute('data-model');
+
+      return status === 'ready' || status === 'error';
+    },
+    undefined,
+    { timeout: FRAME_TIMEOUT_MS },
+  );
+
+  /*
+   * Re-baseline after the model settles, and require both a fresh frame window and a draw-call
+   * sample taken *after* it. The sample is 1 Hz, so a reading taken at attach time could still
+   * describe the procedural fallback rather than the mesh the fixture is about.
+   */
+  const settledAt = await page.evaluate(() => ({
+    frames: window.__cellDebug?.frames ?? 0,
+    samples: window.__cellDebug?.drawCallSampleTimesMs.length ?? 0,
+  }));
+
+  await page.waitForFunction(
+    // The predicate is serialised into the page, so the constants it needs travel as an argument
+    // rather than being closed over.
+    (baseline) =>
+      (window.__cellDebug?.frames ?? 0) >= baseline.frames + baseline.minFrames &&
+      (window.__cellDebug?.drawCallSampleTimesMs.length ?? 0) > baseline.samples,
+    { ...settledAt, minFrames: MIN_FRAMES_BEFORE_CAPTURE },
     { timeout: FRAME_TIMEOUT_MS },
   );
 
