@@ -79,9 +79,40 @@ describe('auditEntries', () => {
     expect(audit.ok).toBe(true);
     expect(audit.failures).toEqual([]);
     expect(audit.totals.shellGzipBytes).toBe(60_000);
-    expect(audit.totals.initialGzipBytes).toBe(60_800);
+    // The initial payload is entry + 3D chunk + the largest model (only one model loads first).
+    expect(audit.totals.initialGzipBytes).toBe(60_800 + 264_700);
     expect(audit.totals.lazyGzipBytes).toBe(264_700);
     expect(audit.totals.threeChunkFiles).toEqual(['assets/CellViewer-abc123.js']);
+    expect(audit.totals.modelRows).toEqual([]);
+  });
+
+  it('reports each shipped cell model as its own row', () => {
+    const audit = auditEntries([
+      entry({ file: 'assets/index.js', gzipBytes: 60_000 }),
+      threeChunk(),
+      entry({ file: 'models/animal-cell.glb', role: ROLES.lazy, rawBytes: 2_187_596, gzipBytes: 2_100_000 }),
+      entry({ file: 'models/plant-cell.glb', role: ROLES.lazy, rawBytes: 2_616_236, gzipBytes: 2_500_000 }),
+    ]);
+
+    expect(audit.ok).toBe(true);
+    expect(audit.totals.modelRows.map((row: { file: string }) => row.file)).toEqual([
+      'models/animal-cell.glb',
+      'models/plant-cell.glb',
+    ]);
+    // Only the larger model counts toward the initial payload.
+    expect(audit.totals.initialGzipBytes).toBe(60_000 + 264_700 + 2_500_000);
+    expect(audit.totals.totalStaticAssetsBytes).toBeGreaterThan(4_800_000);
+  });
+
+  it('fails when total static assets exceed the 6.5 MB ceiling', () => {
+    const audit = auditEntries([
+      entry({ file: 'assets/index.js', gzipBytes: 60_000 }),
+      threeChunk(),
+      entry({ file: 'models/animal-cell.glb', role: ROLES.lazy, rawBytes: 7_000_000, gzipBytes: 7_000_000 }),
+    ]);
+
+    expect(audit.ok).toBe(false);
+    expect(audit.failures.some((failure) => failure.includes('total static assets'))).toBe(true);
   });
 
   it('accepts the shape PR 2 actually shipped', () => {
@@ -149,7 +180,9 @@ describe('auditEntries', () => {
     ]);
 
     expect(audit.ok).toBe(false);
-    expect(audit.failures).toHaveLength(1);
+    // Two failures now: the single-file cap and the total-static-assets ceiling, which the same
+    // oversized file also breaks.
+    expect(audit.failures).toHaveLength(2);
     expect(audit.failures[0]).toContain('assets/oversized.bin');
     expect(audit.failures[0]).toContain('26.00 MB');
     expect(audit.failures[0]).toContain('single-file cap');
@@ -166,7 +199,7 @@ describe('auditEntries', () => {
     expect(audit.failures[0]).toContain('over the');
   });
 
-  it('fails an initial payload over the 2.5 MB gzip budget', () => {
+  it('fails an initial payload over the 6 MB gzip budget', () => {
     // The shell stays inside both of its own budgets; the initial payload does not, because CSS
     // is part of what must load before the first 3D render.
     const audit = auditEntries([
@@ -175,14 +208,13 @@ describe('auditEntries', () => {
         file: 'assets/index.css',
         role: ROLES.entryCss,
         rawBytes: 7_000_000,
-        gzipBytes: 2_500_000,
+        gzipBytes: 6_500_000,
       }),
       threeChunk(),
     ]);
 
     expect(audit.ok).toBe(false);
-    expect(audit.failures).toHaveLength(1);
-    expect(audit.failures[0]).toContain('initial payload');
+    expect(audit.failures.some((failure) => failure.includes('initial payload'))).toBe(true);
     expect(audit.totals.shellGzipBytes).toBeLessThanOrEqual(BUDGETS.shellGzipBytes);
   });
 
@@ -200,6 +232,8 @@ describe('auditEntries', () => {
     expect(BUDGETS.maxFileBytes).toBe(25 * 1024 * 1024);
     expect(BUDGETS.shellGzipBytes).toBe(350 * 1024);
     expect(BUDGETS.postSplitShellGzipBytes).toBe(150 * 1024);
-    expect(BUDGETS.initialGzipBytes).toBe(2.5 * 1024 * 1024);
+    // Re-ratified for the mesh path (task 11.8): ≤6 MB initial, ≤6.5 MB total static assets.
+    expect(BUDGETS.initialGzipBytes).toBe(6 * 1024 * 1024);
+    expect(BUDGETS.totalStaticAssetsBytes).toBe(6.5 * 1024 * 1024);
   });
 });

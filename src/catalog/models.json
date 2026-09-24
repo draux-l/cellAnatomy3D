@@ -1,0 +1,61 @@
+{
+  "animal": {
+    "cell": "animal",
+    "frame": {
+      "file": "/models/animal-cell.glb",
+      "sha256": "80fd71fe64287a3d2561de7995c745692f5c2ee3ca0774566ed3ede04423fc61",
+      "scale": 0.00202597,
+      "rotation": [0, 0, 0],
+      "center": [-24.648, -66.063, 30.208]
+    },
+    "meshes": [
+      { "node": "Nulo__Material.013_0", "policy": "unmapped", "recordId": null, "materialKey": "cytoskeleton" },
+      { "node": "Nulo__Material.003_0", "policy": "omit", "recordId": null, "materialKey": null },
+      { "node": "Nulo__Material.010_0", "policy": "map", "recordId": "nucleus", "materialKey": "nucleus" },
+      { "node": "Nulo__Material.009_0", "policy": "map", "recordId": "nucleus", "materialKey": "nucleolus" },
+      { "node": "Nulo__Material.001_0", "policy": "map", "recordId": "nucleus", "materialKey": "nuclearEnvelope" },
+      { "node": "Nulo__Material.027_0", "occurrence": 0, "policy": "map", "recordId": "nucleus", "materialKey": "chromatin" },
+      { "node": "Nulo__Material.027_0", "occurrence": 1, "policy": "map", "recordId": "nucleus", "materialKey": "chromatin" },
+      { "node": "Nulo__Material.027_0", "occurrence": 2, "policy": "map", "recordId": "nucleus", "materialKey": "chromatin" },
+      { "node": "Nulo__Material.027_0", "occurrence": 3, "policy": "map", "recordId": "nucleus", "materialKey": "chromatin" },
+      { "node": "Nulo__Material.025_0", "policy": "omit", "recordId": null, "materialKey": null },
+      { "node": "Nulo__Material.1_0", "policy": "omit", "recordId": null, "materialKey": null },
+      { "node": "Nulo__Material_0", "policy": "map", "recordId": "membrane", "materialKey": "membrane" },
+      { "node": "Nulo__Material.006_0", "policy": "map", "recordId": "golgi", "materialKey": "golgi" },
+      { "node": "Nulo__Material.007_0", "policy": "map", "recordId": "mitochondrion", "materialKey": "innerMembrane" },
+      { "node": "Nulo__Material.008_0", "policy": "map", "recordId": "mitochondrion", "materialKey": "outerMembrane" },
+      { "node": "Nulo__Material.026_0", "policy": "omit", "recordId": null, "materialKey": null },
+      { "node": "Nulo__Material.005_0", "policy": "map", "recordId": "endoplasmic-reticulum", "materialKey": "er" },
+      { "node": "Nulo__Material.018_0", "occurrence": 0, "policy": "map", "recordId": "ribosome", "materialKey": "granule" },
+      { "node": "Nulo__Material.018_0", "occurrence": 1, "policy": "map", "recordId": "ribosome", "materialKey": "granule" },
+      { "node": "Nulo__Material.018_0", "occurrence": 2, "policy": "map", "recordId": "ribosome", "materialKey": "granule" },
+      { "node": "citoplasma_remesh_Material.004_0", "policy": "map", "recordId": "cytoplasm", "materialKey": "cytoplasm" }
+    ]
+  },
+  "plant": {
+    "cell": "plant",
+    "frame": {
+      "file": "/models/plant-cell.glb",
+      "sha256": "f791fd9851d90ecb98b58ed69a996c4379c8340e003eccc1aa65ad4b36adbe42",
+      "scale": 0.00715207,
+      "rotation": [0, 0, 0],
+      "center": [0.0, -1.303, -0.086]
+    },
+    "meshes": [
+      { "node": "cytoplasm_TT_checker_512x512_UV_GRID_0", "policy": "map", "recordId": "cytoplasm", "materialKey": "cytoplasm" },
+      { "node": "chloroplast.in_TT_checker_512x512_UV_GRID_0", "policy": "map", "recordId": "chloroplast", "materialKey": "grana" },
+      { "node": "chloroplast.out_TT_checker_512x512_UV_GRID_0", "policy": "map", "recordId": "chloroplast", "materialKey": "chloroplast" },
+      { "node": "nucleus_TT_checker_512x512_UV_GRID_0", "policy": "map", "recordId": "nucleus", "materialKey": "nucleus" },
+      { "node": "ribosomes_TT_checker_512x512_UV_GRID_0", "policy": "map", "recordId": "ribosome", "materialKey": "granule" },
+      { "node": "rough.ER_TT_checker_512x512_UV_GRID_0", "policy": "map", "recordId": "endoplasmic-reticulum", "materialKey": "er" },
+      { "node": "golgi.appratus_TT_checker_512x512_UV_GRID_0", "policy": "map", "recordId": "golgi", "materialKey": "golgi" },
+      { "node": "lysosome_TT_checker_512x512_UV_GRID_0", "policy": "map", "recordId": "lysosome", "materialKey": "lysosome" },
+      { "node": "peroxisome_TT_checker_512x512_UV_GRID_0", "policy": "unmapped", "recordId": null, "materialKey": "peroxisome" },
+      { "node": "vacuole_TT_checker_512x512_UV_GRID_0", "policy": "map", "recordId": "vacuole", "materialKey": "vacuole" },
+      { "node": "plasmodesma_TT_checker_512x512_UV_GRID_0", "policy": "unmapped", "recordId": null, "materialKey": "plasmodesma" },
+      { "node": "cell_TT_checker_512x512_UV_GRID_0", "policy": "map", "recordId": "cell-wall", "materialKey": "cellWall" },
+      { "node": "mitochondria_TT_checker_512x512_UV_GRID_0", "policy": "map", "recordId": "mitochondrion", "materialKey": "outerMembrane" },
+      { "node": "smooth.ER_TT_checker_512x512_UV_GRID_0", "policy": "map", "recordId": "endoplasmic-reticulum", "materialKey": "er" }
+    ]
+  }
+}

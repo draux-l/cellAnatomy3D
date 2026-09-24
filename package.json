@@ -16,8 +16,9 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "audit:sizes": "node verify/size-audit.mjs",
+    "audit:models": "node verify/model-audit.mjs",
     "perf": "node verify/perf-report.mjs",
-    "verify": "npm run build && npm run audit:sizes && npm test && npm run test:e2e"
+    "verify": "npm run build && npm run audit:models && npm run audit:sizes && npm test && npm run test:e2e"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.8",
