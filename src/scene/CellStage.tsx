@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { ContactShadows, Environment, Lightformer, OrbitControls } from '@react-three/drei';
 import type { FixtureConfig } from '../app/fixture';
+import { useAppStore } from '../app/store';
 import type { CellId } from '../catalog/types';
 import { CellGroup } from './CellGroup';
-import { M0_COLORS, createOrganelleMaterials } from './materials';
+import { MeshCellGroup } from './MeshCellGroup';
+import { M0_COLORS, createOrganelleMaterials, type OrganelleMaterials } from './materials';
+import { useCellModel } from './models/useCellModel';
 import { ENVIRONMENT_RESOLUTION } from './renderSettings';
 import { DebugSampler } from './useDebugSampler';
 import { NAVIGATION_LIMITS } from './interaction/cameraModel';
@@ -59,7 +62,7 @@ export function CellStage({
       <ambientLight intensity={0.18} />
       <directionalLight position={[-3.4, 2.6, -4.2]} intensity={1.7} color={M0_COLORS.rimLight} />
 
-      <CellGroup cell={cell} materials={materials} />
+      <CellContent cell={cell} materials={materials} />
 
       {/* The reduced tier drops the whole contact-shadow pass (design D12). */}
       {tier.contactShadows ? (
@@ -122,4 +125,43 @@ export function CellStage({
       <DebugSampler fixture={fixture} />
     </>
   );
+}
+
+/**
+ * Which geometry presentation the composed cell uses (design D24/D27, task 13.2).
+ *
+ * Only the animal cell takes the mesh path in this slice: the plant's model is shipped and mapped,
+ * but the plant cell is deliberately left on its procedural build until that step is green-lit, so
+ * this component must not even *fetch* the plant model. That is why the choice is a component
+ * boundary rather than a conditional hook — `AnimalCellContent` calls `useCellModel`, and a plant
+ * render never mounts it, so a cold plant load requests no `.glb` at all.
+ */
+function CellContent({ cell, materials }: { cell: CellId; materials: OrganelleMaterials }) {
+  return cell === 'animal' ? (
+    <AnimalCellContent materials={materials} />
+  ) : (
+    <CellGroup cell={cell} materials={materials} />
+  );
+}
+
+function AnimalCellContent({ materials }: { materials: OrganelleMaterials }) {
+  const { status, model } = useCellModel('animal');
+  const setModelStatus = useAppStore((state) => state.setModelStatus);
+
+  // The lifecycle is mirrored into the shell as one discrete value. The screenshot harness reads it
+  // through `.cell-view[data-model]` so it waits for the model instead of capturing whichever
+  // geometry happened to be mounted when the frame counter reached its minimum — without it, a
+  // fixture's subject would depend on how long the fetch took.
+  useEffect(() => {
+    setModelStatus(status);
+  }, [status, setModelStatus]);
+
+  if (status === 'ready' && model) {
+    return <MeshCellGroup cell="animal" materials={materials} model={model} />;
+  }
+
+  // While loading, and on a failed load, the cell keeps teaching: every record builds through its
+  // declared procedural fallback and the counter in `cellDebug.meshLoadErrors` records the failure
+  // (design D27). The cell never blanks.
+  return <CellGroup cell="animal" materials={materials} />;
 }

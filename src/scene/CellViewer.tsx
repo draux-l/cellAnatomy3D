@@ -81,6 +81,7 @@ function ComposedCellView({ fixture }: { fixture: FixtureConfig }) {
   const setSelected = useAppStore((state) => state.setSelected);
   const disassemblyTarget = useAppStore((state) => state.disassemblyTarget);
   const processId = useAppStore((state) => state.processId);
+  const modelStatus = useAppStore((state) => state.modelStatus);
   const tier = useQualityTier(fixture.name);
   const cell = cellForFixture(fixture, activeView);
   // React never renders the readout text; the frame loop owns it. React owns the slider position.
@@ -132,6 +133,7 @@ function ComposedCellView({ fixture }: { fixture: FixtureConfig }) {
       data-selected={selectedId ?? ''}
       data-disassembly={disassemblyTarget}
       data-process={processId ?? ''}
+      data-model={modelStatus}
     >
       <Canvas
         dpr={[1, tier.dpr]}

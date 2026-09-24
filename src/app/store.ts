@@ -17,6 +17,20 @@ export type SpeedSetting = 'pause' | 'slow' | 'realtime';
 export type Locale = 'es' | 'en';
 
 /**
+ * How far the selected cell's GLB has got (design D20/D24, task 13.2).
+ *
+ * A **discrete** lifecycle value, not a frame value: it changes four times at most over a page's
+ * life (`idle` → `loading` → `ready`/`error`). It lives here rather than inside the lazy 3D chunk
+ * because two shell-side consumers read it: the viewer writes it onto `.cell-view` as
+ * `data-model`, so the screenshot harness can wait for the mesh to be the thing on screen instead
+ * of capturing whichever geometry happened to be mounted when the frame counter reached twenty.
+ *
+ * `idle` is the "no cell model is in play" state — the plant cell renders procedurally and never
+ * loads one, and a `?fixture=organelle` page never mounts a composed cell at all.
+ */
+export type ModelStatus = 'idle' | 'loading' | 'ready' | 'error';
+
+/**
  * The disassembly range, in whole percents.
  *
  * It lives beside the store rather than in `src/scene/` because the store must not import from the
@@ -71,6 +85,11 @@ export interface AppState {
   locale: Locale;
   /** True while a quiz prompt is open, so labels and names are suppressed (M5). */
   quizActive: boolean;
+  /**
+   * How far the selected cell's GLB has got (task 13.2). Written by the mesh loader's view half;
+   * read by the viewer's DOM attributes. A discrete value, never per frame.
+   */
+  modelStatus: ModelStatus;
 
   setActiveView: (view: ActiveView) => void;
   setSelected: (id: string | null) => void;
@@ -84,6 +103,7 @@ export interface AppState {
   setPalette: (paletteId: string) => void;
   setLocale: (locale: Locale) => void;
   setQuizActive: (quizActive: boolean) => void;
+  setModelStatus: (status: ModelStatus) => void;
 }
 
 /** The complete set of discrete keys. Anything outside this list is a bug. */
@@ -98,6 +118,7 @@ export const DISCRETE_STATE_KEYS = [
   'paletteId',
   'locale',
   'quizActive',
+  'modelStatus',
 ] as const satisfies readonly (keyof AppState)[];
 
 /**
@@ -125,6 +146,7 @@ export const LOCALE_PRESERVED_KEYS = [
   'cytokinesisMechanism',
   'paletteId',
   'quizActive',
+  'modelStatus',
 ] as const satisfies readonly (keyof AppState)[];
 
 /**
@@ -155,6 +177,8 @@ export const useAppStore = create<AppState>()((set) => ({
   // The spec's default content language is Spanish.
   locale: 'es',
   quizActive: false,
+  // No cell model is in play until the viewer mounts an animal cell and asks for one.
+  modelStatus: 'idle',
 
   setActiveView: (activeView) => set({ activeView }),
 
@@ -199,4 +223,11 @@ export const useAppStore = create<AppState>()((set) => ({
    */
   setLocale: (locale) => set({ locale }),
   setQuizActive: (quizActive) => set({ quizActive }),
+  /**
+   * The mesh loader's lifecycle, mirrored for the shell. One key, like every other action.
+   *
+   * A language switch preserves it (`LOCALE_PRESERVED_KEYS`): a locale change must not cause the
+   * model to be re-requested or its `data-model` attribute to flicker.
+   */
+  setModelStatus: (modelStatus) => set({ modelStatus }),
 }));
