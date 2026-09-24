@@ -11,6 +11,14 @@ Capability `cell-viewer` · **M1** · New capability (greenfield).
 > instead of creating a transient label. Its full change record (original text + replacement) is attached
 > to the requirement itself. Nothing was removed or renamed. Not adopted from the mockup: camera
 > telemetry (azimuth/elevation), breadcrumb navigation, and the left-panel spec-table layout.
+>
+> **Spec update — 2026-09-24 (mesh-geometry path)**: **MODIFIED IN PLACE** 2 requirements —
+> `Deterministic Scene Reconstruction` (a mesh record satisfies determinism through hashed model data
+> plus the committed manifest, not a seed) and `Runtime Performance Targets` (fps floor re-ratified to
+> **≥17 fps p50**). One explanatory cross-reference in `On-Screen FPS Readout` was also corrected
+> because it cited the retired ≥60 fps target; that requirement's normative text is unchanged. Each
+> carries its own change record quoting the original text verbatim plus the reason. Nothing added,
+> removed, or renamed.
 
 ## ADDED Requirements
 
@@ -81,13 +89,30 @@ Capability `cell-viewer` · **M1** · New capability (greenfield).
 
 ### Requirement: Deterministic Scene Reconstruction
 
-**[BC]** Each organelle SHALL be built from a named seed so it renders identically in animal view, plant view, comparison mode, and inside any animation.
+**[BC]** Each organelle SHALL render identically in animal view, plant view, comparison mode, and inside any animation. A procedural record SHALL be built from a named seed; a mesh record SHALL be built from model data whose integrity is fixed by a committed sha256 in the manifest, so "same record, same render" holds without a seed.
 
-#### Scenario: Same organelle is identical across views
+> **MODIFIED IN PLACE (2026-09-24)** — original text preserved verbatim for audit:
+> "**[BC]** Each organelle SHALL be built from a named seed so it renders identically in animal view, plant view, comparison mode, and inside any animation." with the original scenario "*GIVEN the mitochondrion renders in the animal view with seed S / WHEN the same record is rendered in comparison mode / THEN the generated geometry is identical*".
+> **What changed**: determinism is now satisfied by one of two sources — a procedural record's seed, or a mesh record's hashed model data plus the committed manifest. The underlying guarantee (identical render across every view and animation) is unchanged and not weakened. The single scenario was generalized to cover both sources and multi-mesh records.
+> **Reason**: mesh records have no seed; their identity is a committed GLB verified by sha256 and node names (`verify/model-audit.mjs`, design D19/D20/D29). The mitochondrion is now a mesh record referencing two meshes (D29). Heading deliberately unchanged so the archive merge matches by name.
 
-- GIVEN the mitochondrion renders in the animal view with seed S
+#### Scenario: Same procedural organelle is identical across views
+
+- GIVEN a procedural record renders in the animal view with seed S
 - WHEN the same record is rendered in comparison mode
 - THEN the generated geometry is identical
+
+#### Scenario: Same mesh organelle is identical across views
+
+- GIVEN a mesh record whose model sha256 is recorded in the committed manifest
+- WHEN the same record renders in animal view, plant view, comparison mode, and inside an animation
+- THEN every render uses the same verified model data and produces the same geometry
+
+#### Scenario: Tampered model data fails rather than renders
+
+- GIVEN a served model file whose sha256 differs from the committed manifest value
+- WHEN the model audit runs
+- THEN it fails and names the model rather than rendering it silently
 
 ### Requirement: Accuracy Over Spectacle (Standing Tie-Break)
 
@@ -111,13 +136,25 @@ Capability `cell-viewer` · **M1** · New capability (greenfield).
 
 ### Requirement: Runtime Performance Targets
 
-**[VX]** The viewer SHALL sustain ≥60 fps at 1080p with ≤150 draw calls per cell. These are **targets pending M0 measurement**.
+**[VX]** The viewer SHALL sustain **≥17 fps p50** at 1280×800 / deviceScaleFactor 2 / DPR cap 1.5 on the reference integrated GPU with ≤150 draw calls per cell. The fps figure is a **floor**, re-ratified from the measured mesh models (measured ≈17.3–23.9 fps p50). p95 SHALL be recorded alongside p50 with no pass/fail threshold.
+
+> **MODIFIED IN PLACE (2026-09-24)** — original text preserved verbatim for audit:
+> "**[VX]** The viewer SHALL sustain ≥60 fps at 1080p with ≤150 draw calls per cell. These are **targets pending M0 measurement**." with the original scenario "*GIVEN a built app on the reference laptop with one cell loaded / WHEN frame rate and draw calls are sampled in steady state / THEN the result is recorded against the targets and any miss is reported, not silently accepted*".
+> **What changed**: the fps target moved from ≥60 fps at 1080p to a floor of ≥17 fps p50 at the reference measurement configuration; the draw-call ceiling is unchanged. It is a floor for the same reason recorded in `build-verify` (`Runtime Performance Targets`): a range is not a gate and there is no hardware-tier detection contract.
+> **Reason**: the approved mesh models measure ≈17.3–23.9 fps p50 on the reference integrated GPU (design OQ-2); the ≥60 fps target is unreachable by them. Heading deliberately unchanged so the archive merge matches by name.
 
 #### Scenario: Single cell is measured against the budget
 
-- GIVEN a built app on the reference laptop with one cell loaded
+- GIVEN a built app on the reference integrated GPU with one cell loaded
 - WHEN frame rate and draw calls are sampled in steady state
 - THEN the result is recorded against the targets and any miss is reported, not silently accepted
+
+#### Scenario: A below-floor value is reported, not clamped
+
+- GIVEN steady-state p50 is below the ≥17 fps floor
+- WHEN the performance report and the on-screen readout are read
+- THEN both show the below-floor value
+- AND neither hides, clamps, or substitutes it
 
 ### Requirement: Continuous Disassembly Control With Live Percentage
 
@@ -251,8 +288,9 @@ Capability `cell-viewer` · **M1** · New capability (greenfield).
 
 **[VX]** The viewer HUD SHALL display a live frames-per-second readout sourced from the same rAF frame sampler the verification harness reads, updated at a bounded cadence, and SHALL NOT drive it through React state. The app's debug bridge SHALL expose a scene-tree render count so the no-per-frame-re-render contract is measurable.
 
-> **Honest context — this is why the requirement exists**: the readout makes rendering performance **user-visible**. Measured M0 performance is **below** the stated target (p50 ≈28 fps, p95 ≈9 fps versus ≥60/≥55 fps; fill-rate bound — see `verify-report.md`). The readout exists so that miss is visible and honest. It SHALL NOT be hidden, hidden-when-poor, clamped upward, or replaced by a qualitative indicator; the ≥60 fps target itself is unchanged.
+> **Honest context — this is why the requirement exists**: the readout makes rendering performance **user-visible**. Measured M0 performance is **below** the stated target (p50 ≈28 fps, p95 ≈9 fps versus ≥60/≥55 fps; fill-rate bound — see `verify-report.md`). The readout exists so that miss is visible and honest. It SHALL NOT be hidden, hidden-when-poor, clamped upward, or replaced by a qualitative indicator; the target it is measured against is the re-ratified floor of **≥17 fps p50** (`Runtime Performance Targets`, amended 2026-09-24).
 > **Ratified numbers — flagged for design ratification**: rolling window **≥500 ms**; update cadence **≤4 Hz**; displayed value within **±10%** of the harness-sampled value on a frozen fixture.
+> **Cross-reference corrected in place (2026-09-24)**: the first note's closing clause read "*the ≥60 fps target itself is unchanged*", and the scenario `A below-target value is displayed` read "*below the 60 fps target*" — both false after the fps re-ratification. They now point at the amended `Runtime Performance Targets` floor. **No normative obligation in this requirement changed**; the readout SHALL still display the measured value unclamped. **Reason**: the fps target moved from ≥60 fps to a ≥17 fps p50 floor (design OQ-2), and a requirement that cites a retired target would contradict the amended one.
 
 #### Scenario: The readout is always on screen
 
@@ -268,9 +306,9 @@ Capability `cell-viewer` · **M1** · New capability (greenfield).
 
 #### Scenario: A below-target value is displayed
 
-- GIVEN the measured frame rate is below the 60 fps target
+- GIVEN the measured frame rate is below the re-ratified ≥17 fps p50 floor
 - WHEN the readout updates
-- THEN it shows the below-target number
+- THEN it shows the below-floor number
 - AND the app does not hide, clamp, or substitute the readout
 
 #### Scenario: The readout does not re-render the scene

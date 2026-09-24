@@ -275,3 +275,162 @@ The prior forecast said ≈7,000 lines and ≈8.75× the 800-line configured bud
 | `comparison-view` | M6 | 9.1–9.6 |
 
 All 10 capabilities have tasks; no capability is unplanned; no task lacks a capability; every requirement in the 12-requirement `cell-viewer`, 8-requirement `organelle-catalog`, `i18n-content` and `appearance-theming` surfaces has a verifying task.
+
+---
+
+# Mesh-Geometry Integration (D19–D29) — Phases A–D, Tasks 11.1–14.7
+
+**Appended 2026-09-24.** This is an **append, not a re-plan**: M0–M6 (tasks 1.1–10.3, **79 tasks**) stand unchanged and un-renumbered. It adds the approved mesh-geometry path (design D19–D29 + the 2026-09-24 Correction).
+
+> **Skill Hard-Rule departure (stated, per phase brief)**: the modeling skill bans `.glb` assets and procedural-only geometry. The maintainer's mesh decision overrides it; the procedural path survives as the permanent per-record fallback (D27), which keeps `Asset-Swap Readiness` honored. Every other Hard Rule still binds (NeutralToneMapping, no ACES, no baked clips, no second canvas, no per-frame React state, accuracy over spectacle).
+
+> **Size-budget note**: as the earlier artifact, this block exceeds the sdd-tasks <530-word default deliberately — every task needs capability + spec-requirement traceability **and** an explicit verification across 4 phases and 7 amended requirements. Padding-free. This is the only skill-rule deviation.
+
+> **Threat matrix**: still `N/A` (design, unchanged — a static-model loader is a data fetch, not a new boundary). No RED security-test tasks are generated.
+
+> **No task commits a `.glb`.** `references/` stays gitignored. Phases A–C are authored with the models **absent**; exactly one task places the files (**12.7**), and it is **BLOCKED on licensing (L1)**.
+
+> **Two maintainer blockers, marked inline**: **(a)** licensing of both GLBs → blocks 12.7 and every live mesh-render verification; **(b)** the identification policy for meshes `[15]` and `[10]` → decided at the **top of Phase B** (12.1) and blocks 12.2–12.3.
+
+> **Task count**: +28 (8 + 7 + 6 + 7). Plan total: **107**.
+
+---
+
+## Review Workload Forecast
+
+*This forecast covers the mesh-integration work only; the M0–M6 forecast above is unchanged. The configured budget is 800 changed lines (`config.yaml`); the sdd-tasks default is 400. Both are reported.*
+
+| Field | Value |
+|-------|-------|
+| Estimated changed lines | **≈6,200–16,700 authored lines** (additions + deletions), per phase below |
+| 400-line budget risk | **High** |
+| Chained PRs recommended | **Yes** |
+| Suggested split | **9 PRs**: PR 13 (A1) → PR 14 (A2) → PR 15 (A3) → PR 16 (B1) → PR 17 (B2) → PR 18 (B3, blocked) → PR 19 (C1) → PR 20 (C2) → PR 21 (D) |
+| Delivery strategy | ask-on-risk |
+| Chain strategy | stacked-to-main (carried from the M0–M6 plan, user-locked) |
+
+Decision needed before apply: Yes
+Chained PRs recommended: Yes
+Chain strategy: stacked-to-main
+400-line budget risk: High
+
+| Phase | Range (authored changed lines) | Basis |
+|---|---|---|
+| A — mesh geometry path | **2,400–6,000** | D28's 2,000–5,000, upper bound widened 1.2× |
+| B — catalog mapping + materials | **1,800–4,600** | D28's 1,500–3,500, upper widened 1.3× (mapping is data-heavy) |
+| C — scene assembly | **1,200–3,400** | D28's 1,000–2,500, upper widened 1.35× (integration/reparenting) |
+| D — verification + re-ratification | **800–2,700** | D28's 600–2,000, upper widened 1.35× (re-capture iteration) |
+| **Total** | **≈6,200–16,700** | |
+
+**Honest statement**: design D28 claims its ranges already carry the 3.0–4.3× calibration. I widen the upper bounds by ~1.2–1.35× because this project's estimates have missed by **1.2×–11×**, and mesh integration is iteration-heavy (asset wiring, re-capture, per-mesh authoring). I do **not** apply the full 3.4× central multiplier the M0–M6 plan used — the mesh path is mostly mapping data and wiring against an existing seam, not greenfield authoring. **Every one of the 9 PRs exceeds the 800-line configured budget**; chained delivery is the plan, not a negotiation.
+
+### Suggested Work Units
+
+| Unit | Goal | Likely PR / base | Focused test command | Runtime harness | Rollback boundary |
+|------|------|------------------|----------------------|-----------------|-------------------|
+| 1 | A1: `geometry` union + 11-record migration + integrity branches | PR 13 / `main` (post-M6) | `npx vitest run src/catalog` | `N/A` — pure data + types; no scene consumer yet | Revert PR 13 — procedural app byte-identical |
+| 2 | A2: lazy per-cell loader + procedural fallback + `meshLoadErrors` | PR 14 / PR 13 | `npx vitest run src/scene/models && npx playwright test verify/specs/organelle.spec.ts` | `?fixture=organelle&id=mitochondrion` with the model absent | Revert PR 14 — fallback path is the only live path |
+| 3 | A3: `model-audit.mjs` + `size-audit` model rows/budgets | PR 15 / PR 14 | `npx vitest run verify/model-audit.test.ts verify/size-audit.test.ts` | `node verify/model-audit.mjs` (synthetic GLB fixture) | Revert PR 15 — build tooling only |
+| 4 | B1: `[15]`/`[10]` policy + committed manifest + `kind:'mesh'` records + material keys | PR 16 / PR 15 | `npx vitest run src/catalog` | `N/A` — manifest shape validated in unit tests until 12.7 | Revert PR 16 — records fall back to PR 13's procedural form |
+| 5 | B2: GLB-material discard + per-mesh keyed assignment + vector suggestions | PR 17 / PR 16 | `npx vitest run src/scene/materials.test.ts src/catalog/vectors.test.ts` | `?fixture=lit` (material-fidelity region) | Revert PR 17 — material keys remain, assignment reverts |
+| 6 | B3: **asset placement (BLOCKED on L1)** | PR 18 / PR 17 | `node verify/model-audit.mjs` (real shas) | both cells loaded from `public/models/` | Revert PR 18 — delete the files; track still merges |
+| 7 | C1: `MeshOrganelleHost`, normalization, mesh-bounds pick proxies, audit `position` | PR 19 / PR 18 | `npx playwright test verify/specs/interaction.spec.ts` | `?fixture=isolate&organelle=X` per cell | Revert PR 19 — `OrganelleHost` procedural branch stays |
+| 8 | C2: disassembly over mesh records (union rule) + debris policy | PR 20 / PR 19 | `npx playwright test verify/specs/disassembly.spec.ts` | `?fixture=disassembly&value={0,25,57,100}` | Revert PR 20 — assembly (C1) stays |
+| 9 | D: re-capture, perf/payload re-ratification, parity, comparison | PR 21 / PR 20 | `npm run verify` | full app E2E, no fixture | Revert PR 21 — baselines revert with the PR |
+
+**Boundary justification**: A1/A2/A3 split so the type change (a reviewable diff) is not tangled with the loader (runtime) or the audit script (tooling). B1/B2 split so the maintainer decision and the data land before material/vector authoring. C1/C2 split so assembly (the first mesh render) is revertible separately from disassembly/debris behavior. **B3 is its own PR because it is the only one that cannot merge until L1 resolves** — every PR above it merges with the models absent.
+
+---
+
+## Phase 11: A — Mesh Geometry Path (**PR 13 → 14 → 15**)
+
+*A1 (types/union/gates) is behavior-neutral and unblocked. A2 (loader/fallback) and A3 (audit) are authored with the GLBs absent. **Nothing here imports or references a `.glb`.***
+
+### A1 — Types, union, migration, integrity gates (PR 13)
+
+- [ ] **11.1** Replace `GeometrySpec` in `src/catalog/types.ts` with the discriminated union: `{ kind:'procedural'; builder; params; seed }` | `{ kind:'mesh'; meshes: readonly MeshAssetRef[]; fallback: BuilderId }`, and add `MeshAssetRef { cell; node; materialKey }`, `MaterialKeyName`, `GEOMETRY_KINDS`, and the manifest vocabulary (`ModelManifest`, `CellModelFrame { file; sha256; scale; rotation; center }`). — cap `organelle-catalog`; req *Required Fields*, *Asset-Swap Readiness*; verify: `tsc --noEmit` fails when a consumer ignores `kind` (exhaustiveness); vitest type-guard tests; `MeshAssetRef` stays three-free.
+- [ ] **11.2** Migrate all 11 records in `src/catalog/cells.ts` to an **explicit** `kind:'procedural'` (no defaulting, D19's D16 precedent). — cap `organelle-catalog`; req *Required Fields*; verify: existing `cells.test.ts` / `integrity.test.ts` pass untouched; a source scan asserts no record lacks `kind`.
+- [ ] **11.3** Branch `src/catalog/params.ts` on `kind`: `paramsForRecord` returns builder params for procedural and rejects `perCell.*.geometryParams` on mesh records; `positionForRecord` unchanged (permitted on both). — cap `organelle-catalog`; req *Required Fields*, *Asset-Swap Readiness*; verify: unit tests cover both branches; a mesh record with `geometryParams` produces an issue naming the field.
+- [ ] **11.4** Extend `src/catalog/integrity.ts`: branch on `kind`; the procedural branch runs today's checks; the mesh branch validates `meshes` **non-empty** (empty fails naming record + field), `mesh.cell ∈ CELL_IDS`, `node` non-empty **and present in the injected per-cell manifest and mapped to this record's id**, `materialKey ∈` the declared key list, **no `materialKey` collision across records sharing one cell** (two keys inside one record's `meshes` are explicitly allowed), and rejects `geometryParams`. Manifest arrives **as data** (same pattern as `registeredBuilderIds`), keeping `src/catalog/` three-free. — cap `organelle-catalog`; req *Required Fields*, *Asset-Swap Readiness*, *Disassembly Vector Per Record* (multi-mesh); verify: vitest matrix — each injected defect names id + field; unknown `kind` fails; the multi-mesh mitochondrion passes. **Blocks 12.3.**
+
+### A2 — Loader + procedural fallback (PR 14)
+
+- [ ] **11.5** Add `src/scene/models/useCellModel.ts`: `GLTFLoader` + `MeshoptDecoder` (`EXT_texture_webp` native), **lazy dynamic import inside the 3D chunk**, module-level cache keyed `{cell, sha256}`, fetching **only the selected cell** (the second cell loads on switch/compare). — cap `cell-viewer`; req *Deterministic Scene Reconstruction*, *Payload Budget* (selected-cell-only); verify: cache-key unit test; a source scan proves no static import reaches the shell; size-audit's post-split shell gate still passes; an E2E trace shows the plant model **not** fetched on an animal cold load.
+- [ ] **11.6** Wire the **per-record procedural fallback** through `src/scene/OrganelleHost.tsx`: on fetch/decode failure or a missing node, build `geometry.fallback` procedurally, log loudly, and increment a new `meshLoadErrors` counter in `src/app/debug.ts`. — cap `cell-viewer`, `organelle-catalog`; req *Asset-Swap Readiness* (failed load falls back), *Accuracy Over Spectacle*; verify: a fixture with the model absent renders procedurally and the cell **does not blank**; `meshLoadErrors` reads 1; `?fixture=organelle` baselines stay **byte-identical** (D27).
+
+### A3 — Model audit + payload wiring (PR 15)
+
+- [ ] **11.7** Build `verify/model-audit.mjs` (Node build step, `@gltf-transform/core` devDependency): sha256 of each committed GLB vs the manifest; assert **every manifest node name exists with a unique node id**; emit a mesh inventory diff and a bounds/sha report. Pure functions exported for unit tests. — cap `build-verify`; req *Deterministic Scene Reconstruction* (tampered data fails), *Payload Budget* (models row); verify: `verify/model-audit.test.ts` covers sha mismatch and a renamed node using a **synthetic GLB fixture**; the CLI **fails naming the model** on mismatch; wired into `npm run verify`.
+- [ ] **11.8** Update `verify/size-audit.mjs`: `BUDGETS.initialGzipBytes` 2.5 MB → **6 MB**, add **total-static-assets ≤6.5 MB**, and add a **per-cell model row** that reports `absent` (not a failure) until 12.7 lands. — cap `build-verify`; req *Payload Budget*; verify: `size-audit.test.ts` asserts the new ceilings and the separate rows; `npm run verify` stays green with the models absent.
+
+## Phase 12: B — Catalog Mapping + Per-Mesh Materials (**PR 16 → 17 → 18**)
+
+*Depends on Phase 11. **Blocked at the top on the maintainer's `[15]`/`[10]` decision.***
+
+- [ ] **12.1** **BLOCKED — maintainer decision.** Record the identification policy for the **only two unresolved animal meshes** `[15]` (purple tubes/rings, `Material.026`) and `[10]` (green blob, `Material.1`) as committed manifest data (`map` or `omit`/`unmapped`). No task after this may assume either, and **no generic "misc organelle" record may be invented** (D26, accuracy tie-break). — cap `organelle-catalog`; req *Asset-Swap Readiness*, *Accuracy Over Spectacle*; verify: the policy is present in the manifest as explicit flags; a roster test asserts no invented label. **Blocks 12.2, 12.3.**
+- [ ] **12.2** Author the **committed mesh manifest** as three-free data (`src/catalog/models.ts`): per-cell `CellModelFrame`, and node→`(recordId, materialKey, omit/unmapped)` rows for **14 plant + 21 animal meshes** — including the verified animal map (`[2]` nucleus · `[3]` nucleolus · `[4]` nuclear envelope · `[5][6][7][8]` chromatin · `[11]` membrane · `[12]` Golgi · **`[13]` cristae + `[14]` mito outer → one record** · `[16]` ER · `[17][18][19]` ribosomes · `[20]` cytoplasm · `[0]` branching network (medium confidence) · `[15]`/`[10]` per 12.1 · `[1]`/`[9]` debris). — cap `organelle-catalog`; req *Required Fields*, *Asset-Swap Readiness*, *Deterministic Scene Reconstruction*; verify: manifest-shape unit test now; the **live** `model-audit.mjs` validation (sha + node names + one-record-per-mesh) is gated on **12.7**.
+- [ ] **12.3** Update records in `src/catalog/cells.ts` to `kind:'mesh'` with `mesh.cell/node/materialKey` + `fallback: BuilderId` (the record's current builder): 14 plant meshes → records; animal meshes → records, including **one `mitochondrion` record referencing two meshes** (`[14]` membrane, `[13]` cristae — D29). — cap `organelle-catalog`; req *Required Fields*, *Asset-Swap Readiness* (one record, two meshes), *Canonical Animal Cell Roster*; verify: integrity gate passes; the roster test still exposes **exactly one** `mitochondrion`; the mesh↔manifest map is **total** (every mapped mesh has exactly one record).
+- [ ] **12.4** Add the missing keys to `ORGANELLE_MATERIAL_KEYS` (`src/scene/builders/primitives.ts`) and their factories in `src/scene/materials.ts`, all following the **measured recipes** (shells = `createShell` FrontSide/`depthWrite:false`/no `transmission`; bodies = `createBody`). — cap `cell-viewer`, `appearance-theming`; req *Palette Role Reference*; verify: a coverage test asserts every manifest `materialKey` resolves; static assertions for no `transmission` and no ACES.
+- [ ] **12.5** **Discard every GLB material and texture** in the loader and assign catalog keys per mesh from the manifest — the plant's single Substance UV-checker (`alphaMode: BLEND` + `doubleSided`, measured **2.6 fps**) is replaced by opaque/FrontSide keyed materials. — cap `cell-viewer`, `appearance-theming`; req *Palette Role Reference*, *Asset-Swap Readiness*, *Runtime Performance Targets*; verify: unit test asserts the loader keeps **zero** GLB materials; the plant fps delta is measured and recorded (2.6 → the ≥17 floor).
+- [ ] **12.6** Emit the per-record **disassembly suggestion sheet** from `model-audit.mjs` (bounds centre → direction; `1.5×` the **union** bounding radius → distance, reusing `catalog/vectors.ts`); the author reviews and commits final values into `cells.ts` (D22 — computed once, never at runtime). — cap `organelle-catalog`; req *Disassembly Vector Per Record* (multi-mesh union); verify: suggestion file committed; every mesh record's committed vector satisfies the outward-radial gate; the mitochondrion's vector is measured from the **union of `[13]` + `[14]`**.
+- [ ] **12.7** **BLOCKED — licensing (L1).** Place the two optimized GLBs at `public/models/animal-cell.glb` and `public/models/plant-cell.glb` (4.63 MB / 2.62 MB) and run `model-audit.mjs` for real: sha256, node names, mesh inventory diff, bounds. **This is the ONLY task that touches a `.glb`.** — cap `build-verify`; req *Deterministic Scene Reconstruction*, *Payload Budget*; verify: `node verify/model-audit.mjs` passes with real shas; the identification map is re-audited against the file; re-optimization fails loudly. **Blocks every live mesh-render verification (13.x render, 14.x).**
+
+## Phase 13: C — Scene Assembly (**PR 19 → 20**)
+
+*Depends on Phases 11–12. Authored without the files; pure verification runs against a synthetic GLB, **render verification is gated on 12.7**.*
+
+- [ ] **13.1** Add the `MeshOrganelleHost` branch in `src/scene/OrganelleHost.tsx`: reparent the record's mesh nodes under the record root (`name={record.id}`, `userData.organelleId`), assign cloned keyed materials via the existing `localMaterials` pattern, and compute the **anchor from the record's own mesh bounds** (top-centre, union for multi-mesh). — cap `cell-viewer`; req *Hover Highlight And Label*, *Persistent Bilingual Annotations…*; verify: fixture screenshot; anchor published for a mesh record; hover emphasis lights exactly one organelle.
+- [ ] **13.2** Apply per-model **cell-frame normalization** (`{scale, rotation, center}` from the manifest) in `CellStage`/`CellGroup`, and add a post-load assertion that each cell's envelope record's rendered bounds land in **radius band 0.9–1.1**. — cap `cell-viewer`; req *Deterministic Scene Reconstruction*, *Accuracy Over Spectacle*; verify: the radius-band check is a pure post-load assertion; orientation verified **once** by screenshot then frozen (a wrong up-axis triples a non-longest axis).
+- [ ] **13.3** Size the **pick proxies** from the record's own mesh bounds (keep `PickVolume`; do **not** per-tri raycast the 239,902-tri animal scene), preserving `isOuterEnvelope` semantics for membrane/cytoplasm/cell-wall. — cap `cell-viewer`; req *Hover Highlight And Label*, *Click Isolate And Spec Sheet*; verify: `?fixture=hover&organelle=X` luminance ≥10% above baseline; raycasts hit ≤10 proxies; E2E click/drag discrimination on **each** cell.
+- [ ] **13.4** Replace catalog `position` / `perCell.*.position` with the audit-measured placements (mesh centre × scale), letting D16's gate apply **unchanged** including its per-cell override branch. — cap `organelle-catalog`, `cell-viewer`; req *Disassembly Vector Per Record*; verify: integrity gate passes; the nucleus is asserted near-centre in animal and peripheral in plant.
+- [ ] **13.5** Run **disassembly over mesh records** in `src/scene/disassembly.ts` (same record vector, no viewer constant), with the **union rule**: the mitochondrion's two meshes move along one vector and stay together. — cap `cell-viewer`; req *Continuous Disassembly Control With Live Percentage*, *Disassembly Vector Per Record* (multi-mesh separates as one); verify: `?fixture=disassembly&value={0,25,57,100}` area monotonicity; **byte-identical 100→0** round-trip; both mito meshes share one transform.
+- [ ] **13.6** Handle **debris / unmapped meshes** per manifest flags: render as part of the model root with **no record** (present, unpickable, unannotated) or hide by `omit`; no invented labels. — cap `organelle-catalog`, `cell-viewer`; req *Accuracy Over Spectacle*, *Canonical Animal Cell Roster*; verify: unmapped meshes carry no annotation; the roster is unchanged; screenshot inspected.
+
+## Phase 14: D — Verification + Budget Re-Ratification (**PR 21**)
+
+*Depends on Phases 11–13 **and the 12.7 asset placement**.*
+
+- [ ] **14.1** Re-capture the composed hero screenshots for both mesh cells; update `verify/baselines.json` **in the same PR**; add `geometrySource: 'mesh' | 'procedural'` to every baseline row (D27). — cap `build-verify`; req *Headless Screenshot Verification Loop*, *Pixel-Metric Regression Checks*; verify: `npm run verify` green; every baseline change is visible in this PR.
+- [ ] **14.2** Re-capture the **WebGL fallback PNGs** from the mesh cells (mechanism unchanged). — cap `cell-viewer`, `build-verify`; req *WebGL-Unavailable Fallback*; verify: the fallback E2E shows the mesh-cell images plus full bilingual spec sheets, no blank canvas.
+- [ ] **14.3** Commit the **perf re-ratification report**: fps with catalog-material shaders at DPR cap 1.5 and first-3D-paint **including the model fetch**; record p50 **and** p95; set `verify/budgets.mjs` `steadyStateFps` to the **≥17 fps p50 floor** and drop the p95 pass/fail threshold (p95 recorded only). — cap `build-verify`; req *Runtime Performance Targets*, *Comparison Performance Budget*; verify: report committed; a below-floor p50 is shown **unclamped** in both the report and the HUD.
+- [ ] **14.4** Re-ratify the **payload**: `size-audit.mjs` reports shell / 3D chunk / each cell model as **separate rows**; initial **≤6 MB** and total **≤6.5 MB** in effect; record measured numbers with a range and carry them into the `Payload Budget` sdd-spec amendment. — cap `build-verify`; req *Payload Budget*; verify: audit green with real models; measured rows committed; the zero-download loss is stated in the PR.
+- [ ] **14.5** Re-check the draw-call / triangle gates: **≤150/cell**, **≤300 comparison**; the animal's 85k–240k triangles over the ≤150k guideline is **recorded as a re-ratification item, not hidden**. — cap `build-verify`, `comparison-view`; req *Runtime Performance Targets*, *Comparison Performance Budget*; verify: report rows; CI fails above the hard gates.
+- [ ] **14.6** Prove **mesh/procedural parity**: palette, labels, disassembly, quiz and spec sheet behave identically under both geometry presentations; the `?fixture=organelle` suite stays **byte-identical**. — cap `cell-viewer`, `organelle-catalog`; req *Asset-Swap Readiness*, *Deterministic Scene Reconstruction*; verify: both presentations pass the same assertions; the organelle fixtures are byte-identical.
+- [ ] **14.7** Re-verify **comparison view with mesh cells** (shared camera, parent timeline, teardown) against the ≤300 draw-call gate. — cap `comparison-view`; req *Comparison Performance Budget*, *Teardown Without Leakage*; verify: E2E enter → run → exit restores the pre-comparison state; the report records comparison draw calls and p95.
+
+---
+
+## Blocked Work (explicit)
+
+| Task | Blocked on | Effect if unresolved |
+|---|---|---|
+| **12.1** | Maintainer decision: identification policy for meshes `[15]` and `[10]` | 12.2/12.3 cannot finalize the animal manifest; animal cell ships incomplete |
+| **12.7** | **Licensing (L1)** of both source GLBs | No `.glb` may be imported, referenced or committed; 13.x render verification and all of 14.x are unreachable |
+
+**No other task is blocked.** Phases A–C are authored and unit-verified with the models absent; only the live render/audit verification waits on 12.7.
+
+## New / Changed Requirement Traceability (D19–D29)
+
+| Requirement (spec) | Tasks |
+|---|---|
+| build-verify · *Payload Budget* (≤6 MB / ≤6.5 MB, selected-cell-only, zero-download ends) | 11.5, 11.8, 14.4 |
+| build-verify · *Runtime Performance Targets* (≥17 fps p50 floor) | 12.5, 14.3, 14.5 |
+| cell-viewer · *Deterministic Scene Reconstruction* (seed **or** hashed model data + manifest) | 11.5, 11.7, 12.2, 12.3, 13.2, 14.6 |
+| cell-viewer · *Runtime Performance Targets* (≥17 fps p50 floor) | 12.5, 14.3 |
+| comparison-view · *Comparison Performance Budget* (floor inherited, flagged for M6) | 14.3, 14.5, 14.7 |
+| organelle-catalog · *Required Fields* (geometry **source**) | 11.1, 11.4, 12.2, 12.3 |
+| organelle-catalog · *Asset-Swap Readiness* (discriminated union; every record declares a fallback) | 11.4, 11.6, 12.3, 12.5, 14.6 |
+| organelle-catalog · *Disassembly Vector Per Record* (multi-mesh **union** rule) | 11.4, 12.6, 13.4, 13.5 |
+| cell-viewer · *Accuracy Over Spectacle* | 11.6, 13.2, 13.6 |
+
+## Mesh Coverage Check
+
+| Capability | Tasks |
+|---|---|
+| `organelle-catalog` | 11.1–11.4, 12.1–12.4, 12.6, 13.4, 13.6, 14.6 |
+| `cell-viewer` | 11.5, 11.6, 12.4, 12.5, 13.1–13.6, 14.2, 14.6 |
+| `build-verify` | 11.7, 11.8, 14.1, 14.3–14.5 |
+| `appearance-theming` | 12.4, 12.5 |
+| `comparison-view` | 14.5, 14.7 |
+
+Every amended requirement has a verifying task; no task lacks a capability.
