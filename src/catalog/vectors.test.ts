@@ -2,9 +2,7 @@ import { Box3, BoxGeometry, Sphere, SphereGeometry } from 'three';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { getBuilder } from '../scene/builders/registry';
-import { ORGANELLE_RECORDS } from './cells';
-import { baseGeometryParamsFor, builderIdFor } from './params';
+import type { OrganelleRecord } from './types';
 import {
   SUGGESTED_TRAVEL_MULTIPLIER,
   boundingRadius,
@@ -179,30 +177,22 @@ describe('the explicit record distance always wins', () => {
     geometry.dispose();
   });
 
-  it('renders the record and never the suggestion, for every catalog record', () => {
-    let overridden = 0;
+  it('renders the record and never the suggestion', () => {
+    const geometry = new BoxGeometry(2, 2, 2);
+    const declared = 0.4;
+    const record = {
+      disassembly: { direction: [1, 0, 0], distance: declared },
+    } as unknown as OrganelleRecord;
+    const suggestion = suggestedDistance([geometry]);
 
-    for (const record of ORGANELLE_RECORDS) {
-      const build = getBuilder(builderIdFor(record))(baseGeometryParamsFor(record));
-      const geometries = build.parts.map((part) => part.geometry);
-      const suggestion = suggestedDistance(geometries);
+    expect(travelDistanceFor(record)).toBe(declared);
+    expect(resolveDistance([geometry], record.disassembly.distance)).toBe(declared);
+    expect(Number.isFinite(suggestion)).toBe(true);
+    expect(suggestion).toBeGreaterThan(0);
+    // The override is live, not vacuous: the authored distance is not the computed one.
+    expect(suggestion).not.toBeCloseTo(declared, 3);
 
-      expect(travelDistanceFor(record)).toBe(record.disassembly.distance);
-      expect(resolveDistance(geometries, record.disassembly.distance)).toBe(
-        record.disassembly.distance,
-      );
-      expect(Number.isFinite(suggestion)).toBe(true);
-      expect(suggestion).toBeGreaterThan(0);
-
-      if (Math.abs(suggestion - record.disassembly.distance) > 1e-6) {
-        overridden += 1;
-      }
-
-      build.dispose();
-    }
-
-    // The override is live, not vacuous: the authored distances are not the computed ones.
-    expect(overridden).toBeGreaterThan(0);
+    geometry.dispose();
   });
 });
 

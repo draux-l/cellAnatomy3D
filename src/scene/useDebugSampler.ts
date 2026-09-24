@@ -1,15 +1,13 @@
 import { useEffect } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { attachRendererSampling, cellDebug } from '../app/debug';
-import { processClock, speedToScale } from '../app/clock';
-import { useAppStore } from '../app/store';
 import type { FixtureConfig } from '../app/fixture';
 
 /**
- * Feeds `window.__cellDebug` from inside the render loop, and applies the fixture's clock.
+ * Feeds `window.__cellDebug` from inside the render loop.
  *
- * It renders nothing. Reading the clock and `renderer.info` here — never through React state —
- * is the whole point of the transient/reactive split.
+ * It renders nothing. Reading `renderer.info` here — never through React state — is the whole point
+ * of the transient/reactive split.
  */
 export function DebugSampler({ fixture }: { fixture: FixtureConfig }) {
   const gl = useThree((state) => state.gl);
@@ -17,18 +15,6 @@ export function DebugSampler({ fixture }: { fixture: FixtureConfig }) {
 
   useEffect(() => {
     cellDebug.fixture = fixture.name;
-
-    if (fixture.freezeClock) {
-      processClock.freezeAt(fixture.frozenTime);
-    } else {
-      processClock.resume();
-    }
-
-    processClock.setScale(speedToScale(useAppStore.getState().speed));
-
-    return () => {
-      processClock.reset();
-    };
   }, [fixture]);
 
   useEffect(

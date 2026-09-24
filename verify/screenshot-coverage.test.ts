@@ -1,10 +1,9 @@
 import { existsSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { CELL_IDS, ORGANELLE_RECORDS, rosterFor } from '../src/catalog/cells';
-import { REGISTERED_BUILDER_IDS } from '../src/scene/builders/registry';
+import { CELL_IDS, ORGANELLE_RECORDS } from '../src/catalog/cells';
+import type { CellId } from '../src/catalog/types';
 import {
   CELL_SCREENSHOT_VIEWS,
-  ORGANELLE_FIXTURE_SUBJECTS,
   SCREENSHOT_ROOT,
   assertScreenshotCoverage,
   findMissingScreenshots,
@@ -18,79 +17,93 @@ import {
  *
  * Two things are asserted and they are different: that the **enumeration** really covers both
  * rosters (a bad path or a short roster would make the real-filesystem assertion pass vacuously),
- * and that the **committed checkout satisfies it**.
+ * and that the gate fails loudly when a demanded screenshot is absent. The committed catalog is
+ * empty while the cell models are reset, so the enumeration cases run against **synthetic** records.
  */
 
+/** A record-like value: the gate only needs an id and its roster membership. */
+interface RosterRecord {
+  id: string;
+  cells: readonly CellId[];
+}
+
+const SYNTHETIC: readonly RosterRecord[] = [
+  { id: 'nucleus', cells: ['animal', 'plant'] },
+  { id: 'mitochondrion', cells: ['animal', 'plant'] },
+  { id: 'chloroplast', cells: ['plant'] },
+];
+
 const COMMITTED = screenshotRequirements();
+const SYNTHETIC_REQUIREMENTS = screenshotRequirements(SYNTHETIC, CELL_IDS);
 
 describe('per-organelle screenshot coverage — the enumeration', () => {
-  it('demands a screenshot for every organelle in both cells', () => {
-    const plant = rosterFor('plant').map((record) => record.id);
-    const animal = rosterFor('animal').map((record) => record.id);
-    const demanded = new Set(COMMITTED.map((requirement) => requirement.organelleId));
+  it('demands a screenshot for every organelle in every cell it belongs to', () => {
+    const demanded = new Set(SYNTHETIC_REQUIREMENTS.map((requirement) => requirement.organelleId));
 
-    // The plant roster is the whole catalog; the animal roster is the shared subset.
-    expect(COMMITTED).toHaveLength(plant.length + animal.length);
-    expect(demanded.size).toBe(ORGANELLE_RECORDS.length);
+    // Two shared records (both cells) plus one plant-only record.
+    expect(SYNTHETIC_REQUIREMENTS).toHaveLength(2 + 2 + 1);
+    expect(demanded.size).toBe(SYNTHETIC.length);
 
-    for (const id of plant) {
-      expect(demanded.has(id), `plant roster organelle "${id}" is not demanded`).toBe(true);
+    for (const id of ['nucleus', 'mitochondrion']) {
+      const cells = SYNTHETIC_REQUIREMENTS.filter((r) => r.organelleId === id).map((r) => r.cell);
+
+      expect(cells).toEqual(['animal', 'plant']);
     }
 
-    // The plant-only three are demanded, and by the plant roster only.
-    for (const id of ['cell-wall', 'chloroplast', 'vacuole']) {
-      const cells = COMMITTED.filter((requirement) => requirement.organelleId === id).map(
-        (requirement) => requirement.cell,
-      );
+    const plantOnly = SYNTHETIC_REQUIREMENTS.filter((r) => r.organelleId === 'chloroplast').map(
+      (r) => r.cell,
+    );
 
-      expect(cells).toEqual(['plant']);
-    }
+    expect(plantOnly).toEqual(['plant']);
   });
 
   it('writes the documented path shape', () => {
-    for (const requirement of COMMITTED) {
+    for (const requirement of SYNTHETIC_REQUIREMENTS) {
       expect(requirement.path).toBe(
         `${SCREENSHOT_ROOT}/${CELL_SCREENSHOT_VIEWS[requirement.cell]}/${requirement.organelleId}.png`,
       );
     }
   });
 
-  it('covers every registered builder, so no organelle can ship unrendered', () => {
-    const subjects = new Set(ORGANELLE_FIXTURE_SUBJECTS);
+  it('dedupes the paths while keeping the per-cell pairs', () => {
+    const paths = screenshotPaths(SYNTHETIC_REQUIREMENTS);
 
-    expect([...REGISTERED_BUILDER_IDS].sort()).toEqual([...subjects].sort());
+    expect(SYNTHETIC_REQUIREMENTS.length).toBeGreaterThan(paths.length);
+    expect(new Set(paths).size).toBe(paths.length);
+    expect(paths).toHaveLength(SYNTHETIC.length);
   });
 
-  it('dedupes the paths while keeping the per-cell pairs', () => {
-    const paths = screenshotPaths(COMMITTED);
-
-    expect(COMMITTED.length).toBeGreaterThan(paths.length);
-    expect(new Set(paths).size).toBe(paths.length);
-    expect(paths).toHaveLength(ORGANELLE_RECORDS.length);
+  it('demands nothing for the empty committed catalog', () => {
+    expect(ORGANELLE_RECORDS).toEqual([]);
+    expect(COMMITTED).toEqual([]);
   });
 });
 
-describe('per-organelle screenshot coverage — the committed checkout', () => {
-  it('passes for every catalog organelle', () => {
+describe('per-organelle screenshot coverage — the gate', () => {
+  it('passes for the empty committed catalog', () => {
     expect(findMissingScreenshots()).toEqual([]);
     expect(() => assertScreenshotCoverage()).not.toThrow();
   });
 
-  it('fails naming the organelle and the path when one screenshot is removed', () => {
-    const target = COMMITTED.find((requirement) => requirement.organelleId === 'chloroplast')!;
+  it('fails naming the organelle and the path when one screenshot is absent', () => {
+    const target = SYNTHETIC_REQUIREMENTS.find(
+      (requirement) => requirement.organelleId === 'chloroplast',
+    )!;
     const exists = (relativePath: string): boolean => relativePath !== target.path;
-    const missing = findMissingScreenshots(exists);
+    const missing = findMissingScreenshots(exists, SYNTHETIC_REQUIREMENTS);
 
     expect(missing).toEqual([target]);
-    expect(() => assertScreenshotCoverage(exists)).toThrow(/Per-organelle screenshot coverage failed/);
-    expect(() => assertScreenshotCoverage(exists)).toThrow(/chloroplast/);
+    expect(() => assertScreenshotCoverage(exists, SYNTHETIC_REQUIREMENTS)).toThrow(
+      /Per-organelle screenshot coverage failed/,
+    );
+    expect(() => assertScreenshotCoverage(exists, SYNTHETIC_REQUIREMENTS)).toThrow(/chloroplast/);
     expect(formatMissingScreenshots(missing)).toContain(target.path);
   });
 
   it('fails naming every organelle when the whole view is gone', () => {
     const issues = findMissingScreenshots(() => false, [
-      COMMITTED[0]!,
-      COMMITTED[COMMITTED.length - 1]!,
+      SYNTHETIC_REQUIREMENTS[0]!,
+      SYNTHETIC_REQUIREMENTS[SYNTHETIC_REQUIREMENTS.length - 1]!,
     ]);
 
     expect(issues).toHaveLength(2);
@@ -98,9 +111,8 @@ describe('per-organelle screenshot coverage — the committed checkout', () => {
   });
 
   it('scans the tree it thinks it is scanning', () => {
-    // Guards the gate itself: a bad root would make the real assertion above pass vacuously.
+    // Guards the gate itself: a bad root would make the assertions above pass vacuously.
     expect(CELL_IDS).toEqual(['animal', 'plant']);
-    expect(ORGANELLE_RECORDS.length).toBeGreaterThan(1);
     expect(existsSync('artifacts/screens')).toBe(true);
   });
 });

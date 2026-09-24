@@ -1,9 +1,6 @@
 import { Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
-import { getRecord } from '../../catalog/cells';
-import { baseGeometryParamsFor } from '../../catalog/params';
-import { buildCellWall } from '../builders/cell-wall';
-import { buildMembrane } from '../builders/membrane';
+import type { OrganelleRecord } from '../../catalog/types';
 import {
   CELL_POSE,
   DISASSEMBLY_POSE,
@@ -23,56 +20,42 @@ import {
 /**
  * The camera contract (spec: `Scroll zoom is clamped`).
  *
- * The load-bearing assertion here is the one the spec actually makes: the zoom clamp must keep the
- * camera **outside the cell**, and "the cell" is the wall as built. So the wall is built at its
- * catalog parameters and measured, rather than the limit being compared to a remembered number.
+ * The spec's own assertion is that the zoom clamp keeps the camera **outside the cell**. The
+ * committed catalog is empty while the cell models are reset, so the "cell" the limit was measured
+ * against is not available to build; what remains checkable is the limit contract itself — the
+ * ordering, the clamps, and the relationship between the poses.
  */
 
-/** The furthest any vertex sits from the depth axis. */
-function outerRadius(geometry: { getAttribute: (name: string) => { count: number; getX(i: number): number; getY(i: number): number; getZ(i: number): number } }): number {
-  const position = geometry.getAttribute('position');
-  let worst = 0;
-
-  for (let index = 0; index < position.count; index += 1) {
-    worst = Math.max(worst, Math.hypot(position.getX(index), position.getY(index)));
-  }
-
-  return worst;
-}
-
-const WALL_RECORD = getRecord('cell-wall')!;
-const WALL_PARAMS = baseGeometryParamsFor(WALL_RECORD) as { size: number; detail: number; count: number };
+/** A synthetic record with a placement, a size parameter and a plant override. */
+const RECORD: OrganelleRecord = {
+  id: 'golgi',
+  name: { es: 'Aparato de Golgi', en: 'Golgi apparatus' },
+  func: { es: 'Empaqueta.', en: 'Packages.' },
+  size: { value: 1, unit: 'µm' },
+  funFact: { es: 'Tiene dos caras.', en: 'It has two faces.' },
+  paletteRole: 'organelles',
+  position: [0.4, -0.2, 0.1],
+  geometry: {
+    kind: 'procedural',
+    builder: 'golgi',
+    params: { size: 0.3, detail: 1, count: 6 },
+    seed: 'golgi/v1',
+  },
+  disassembly: { direction: [0.6, -0.3, 0.6], distance: 0.65 },
+  perCell: { plant: { position: [-0.36, 0.52, 0.15] } },
+  cells: ['animal', 'plant'],
+  pickable: true,
+};
 
 describe('navigation limits', () => {
-  it('keeps the near clamp outside the wall as built', () => {
-    const wall = buildCellWall(WALL_PARAMS);
-    const wallReach = outerRadius(wall.parts[0]!.geometry);
-
-    expect(NAVIGATION_LIMITS.minDistance).toBeGreaterThan(wallReach);
-
-    wall.dispose();
-  });
-
-  it('keeps the near clamp outside the membrane as built too', () => {
-    const membraneRecord = getRecord('membrane')!;
-    const membrane = buildMembrane(baseGeometryParamsFor(membraneRecord));
-    const position = membrane.parts[0]!.geometry.getAttribute('position');
-    const vertex = new Vector3();
-    let worst = 0;
-
-    for (let index = 0; index < position.count; index += 1) {
-      vertex.set(position.getX(index), position.getY(index), position.getZ(index));
-      worst = Math.max(worst, vertex.length());
-    }
-
-    expect(worst).toBeGreaterThan(1);
-    expect(NAVIGATION_LIMITS.minDistance).toBeGreaterThan(worst);
-
-    membrane.dispose();
+  it('keeps the near clamp outside the authored cell radius and inside the far clamp', () => {
+    // The former cell wall reached ~1.27 scene units; the near clamp must clear a cell body while
+    // still letting the camera approach an isolated organelle.
+    expect(NAVIGATION_LIMITS.minDistance).toBeGreaterThan(1);
+    expect(NAVIGATION_LIMITS.maxDistance).toBeGreaterThan(NAVIGATION_LIMITS.minDistance);
   });
 
   it('orders the limits and clamps both ends', () => {
-    expect(NAVIGATION_LIMITS.maxDistance).toBeGreaterThan(NAVIGATION_LIMITS.minDistance);
     expect(clampNavigationDistance(0)).toBe(NAVIGATION_LIMITS.minDistance);
     expect(clampNavigationDistance(-5)).toBe(NAVIGATION_LIMITS.minDistance);
     expect(clampNavigationDistance(1000)).toBe(NAVIGATION_LIMITS.maxDistance);
@@ -80,24 +63,21 @@ describe('navigation limits', () => {
     expect(clampNavigationDistance(Number.NaN)).toBe(NAVIGATION_LIMITS.minDistance);
   });
 
-  it('frames the whole cell and the whole exploded view', () => {
-    const wall = buildCellWall(WALL_PARAMS);
-    const wallReach = outerRadius(wall.parts[0]!.geometry);
+  it('frames the whole exploded view wider than the composed cell', () => {
     const halfHeight = (pose: typeof CELL_POSE): number => {
       const distance = Math.hypot(...pose.position);
 
       return Math.tan((pose.fov * Math.PI) / 360) * distance;
     };
 
-    expect(halfHeight(CELL_POSE)).toBeGreaterThan(wallReach);
     expect(halfHeight(DISASSEMBLY_POSE)).toBeGreaterThan(halfHeight(CELL_POSE));
-
-    wall.dispose();
+    // The composed camera sits outside the near clamp, so the clamp never fights the pose.
+    expect(Math.hypot(...CELL_POSE.position)).toBeGreaterThan(NAVIGATION_LIMITS.minDistance);
   });
 
   it('uses a composed pose distinct from the organelle hero pose', () => {
-    // The organelle pose clips a whole cell; keeping them separate is what keeps every committed
-    // organelle baseline byte-identical.
+    // The organelle pose clips a whole cell; keeping them separate is what keeps the two viewers
+    // from drifting into one another.
     expect(CELL_POSE).not.toEqual(HERO_POSE);
     expect(DISASSEMBLY_POSE).not.toEqual(CELL_POSE);
   });
@@ -137,10 +117,10 @@ describe('isolateCameraPose', () => {
     );
   });
 
-  it('produces the same pose for every catalog record, deterministically', () => {
-    const record = getRecord('golgi')!;
-    const first = isolateCameraPose(record.position, Number(baseGeometryParamsFor(record).size));
-    const second = isolateCameraPose(record.position, Number(baseGeometryParamsFor(record).size));
+  it('produces the same pose for every record, deterministically', () => {
+    const size = Number(RECORD.geometry.kind === 'procedural' ? RECORD.geometry.params.size : 0.3);
+    const first = isolateCameraPose(RECORD.position, size);
+    const second = isolateCameraPose(RECORD.position, size);
 
     expect(first).toEqual(second);
   });
@@ -155,16 +135,15 @@ describe('the isolate framing tween', () => {
   });
 
   it('frames a record at its own cell-specific placement', () => {
-    const nucleus = getRecord('nucleus')!;
-    const animal = focusForRecord(nucleus, 'animal');
-    const plant = focusForRecord(nucleus, 'plant');
+    const animal = focusForRecord(RECORD, 'animal');
+    const plant = focusForRecord(RECORD, 'plant');
 
     expect(animal.target).not.toEqual(plant.target);
-    expect(plant.target).toEqual([...nucleus.perCell!.plant!.position!]);
+    expect(plant.target).toEqual([...RECORD.perCell!.plant!.position!]);
   });
 
   it('arrives exactly and then reports itself settled', () => {
-    const desired = focusForRecord(getRecord('golgi')!, 'animal');
+    const desired = focusForRecord(RECORD, 'animal');
     let current = defaultFocus();
 
     for (let step = 0; step < 400; step += 1) {
@@ -179,7 +158,7 @@ describe('the isolate framing tween', () => {
   });
 
   it('is frame-rate independent', () => {
-    const desired = focusForRecord(getRecord('lysosome')!, 'animal');
+    const desired = focusForRecord(RECORD, 'animal');
     const start = defaultFocus();
     let atSixty = start;
     let atTwenty = start;
@@ -196,7 +175,7 @@ describe('the isolate framing tween', () => {
   });
 
   it('never overshoots and clamps an absurd delta', () => {
-    const desired = focusForRecord(getRecord('membrane')!, 'animal');
+    const desired = focusForRecord(RECORD, 'animal');
     const start = defaultFocus();
     // A backgrounded tab delivers one enormous delta; the clamp keeps the step from jumping past
     // its destination, so the result stays between where it was and where it is going.

@@ -45,11 +45,6 @@ export interface ScreenshotRequirement {
   path: string;
 }
 
-/** The subject list the organelle fixture renders, derived from the catalog so it cannot drift. */
-export const ORGANELLE_FIXTURE_SUBJECTS: readonly string[] = ORGANELLE_RECORDS.map(
-  (record) => record.id,
-);
-
 /**
  * Every screenshot the catalog demands: one per (cell, organelle) pair.
  *

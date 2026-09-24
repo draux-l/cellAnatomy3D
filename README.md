@@ -1,10 +1,15 @@
 # cellAnatomy3D
 
 Interactive 3D comparison of an **animal cell** and a **plant cell**: orbit the model, hover an
-organelle to highlight it and read its name, click it to isolate it and open a spec sheet, and play
-the nutrition, reproduction, and movement processes.
+organelle to highlight it and read its name, click it to isolate it and open a spec sheet.
 
 Educational product for secondary-school biology. Static site, no backend, no runtime API key.
+
+> **Status: cell models being rebuilt.** The catalog currently carries no organelle records and no
+> geometry ships, so the viewer renders its lighting rig and inspection mechanisms over an empty
+> scene. The shell, the annotation layout solver, the disassembly control and HUD, picking/hover/
+> isolate, the spec sheet, i18n, the WebGL fallback and the whole verification harness are in place
+> and green; plugging in a model is the remaining step.
 
 ## Stack
 
@@ -17,9 +22,9 @@ Educational product for secondary-school biology. Static site, no backend, no ru
 | Unit tests | `vitest` |
 | Metrics / E2E | `playwright` + `pngjs` |
 
-Geometry is **procedural Three.js code** — no `.glb` assets, no Blender, no baked animation clips.
-Tone mapping is `THREE.NeutralToneMapping`; ACES is prohibited (it shifts hue and breaks
-palette-swatch fidelity).
+Geometry is authored as **committed model assets**; the renderer, tone-mapping and material system
+are the shell's, and no procedural geometry ships in this base. Tone mapping is
+`THREE.NeutralToneMapping`; ACES is prohibited (it shifts hue and breaks palette-swatch fidelity).
 
 ## Commands
 

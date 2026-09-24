@@ -1,14 +1,13 @@
 import { DoubleSide, FrontSide, Material, MeshPhysicalMaterial, MeshStandardMaterial } from 'three';
 import { describe, expect, it } from 'vitest';
-import { MODEL_MANIFEST } from '../catalog/models';
-import { ORGANELLE_MATERIAL_KEYS } from './builders/primitives';
+import { MATERIAL_KEY_NAMES } from '../catalog/types';
 import { M0_COLORS, createOrganelleMaterials } from './materials';
 
 describe('createOrganelleMaterials', () => {
   const materials = createOrganelleMaterials();
 
-  it('covers every material key a builder can ask for', () => {
-    for (const key of ORGANELLE_MATERIAL_KEYS) {
+  it('covers every material key a record can ask for', () => {
+    for (const key of MATERIAL_KEY_NAMES) {
       expect(materials[key]).toBeInstanceOf(Material);
     }
   });
@@ -102,7 +101,7 @@ describe('createOrganelleMaterials', () => {
   });
 
   it('never enables transmission (the most expensive fill-rate option available)', () => {
-    for (const key of ORGANELLE_MATERIAL_KEYS) {
+    for (const key of MATERIAL_KEY_NAMES) {
       const material = materials[key] as MeshPhysicalMaterial & { transmission?: number };
 
       expect(material.transmission ?? 0).toBe(0);
@@ -126,24 +125,13 @@ describe('createOrganelleMaterials', () => {
     expect((materials.lysosome as MeshStandardMaterial).flatShading).toBe(false);
   });
 
-  it('resolves every material key the committed manifest assigns (task 12.4)', () => {
-    // The mesh identification map names a key per mesh; every one of them must be a real material,
-    // or the loader would assign `undefined` and the mesh would vanish.
-    const keys = new Set<string>();
+  it('resolves every material key the catalog declares', () => {
+    // The catalog's records name a key per surface; every declared key must be a real material, or a
+    // future loader would assign `undefined` and the surface would vanish.
+    expect(MATERIAL_KEY_NAMES.length).toBeGreaterThan(0);
 
-    for (const model of Object.values(MODEL_MANIFEST)) {
-      for (const row of model.meshes) {
-        if (row.materialKey !== null) {
-          keys.add(row.materialKey);
-        }
-      }
-    }
-
-    expect(keys.size).toBeGreaterThan(0);
-
-    for (const key of keys) {
-      expect(ORGANELLE_MATERIAL_KEYS).toContain(key);
-      expect(materials[key as keyof typeof materials]).toBeInstanceOf(Material);
+    for (const key of MATERIAL_KEY_NAMES) {
+      expect(materials[key]).toBeInstanceOf(Material);
     }
   });
 
@@ -151,7 +139,7 @@ describe('createOrganelleMaterials', () => {
     const fresh = createOrganelleMaterials();
     const disposed: string[] = [];
 
-    for (const key of ORGANELLE_MATERIAL_KEYS) {
+    for (const key of MATERIAL_KEY_NAMES) {
       fresh[key].addEventListener('dispose', () => {
         disposed.push(key);
       });
@@ -159,6 +147,6 @@ describe('createOrganelleMaterials', () => {
 
     fresh.dispose();
 
-    expect([...disposed].sort()).toEqual([...ORGANELLE_MATERIAL_KEYS].sort());
+    expect([...disposed].sort()).toEqual([...MATERIAL_KEY_NAMES].sort());
   });
 });

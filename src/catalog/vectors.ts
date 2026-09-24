@@ -34,7 +34,7 @@ export interface Bounds3 {
 }
 
 /** Position accessors this module needs. `BufferGeometry.getAttribute` satisfies it structurally. */
-interface PositionSource {
+export interface PositionSource {
   getAttribute(name: string): {
     count: number;
     getX(index: number): number;

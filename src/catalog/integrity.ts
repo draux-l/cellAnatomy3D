@@ -1,5 +1,4 @@
 import { ORGANELLE_RECORDS } from './cells';
-import { MODEL_MANIFEST, meshRowFor } from './models';
 import {
   BUILDER_IDS,
   CELL_IDS,
@@ -9,6 +8,7 @@ import {
   PER_CELL_OVERRIDE_KEYS,
   SIZE_UNITS,
   type CellId,
+  type ManifestMesh,
   type ModelManifest,
   type OrganelleRecord,
 } from './types';
@@ -26,8 +26,8 @@ import {
  * 1. **It is pure.** No three.js, no filesystem, no clock — so it runs as a fast unit test in
  *    Node and (later) as a build step without dragging the 3D chunk into the shell graph.
  * 2. **It validates the declared builder *vocabulary* by default, and registry resolution only
- *    when the registry is injected.** `src/catalog/` must stay three-free, and
- *    `scene/builders/registry.ts` imports every builder, so the gate cannot import the registry.
+ *    when the registry is injected.** `src/catalog/` must stay three-free, and a 3D-side registry
+ *    imports every builder, so the gate cannot import one.
  *    It takes the registered id list as data instead (task 3.2): the callers that own both sides
  *    — the integrity test and, later, the build step — pass it in.
  * 3. **It validates `unknown` input**, so tests can inject defects by spreading a real record
@@ -55,9 +55,9 @@ export const PENDING_BUILDER_IDS: readonly string[] = [];
 
 export interface BuilderResolutionOptions {
   /**
-   * The builder ids `src/scene/builders/registry.ts` resolves today. Omit it to validate the
-   * declared vocabulary only — the M1a sequencing rule, kept as the default so no caller can
-   * accidentally start failing on a partial registry.
+   * The builder ids a 3D-side registry resolves today. Omit it to validate the declared vocabulary
+   * only. Defaults to none registered: the catalog is empty and no registry ships, so a caller that
+   * wants resolution checks must inject the id list.
    */
   registeredBuilderIds?: readonly string[];
   /** Defaults to `PENDING_BUILDER_IDS`. */
@@ -65,7 +65,8 @@ export interface BuilderResolutionOptions {
   /**
    * The committed identification map (design D20/D29). Injected **as data**, the same pattern as
    * `registeredBuilderIds`, so `src/catalog/` stays three-free and a test can inject a synthetic
-   * manifest. Defaults to the committed `MODEL_MANIFEST`.
+   * manifest. There is no committed manifest while the catalog is empty, so a caller that wants the
+   * node-level checks must inject one; without it the structural mesh rules still run.
    */
   manifest?: ModelManifest;
 }
@@ -201,6 +202,26 @@ function validateProceduralGeometry(
 }
 
 /**
+ * The manifest row for a model node, addressed by name and occurrence.
+ *
+ * Node names survive any tool that preserves names, whereas numeric indices shift when an optimizer
+ * merges or splits nodes — so the lookup is by `(cell, node, occurrence)`. Kept here as a pure data
+ * query so `src/catalog/` needs no import of the (now removed) manifest module.
+ */
+function manifestRow(
+  manifest: ModelManifest,
+  cell: CellId,
+  node: string,
+  occurrence: number,
+): ManifestMesh | undefined {
+  const row = manifest[cell]?.meshes.find(
+    (candidate) => candidate.node === node && (candidate.occurrence ?? 0) === occurrence,
+  );
+
+  return row;
+}
+
+/**
  * The mesh half of the union (tasks 11.4, 12.3).
  *
  * Every failure names the record id and the offending `geometry.meshes[...]` field. The manifest is
@@ -213,7 +234,7 @@ function validateMeshGeometry(
   options: BuilderResolutionOptions,
   add: AddIssue,
 ): void {
-  const manifest = options.manifest ?? MODEL_MANIFEST;
+  const manifest = options.manifest;
   const meshes = geometry.meshes;
 
   if (!Array.isArray(meshes) || meshes.length === 0) {
@@ -249,7 +270,14 @@ function validateMeshGeometry(
       }
 
       const occurrence = isFiniteNumber(ref.occurrence) ? ref.occurrence : 0;
-      const row = meshRowFor(ref.cell as CellId, ref.node, occurrence, manifest);
+
+      if (manifest === undefined) {
+        // No identification map was injected. The reference's shape is valid, but its node cannot be
+        // resolved; the caller that owns the manifest opts into the node-level checks.
+        return;
+      }
+
+      const row = manifestRow(manifest, ref.cell as CellId, ref.node, occurrence);
 
       if (!row) {
         add(

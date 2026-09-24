@@ -207,9 +207,9 @@ test.describe('the WebGL-unavailable fallback', () => {
         await expect(page.locator(`[data-unavailable="${key}"]`)).toHaveText(t(key, locale));
       }
 
-      // The requirement's whole list, rendered: annotations, disassembly, isolate, the processes
-      // and the quiz. Counting is what catches a declaration that exists in the data but never
-      // reaches the page.
+      // The requirement's whole list, rendered: annotations, the exploded view, isolate and the
+      // quiz. Counting is what catches a declaration that exists in the data but never reaches the
+      // page.
       expect(await page.locator('[data-unavailable]').count()).toBe(
         FALLBACK_UNAVAILABLE_SURFACES.length,
       );
@@ -217,15 +217,10 @@ test.describe('the WebGL-unavailable fallback', () => {
         'fallback.unavailable.annotations',
         'fallback.unavailable.explodedView',
         'fallback.unavailable.isolate',
-        'fallback.unavailable.processes',
         'fallback.unavailable.quiz',
       ]);
 
-      // The sheets follow the language too, and the images stay put: the switch changes copy only.
-      const sheets = await readSheets(page);
-      const animalFirst = sheets[0];
-
-      expect(animalFirst?.name).toBe(rosterFor('animal')[0]!.name[locale]);
+      // The images stay put across the switch: it changes copy only.
       await expect(page.locator('[data-fallback-image="animal"]')).toHaveCount(1);
     }
 

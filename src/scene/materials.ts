@@ -1,5 +1,5 @@
 import { DoubleSide, FrontSide, MeshStandardMaterial, type Material } from 'three';
-import { ORGANELLE_MATERIAL_KEYS, type OrganelleMaterialKey } from './builders/primitives';
+import { MATERIAL_KEY_NAMES, type MaterialKeyName } from '../catalog/types';
 
 /**
  * Materials for the M1b organelle set.
@@ -83,7 +83,7 @@ export const M0_COLORS = {
   plasmodesma: '#b9a878',
 } as const satisfies Record<string, string>;
 
-export type OrganelleMaterials = Record<OrganelleMaterialKey, Material> & {
+export type OrganelleMaterials = Record<MaterialKeyName, Material> & {
   dispose: () => void;
 };
 
@@ -141,7 +141,7 @@ function createBody(color: string, flatShading = false): MeshStandardMaterial {
 }
 
 export function createOrganelleMaterials(): OrganelleMaterials {
-  const materials: Record<OrganelleMaterialKey, Material> = {
+  const materials: Record<MaterialKeyName, Material> = {
     outerMembrane: createShell(M0_COLORS.outerMembrane, 0.46),
     innerMembrane: new MeshStandardMaterial({
       color: M0_COLORS.innerMembrane,
@@ -187,7 +187,7 @@ export function createOrganelleMaterials(): OrganelleMaterials {
   return {
     ...materials,
     dispose: () => {
-      for (const key of ORGANELLE_MATERIAL_KEYS) {
+      for (const key of MATERIAL_KEY_NAMES) {
         materials[key].dispose();
       }
     },

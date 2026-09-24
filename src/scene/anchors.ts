@@ -1,6 +1,5 @@
 import { Vector3, type Object3D } from 'three';
-import { buildBounds } from '../catalog/vectors';
-import type { OrganelleBuild } from './builders/primitives';
+import { buildBounds, type PositionSource } from '../catalog/vectors';
 
 /**
  * Where each organelle's label anchor is, in world space.
@@ -60,14 +59,14 @@ export function clearOrganelleAnchors(): void {
 }
 
 /**
- * The anchor's local offset for one build: the top-centre of everything the record produced.
+ * The anchor's local offset for one part set: the top-centre of the union of their geometries.
  *
  * "Everything" matters. A record's build is a list of parts — a nucleus is an envelope, a
  * nucleolus and a ring of pores — and the anchor must clear the union of them, not just the first
  * part, or the leader line would start inside the organelle.
  */
-export function anchorOffsetFor(build: OrganelleBuild): Vector3 {
-  const { min, max } = buildBounds(build.parts.map((part) => part.geometry));
+export function anchorOffsetFor(geometries: readonly PositionSource[]): Vector3 {
+  const { min, max } = buildBounds(geometries);
 
   return new Vector3((min[0] + max[0]) / 2, max[1], (min[2] + max[2]) / 2);
 }
