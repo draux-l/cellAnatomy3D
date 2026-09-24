@@ -33,6 +33,14 @@ const CELL_FIXTURE_PATH = '/?fixture=cell&view=animal';
  * advances, so a frozen fixture would measure the scene's idle cost and understate the change.
  */
 const PROCESS_FIXTURE_PATH = '/?fixture=process&id=nutrition&cell=plant';
+/**
+ * The animal cell with the **reproduction** sequence running (no pinned progress).
+ *
+ * The M3 reading. Mitosis is a one-shot 14 s sequence, and the measurement window is shorter than
+ * that, so this reading covers the early phases and the whole point of it is that *something is
+ * animating*: a frozen fixture would measure the scene's idle cost and understate the change.
+ */
+const REPRODUCTION_FIXTURE_PATH = '/?fixture=process&id=reproduction&cell=animal';
 const REPORT_PATH = 'artifacts/perf/report.json';
 
 /** Longest delta the clock accepts, in seconds — mirrors src/app/clock.ts. */
@@ -74,32 +82,41 @@ async function measureBrowser() {
       : String(gl.getParameter(gl.VERSION));
   });
 
+  /**
+   * Three short steady-state windows on the page that is currently loaded.
+   *
+   * Several short windows rather than one long one, because frame timing on a shared machine is not
+   * stable between runs: recording every window makes the number's own reliability visible instead of
+   * hiding a large spread behind a single average.
+   */
+  const steadyStateWindows = async () => {
+    const readings = [];
+
+    for (let index = 0; index < STEADY_STATE_WINDOWS; index += 1) {
+      await page.evaluate(() => window.__cellDebug?.reset());
+      await page.waitForTimeout(STEADY_STATE_WINDOW_MS);
+
+      const reading = await page.evaluate(() => {
+        const stats = window.__cellDebug?.frameStats;
+
+        return stats ? { samples: stats.samples, fpsP50: stats.p50Fps, fpsP95: stats.p95Fps } : null;
+      });
+
+      if (reading) {
+        readings.push(reading);
+      }
+    }
+
+    return readings;
+  };
+
   const firstPaint = await page.evaluate(() => window.__cellDebug?.firstRenderAtMs ?? null);
 
   // Warm up, then measure only the steady state: the first seconds after load include shader
   // compilation and first-paint costs, which would dominate a percentile over one second.
-  //
-  // Several short windows rather than one long one, because frame timing on a shared machine is
-  // not stable between runs. Recording every window makes the number's own reliability visible,
-  // instead of hiding a 5x spread behind a single average.
   await page.waitForTimeout(WARM_UP_MS);
 
-  const windows = [];
-
-  for (let index = 0; index < STEADY_STATE_WINDOWS; index += 1) {
-    await page.evaluate(() => window.__cellDebug?.reset());
-    await page.waitForTimeout(STEADY_STATE_WINDOW_MS);
-
-    const window = await page.evaluate(() => {
-      const stats = window.__cellDebug?.frameStats;
-
-      return stats ? { samples: stats.samples, fpsP50: stats.p50Fps, fpsP95: stats.p95Fps } : null;
-    });
-
-    if (window) {
-      windows.push(window);
-    }
-  }
+  const windows = await steadyStateWindows();
 
   const debug = await page.evaluate(() => {
     const d = window.__cellDebug;
@@ -147,22 +164,7 @@ async function measureBrowser() {
   });
   await page.waitForTimeout(WARM_UP_MS);
 
-  const processWindows = [];
-
-  for (let index = 0; index < STEADY_STATE_WINDOWS; index += 1) {
-    await page.evaluate(() => window.__cellDebug?.reset());
-    await page.waitForTimeout(STEADY_STATE_WINDOW_MS);
-
-    const reading = await page.evaluate(() => {
-      const stats = window.__cellDebug?.frameStats;
-
-      return stats ? { samples: stats.samples, fpsP50: stats.p50Fps, fpsP95: stats.p95Fps } : null;
-    });
-
-    if (reading) {
-      processWindows.push(reading);
-    }
-  }
+  const processWindows = await steadyStateWindows();
 
   const process = await page.evaluate(() => {
     const d = window.__cellDebug;
@@ -184,6 +186,37 @@ async function measureBrowser() {
       : null;
   });
 
+  // M3: the same animal cell with mitosis running. Read separately from nutrition because the two
+  // processes have different costs — mitosis deforms the cell's boundary and adds its own bodies,
+  // while nutrition adds particles inside two organelles — and one number cannot stand for both.
+  await page.goto(`${BASE_URL}${REPRODUCTION_FIXTURE_PATH}`, { waitUntil: 'load' });
+  await page.waitForFunction((min) => (window.__cellDebug?.frames ?? 0) >= min, MIN_FRAMES, {
+    timeout: 90_000,
+  });
+  await page.waitForTimeout(WARM_UP_MS);
+
+  const reproductionWindows = await steadyStateWindows();
+
+  const reproduction = await page.evaluate(() => {
+    const d = window.__cellDebug;
+
+    return d
+      ? {
+          drawCalls: d.drawCalls,
+          triangles: d.triangles,
+          qualityTier: d.qualityTier,
+          fixture: d.fixture,
+          processes: d.processes.map((entry) => ({
+            id: entry.id,
+            organelleId: entry.organelleId,
+            label: entry.label,
+            progress: entry.progress,
+            extra: { ...entry.extra },
+          })),
+        }
+      : null;
+  });
+
   await browser.close();
 
   if (!debug) {
@@ -198,8 +231,16 @@ async function measureBrowser() {
     throw new Error('window.__cellDebug was unavailable for the composed cell with a process running');
   }
 
+  if (!reproduction) {
+    throw new Error('window.__cellDebug was unavailable for the composed cell with mitosis running');
+  }
+
   if (processWindows.length === 0) {
     throw new Error('no steady-state windows were measured for the process fixture');
+  }
+
+  if (reproductionWindows.length === 0) {
+    throw new Error('no steady-state windows were measured for the reproduction fixture');
   }
 
   const median = (values) => [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)];
@@ -207,6 +248,8 @@ async function measureBrowser() {
   const p95Values = windows.map((window) => window.fpsP95);
   const processP50 = processWindows.map((window) => window.fpsP50);
   const processP95 = processWindows.map((window) => window.fpsP95);
+  const reproductionP50 = reproductionWindows.map((window) => window.fpsP50);
+  const reproductionP95 = reproductionWindows.map((window) => window.fpsP95);
 
   const stability = {
     windows,
@@ -235,6 +278,24 @@ async function measureBrowser() {
         (((Math.max(...processP50) - Math.min(...processP50)) / median(processP50)) * 100).toFixed(1),
       ),
     },
+    reproduction: {
+      ...reproduction,
+      frameStats: {
+        p50Fps: median(reproductionP50),
+        p95Fps: median(reproductionP95),
+        // The same number as milliseconds, because "frame-time p95" is what the M3 task asks to
+        // record and an fps figure makes a reader do the division.
+        p95Ms: Number((1000 / median(reproductionP95)).toFixed(2)),
+        samples: reproductionWindows.reduce((total, window) => total + window.samples, 0),
+      },
+      windows: reproductionWindows,
+      fpsP50SpreadPct: Number(
+        (
+          ((Math.max(...reproductionP50) - Math.min(...reproductionP50)) / median(reproductionP50)) *
+          100
+        ).toFixed(1),
+      ),
+    },
     debug: {
       ...debug,
       frameStats: {
@@ -249,7 +310,7 @@ async function measureBrowser() {
   };
 }
 
-function buildBudgetRows({ debug, cell, process, firstPaint, sizes }) {
+function buildBudgetRows({ debug, cell, process, reproduction, firstPaint, sizes }) {
   const software = isSoftwareRasteriser(debug.rasteriser);
 
   return [
@@ -279,6 +340,28 @@ function buildBudgetRows({ debug, cell, process, firstPaint, sizes }) {
       gate: 'hard',
       status: process.drawCalls <= TARGETS.drawCallsPerCell ? 'pass' : 'fail',
       source: `window.__cellDebug on ${PROCESS_FIXTURE_PATH} (renderer.info for the cell scene, 1 Hz)`,
+    },
+    {
+      id: 'draw-calls-per-cell-with-reproduction',
+      target: `<= ${TARGETS.drawCallsPerCell} calls`,
+      measured: reproduction.drawCalls,
+      unit: 'calls',
+      gate: 'hard',
+      status: reproduction.drawCalls <= TARGETS.drawCallsPerCell ? 'pass' : 'fail',
+      source: `window.__cellDebug on ${REPRODUCTION_FIXTURE_PATH} (renderer.info for the cell scene, 1 Hz)`,
+    },
+    {
+      id: 'frame-time-p95-with-reproduction',
+      target: `>= ${TARGETS.p95Fps} fps`,
+      measured: Number(reproduction.frameStats.p95Fps.toFixed(1)),
+      unit: 'fps',
+      gate: 'advisory-local',
+      status: software
+        ? 'not-comparable'
+        : reproduction.frameStats.p95Fps >= TARGETS.p95Fps
+          ? 'pass'
+          : 'miss',
+      source: `rAF delta ring buffer with mitosis running on ${REPRODUCTION_FIXTURE_PATH}, ${STEADY_STATE_WINDOW_MS} ms windows`,
     },
     {
       id: 'triangles-per-organelle',
@@ -369,12 +452,22 @@ async function main() {
   const entries = collectDistEntries('dist');
   const sizes = auditEntries(entries);
   // Unpacked as `processReading`: the global `process` is still needed for the environment block.
-  const { rasteriser, firstPaint, cell, process: processReading, debug, stability, problems } = await measureBrowser();
+  const {
+    rasteriser,
+    firstPaint,
+    cell,
+    process: processReading,
+    reproduction: reproductionReading,
+    debug,
+    stability,
+    problems,
+  } = await measureBrowser();
 
   const budgets = buildBudgetRows({
     debug: { ...debug, rasteriser },
     cell,
     process: processReading,
+    reproduction: reproductionReading,
     firstPaint,
     sizes,
   });
@@ -383,7 +476,7 @@ async function main() {
     .map((row) => `${row.id}: measured ${row.measured}${row.unit === 'fps' ? 'fps' : ''} against ${row.target}`);
 
   const report = {
-    milestone: 'M2 (PR 7)',
+    milestone: 'M3 (PR 8)',
     measuredAt: new Date().toISOString(),
     fixture: FIXTURE_PATH,
     environment: {
@@ -433,6 +526,21 @@ async function main() {
       instances: processReading.processes,
       note: 'Frame timing measured with the process clock running, which is when the animation costs anything at all. The idle reading for the same cell is the `cell` block above.',
     },
+    // The animal cell with mitosis running: the M3 measurement.
+    reproduction: {
+      fixture: REPRODUCTION_FIXTURE_PATH,
+      cell: 'animal',
+      records: 7,
+      triangles: reproductionReading.triangles,
+      drawCalls: reproductionReading.drawCalls,
+      qualityTier: reproductionReading.qualityTier,
+      fpsP50: Number(reproductionReading.frameStats.p50Fps.toFixed(1)),
+      fpsP95: Number(reproductionReading.frameStats.p95Fps.toFixed(1)),
+      frameTimeP95Ms: reproductionReading.frameStats.p95Ms,
+      fpsP50SpreadPct: reproductionReading.fpsP50SpreadPct,
+      instances: reproductionReading.processes,
+      note: 'Mitosis deforms the cell boundary and adds its own bodies, so its cost is read separately from nutrition\u2019s. The reading covers the whole sequence together with its chromatin, ring, plate and daughter-nucleus passes.',
+    },
     sizes: entries.map((entry) => ({
       file: entry.file,
       role: entry.role,
@@ -449,6 +557,7 @@ async function main() {
       'Frame timing is advisory by design — CI runners share GPUs and jitter — so p50/p95 are recorded here and reviewed locally.',
       'Draw calls and triangles are now measured on the composed cell fixture, which is what the per-cell budget was always about; the organelle block remains the single-organelle reading.',
       'M2 records the same cell with nutrition **running** (no pinned `t`): the animation\u2019s cost only exists while the clock advances. The process block carries its frame-time p95 in both fps and milliseconds, which is the number Phase 5 asks to record.',
+      'M3 records the animal cell with mitosis **running**, separate from nutrition because the two processes cost different things. Its frame-time p95 is likewise in fps and milliseconds, which is the number Phase 6 asks to record.',
       'The quality tier is read from the running app rather than inferred. Under a fixture it is pinned to high so a screenshot cannot depend on the host core count; the adaptive path is unit-tested and only runs in the real app.',
     ],
   };
@@ -468,6 +577,12 @@ async function main() {
   console.log(`  cell draw calls  ${cell.drawCalls} (budget ${TARGETS.drawCallsPerCell})`);
   console.log(`  cell triangles   ${cell.triangles} (budget ${TARGETS.trianglesPerCell})`);
   console.log(`  organelle calls  ${debug.drawCalls} / triangles ${debug.triangles} (budget ${TARGETS.trianglesPerOrganelle} per organelle)`);
+  console.log(
+    `  nutrition        p50 ${processReading.frameStats.p50Fps.toFixed(1)} / p95 ${processReading.frameStats.p95Fps.toFixed(1)} fps (${processReading.frameStats.p95Ms} ms p95), ${processReading.drawCalls} draw calls`,
+  );
+  console.log(
+    `  reproduction     p50 ${reproductionReading.frameStats.p50Fps.toFixed(1)} / p95 ${reproductionReading.frameStats.p95Fps.toFixed(1)} fps (${reproductionReading.frameStats.p95Ms} ms p95), ${reproductionReading.drawCalls} draw calls`,
+  );
   console.log(`  shell gzip       ${formatBytes(sizes.totals.shellGzipBytes)} (budget ${formatBytes(BUDGETS.shellGzipBytes)})`);
   console.log(
     `  initial gzip     ${formatBytes(sizes.totals.initialGzipBytes)} (budget ${formatBytes(BUDGETS.initialGzipBytes)})`,
