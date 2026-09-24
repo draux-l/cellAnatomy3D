@@ -33,7 +33,7 @@ import { SpecSheetFields } from './SpecSheet';
  * 2. **The spec sheets are the same component the 3D path uses.** `SpecSheetFields` is imported,
  *    not reimplemented, so the degraded path cannot disagree with the real one about what a record
  *    says.
- * 3. **What is missing is stated.** Hover, isolate, disassembly, the processes and the quiz all
+ * 3. **What is missing is stated.** Hover, isolate, disassembly and the quiz all
  *    need a renderer; `FALLBACK_UNAVAILABLE_SURFACES` names them and the copy says so. Nothing is
  *    offered that would not work, and nothing is fabricated to fill the space.
  *
