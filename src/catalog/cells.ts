@@ -61,10 +61,27 @@ const CATALOG: readonly OrganelleRecord[] = [
     paletteRole: 'nucleus',
     position: [-0.1, 0.14, 0.04],
     geometry: {
-      kind: 'procedural',
-      builder: 'nucleus',
-      params: { size: 0.36, detail: 1, count: 0, poreCount: 48 },
-      seed: 'nucleus/v1',
+      kind: 'mesh',
+      meshes: [
+        { cell: 'animal', node: 'Nulo__Material.010_0', materialKey: 'nucleus' },
+        { cell: 'animal', node: 'Nulo__Material.009_0', materialKey: 'nucleolus' },
+        { cell: 'animal', node: 'Nulo__Material.001_0', materialKey: 'nuclearEnvelope' },
+        { cell: 'animal', node: 'Nulo__Material.027_0', occurrence: 0, materialKey: 'chromatin' },
+        { cell: 'animal', node: 'Nulo__Material.027_0', occurrence: 1, materialKey: 'chromatin' },
+        { cell: 'animal', node: 'Nulo__Material.027_0', occurrence: 2, materialKey: 'chromatin' },
+        { cell: 'animal', node: 'Nulo__Material.027_0', occurrence: 3, materialKey: 'chromatin' },
+        { cell: 'plant', node: 'nucleus_TT_checker_512x512_UV_GRID_0', materialKey: 'nucleus' },
+      ],
+      // The procedural fallback is the record's previous build, unchanged, so a failed
+      // model load reproduces the composed cell exactly (design D27).
+      fallback: {
+        builder: 'nucleus',
+        params: { size: 0.36, detail: 1, count: 0, poreCount: 48 },
+        seed: 'nucleus/v1',
+        perCell: {
+          plant: { geometryParams: { size: 0.3 } },
+        },
+      },
     },
     // The nucleus sits near the centre and travels up-left; its direction was re-authored with its
     // position so the exploded view still moves it outward (the gate enforces `dot >= 0`).
@@ -76,10 +93,7 @@ const CATALOG: readonly OrganelleRecord[] = [
      * periphery, a 0.36 nucleus would clip the membrane once the envelope's own waver is counted.
      */
     perCell: {
-      plant: {
-        position: [-0.36, 0.52, 0.15],
-        geometryParams: { size: 0.3 },
-      },
+      plant: { position: [-0.36, 0.52, 0.15] },
     },
     cells: ['animal', 'plant'],
     pickable: true,
@@ -101,11 +115,19 @@ const CATALOG: readonly OrganelleRecord[] = [
     // does not sit inside the nucleus.
     position: [-0.52, -0.3, 0.26],
     geometry: {
-      kind: 'procedural',
-      builder: 'mitochondrion',
-      params: { size: 0.3, detail: 1, count: 0, cristaeCount: 12 },
-      // The same seed M0 shipped, so the first organelle's identity is preserved.
-      seed: 'mitochondrion/v1',
+      kind: 'mesh',
+      meshes: [
+        { cell: 'animal', node: 'Nulo__Material.007_0', materialKey: 'innerMembrane' },
+        { cell: 'animal', node: 'Nulo__Material.008_0', materialKey: 'outerMembrane' },
+        { cell: 'plant', node: 'mitochondria_TT_checker_512x512_UV_GRID_0', materialKey: 'outerMembrane' },
+      ],
+      // The procedural fallback is the record's previous build, unchanged, so a failed
+      // model load reproduces the composed cell exactly (design D27).
+      fallback: {
+        builder: 'mitochondrion',
+        params: { size: 0.3, detail: 1, count: 0, cristaeCount: 12 },
+        seed: 'mitochondrion/v1',
+      },
     },
     disassembly: { direction: [-0.72, -0.38, 0.58], distance: 0.75 },
     cells: ['animal', 'plant'],
@@ -129,10 +151,19 @@ const CATALOG: readonly OrganelleRecord[] = [
     // but no longer engulfing it.
     position: [0.42, -0.18, 0.12],
     geometry: {
-      kind: 'procedural',
-      builder: 'endoplasmic-reticulum',
-      params: { size: 0.38, detail: 1, count: 6, branchCount: 6 },
-      seed: 'endoplasmic-reticulum/v1',
+      kind: 'mesh',
+      meshes: [
+        { cell: 'animal', node: 'Nulo__Material.005_0', materialKey: 'er' },
+        { cell: 'plant', node: 'rough.ER_TT_checker_512x512_UV_GRID_0', materialKey: 'er' },
+        { cell: 'plant', node: 'smooth.ER_TT_checker_512x512_UV_GRID_0', materialKey: 'er' },
+      ],
+      // The procedural fallback is the record's previous build, unchanged, so a failed
+      // model load reproduces the composed cell exactly (design D27).
+      fallback: {
+        builder: 'endoplasmic-reticulum',
+        params: { size: 0.38, detail: 1, count: 6, branchCount: 6 },
+        seed: 'endoplasmic-reticulum/v1',
+      },
     },
     disassembly: { direction: [0.63, -0.45, 0.63], distance: 0.65 },
     cells: ['animal', 'plant'],
@@ -153,10 +184,18 @@ const CATALOG: readonly OrganelleRecord[] = [
     paletteRole: 'organelles',
     position: [-0.38, 0.44, -0.2],
     geometry: {
-      kind: 'procedural',
-      builder: 'golgi',
-      params: { size: 0.3, detail: 1, count: 6, cisternaeCount: 6 },
-      seed: 'golgi/v1',
+      kind: 'mesh',
+      meshes: [
+        { cell: 'animal', node: 'Nulo__Material.006_0', materialKey: 'golgi' },
+        { cell: 'plant', node: 'golgi.appratus_TT_checker_512x512_UV_GRID_0', materialKey: 'golgi' },
+      ],
+      // The procedural fallback is the record's previous build, unchanged, so a failed
+      // model load reproduces the composed cell exactly (design D27).
+      fallback: {
+        builder: 'golgi',
+        params: { size: 0.3, detail: 1, count: 6, cisternaeCount: 6 },
+        seed: 'golgi/v1',
+      },
     },
     disassembly: { direction: [-0.6, 0.53, -0.6], distance: 0.65 },
     cells: ['animal', 'plant'],
@@ -180,10 +219,20 @@ const CATALOG: readonly OrganelleRecord[] = [
     // cytosol population rather than a solid body.
     position: [0.36, 0.1, 0.12],
     geometry: {
-      kind: 'procedural',
-      builder: 'ribosome',
-      params: { size: 0.03, detail: 0, count: 220, spread: 0.4 },
-      seed: 'ribosome/v1',
+      kind: 'mesh',
+      meshes: [
+        { cell: 'animal', node: 'Nulo__Material.018_0', occurrence: 0, materialKey: 'granule' },
+        { cell: 'animal', node: 'Nulo__Material.018_0', occurrence: 1, materialKey: 'granule' },
+        { cell: 'animal', node: 'Nulo__Material.018_0', occurrence: 2, materialKey: 'granule' },
+        { cell: 'plant', node: 'ribosomes_TT_checker_512x512_UV_GRID_0', materialKey: 'granule' },
+      ],
+      // The procedural fallback is the record's previous build, unchanged, so a failed
+      // model load reproduces the composed cell exactly (design D27).
+      fallback: {
+        builder: 'ribosome',
+        params: { size: 0.03, detail: 0, count: 220, spread: 0.4 },
+        seed: 'ribosome/v1',
+      },
     },
     disassembly: { direction: [0.796, 0.584, 0.159], distance: 0.55 },
     cells: ['animal', 'plant'],
@@ -204,10 +253,17 @@ const CATALOG: readonly OrganelleRecord[] = [
     paletteRole: 'organelles',
     position: [-0.62, 0.3, 0.16],
     geometry: {
-      kind: 'procedural',
-      builder: 'lysosome',
-      params: { size: 0.12, detail: 1, count: 0 },
-      seed: 'lysosome/v1',
+      kind: 'mesh',
+      meshes: [
+        { cell: 'plant', node: 'lysosome_TT_checker_512x512_UV_GRID_0', materialKey: 'lysosome' },
+      ],
+      // The procedural fallback is the record's previous build, unchanged, so a failed
+      // model load reproduces the composed cell exactly (design D27).
+      fallback: {
+        builder: 'lysosome',
+        params: { size: 0.12, detail: 1, count: 0 },
+        seed: 'lysosome/v1',
+      },
     },
     disassembly: { direction: [-0.77, 0.58, 0.27], distance: 0.7 },
     cells: ['animal', 'plant'],
@@ -238,13 +294,21 @@ const CATALOG: readonly OrganelleRecord[] = [
      */
     position: [0, 0, 0],
     geometry: {
-      kind: 'procedural',
-      builder: 'cytoplasm',
-      params: { size: 0.94, detail: 1, count: 0, noiseAmplitude: 0.018 },
-      seed: 'cytoplasm/v1',
-    },
-    perCell: {
-      plant: { geometryParams: { sides: 8, cornerRounding: 0.4 } },
+      kind: 'mesh',
+      meshes: [
+        { cell: 'animal', node: 'citoplasma_remesh_Material.004_0', materialKey: 'cytoplasm' },
+        { cell: 'plant', node: 'cytoplasm_TT_checker_512x512_UV_GRID_0', materialKey: 'cytoplasm' },
+      ],
+      // The procedural fallback is the record's previous build, unchanged, so a failed
+      // model load reproduces the composed cell exactly (design D27).
+      fallback: {
+        builder: 'cytoplasm',
+        params: { size: 0.94, detail: 1, count: 0, noiseAmplitude: 0.018 },
+        seed: 'cytoplasm/v1',
+        perCell: {
+          plant: { geometryParams: { sides: 8, cornerRounding: 0.4 } },
+        },
+      },
     },
     /*
      * Explicit "this part never separates": like the membrane and the wall, the cytoplasm is what
@@ -271,10 +335,20 @@ const CATALOG: readonly OrganelleRecord[] = [
     // The membrane is the cell's own shell, so it is centred on the origin.
     position: [0, 0, 0],
     geometry: {
-      kind: 'procedural',
-      builder: 'membrane',
-      params: { size: 1, detail: 1, count: 0, noiseAmplitude: 0.035 },
-      seed: 'membrane/v1',
+      kind: 'mesh',
+      meshes: [
+        { cell: 'animal', node: 'Nulo__Material_0', materialKey: 'membrane' },
+      ],
+      // The procedural fallback is the record's previous build, unchanged, so a failed
+      // model load reproduces the composed cell exactly (design D27).
+      fallback: {
+        builder: 'membrane',
+        params: { size: 1, detail: 1, count: 0, noiseAmplitude: 0.035 },
+        seed: 'membrane/v1',
+        perCell: {
+          plant: { geometryParams: { sides: 8, cornerRounding: 0.4 } },
+        },
+      },
     },
     /*
      * **The plant membrane shares the wall's silhouette.**
@@ -290,9 +364,6 @@ const CATALOG: readonly OrganelleRecord[] = [
      * are derived from one function. The animal membrane declares nothing here and therefore
      * keeps its round default — no animal-cell behaviour changes.
      */
-    perCell: {
-      plant: { geometryParams: { sides: 8, cornerRounding: 0.4 } },
-    },
     // Explicit "this part never separates": the outer envelope is what the others leave behind.
     disassembly: { direction: [0, 0, 0], distance: 0 },
     cells: ['animal', 'plant'],
@@ -323,10 +394,17 @@ const CATALOG: readonly OrganelleRecord[] = [
      * committed screenshot.
      */
     geometry: {
-      kind: 'procedural',
-      builder: 'cell-wall',
-      params: { size: 1.12, detail: 1, count: 0 },
-      seed: 'cell-wall/v1',
+      kind: 'mesh',
+      meshes: [
+        { cell: 'plant', node: 'cell_TT_checker_512x512_UV_GRID_0', materialKey: 'cellWall' },
+      ],
+      // The procedural fallback is the record's previous build, unchanged, so a failed
+      // model load reproduces the composed cell exactly (design D27).
+      fallback: {
+        builder: 'cell-wall',
+        params: { size: 1.12, detail: 1, count: 0 },
+        seed: 'cell-wall/v1',
+      },
     },
     disassembly: { direction: [0, 0, 0], distance: 0 },
     cells: ['plant'],
@@ -349,10 +427,18 @@ const CATALOG: readonly OrganelleRecord[] = [
     // cell's peripheral cytoplasm rather than inside the central vacuole.
     position: [0.32, 0.37, -0.26],
     geometry: {
-      kind: 'procedural',
-      builder: 'chloroplast',
-      params: { size: 0.42, detail: 1, count: 0, granaStacks: 5 },
-      seed: 'chloroplast/v1',
+      kind: 'mesh',
+      meshes: [
+        { cell: 'plant', node: 'chloroplast.in_TT_checker_512x512_UV_GRID_0', materialKey: 'grana' },
+        { cell: 'plant', node: 'chloroplast.out_TT_checker_512x512_UV_GRID_0', materialKey: 'chloroplast' },
+      ],
+      // The procedural fallback is the record's previous build, unchanged, so a failed
+      // model load reproduces the composed cell exactly (design D27).
+      fallback: {
+        builder: 'chloroplast',
+        params: { size: 0.42, detail: 1, count: 0, granaStacks: 5 },
+        seed: 'chloroplast/v1',
+      },
     },
     disassembly: { direction: [0.572, 0.667, -0.477], distance: 0.8 },
     cells: ['plant'],
@@ -375,14 +461,17 @@ const CATALOG: readonly OrganelleRecord[] = [
     paletteRole: 'organelles',
     position: [-0.02, -0.03, 0.01],
     geometry: {
-      kind: 'procedural',
-      // Composition pass: 0.72 made the vacuole swallow every other organelle — its radius alone
-      // left no cytoplasm for them to sit in. 0.58 still reads as the cell's dominant central body
-      // (its cross-section is ~30% of the cell) while leaving a peripheral band wide enough for the
-      // nucleus and the mitochondria to sit visibly outside it.
-      builder: 'vacuole',
-      params: { size: 0.58, detail: 1, count: 0 },
-      seed: 'vacuole/v1',
+      kind: 'mesh',
+      meshes: [
+        { cell: 'plant', node: 'vacuole_TT_checker_512x512_UV_GRID_0', materialKey: 'vacuole' },
+      ],
+      // The procedural fallback is the record's previous build, unchanged, so a failed
+      // model load reproduces the composed cell exactly (design D27).
+      fallback: {
+        builder: 'vacuole',
+        params: { size: 0.58, detail: 1, count: 0 },
+        seed: 'vacuole/v1',
+      },
     },
     disassembly: { direction: [-0.51, -0.7, 0.5], distance: 0.4 },
     cells: ['plant'],

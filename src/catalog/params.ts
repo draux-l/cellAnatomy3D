@@ -68,9 +68,18 @@ export function positionForRecord(
   return override ? [override[0], override[1], override[2]] : [...record.position];
 }
 
-/** True when a record composes differently in this cell than in its own base data. */
+/**
+ * True when a record composes differently in this cell than in its own base data.
+ *
+ * Either the record's own `perCell` (a placement) or — for a mesh record — its **fallback's**
+ * per-cell deviation (a shape parameter, which a mesh record cannot carry on `perCell`).
+ */
 export function hasPerCellOverride(record: OrganelleRecord, cell: CellId): boolean {
-  return record.perCell?.[cell] !== undefined;
+  if (record.perCell?.[cell] !== undefined) {
+    return true;
+  }
+
+  return isMeshGeometry(record.geometry) && record.geometry.fallback.perCell?.[cell] !== undefined;
 }
 
 /**
