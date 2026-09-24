@@ -147,6 +147,14 @@ export interface CellDebug {
   qualityTier: 'high' | 'reduced';
   /** Read-only mirror of the transient clock, for the perf report. */
   clock: { elapsed: number; scale: number };
+  /**
+   * How many mesh loads failed. A mesh record falls back to its procedural builder and this counter
+   * increments with a loud log, so a failed fetch/decode is visible in the harness rather than
+   * silently rendering the wrong thing (design D27, task 11.6).
+   */
+  meshLoadErrors: number;
+  /** Records one mesh fetch/decode failure. Called by the cell-model loader's failure path. */
+  recordMeshLoadError: () => void;
   /** Records one rendered frame. Both timestamps are injected so tests are deterministic. */
   recordFrame: (deltaMs: number, nowMs: number) => void;
   /** Records one presented-frame render. Called by the wrapped `renderer.render`. */
@@ -210,6 +218,11 @@ export function createCellDebug(options: CellDebugOptions = {}): CellDebug {
     annotations: [],
     processes: [],
     clock: { elapsed: 0, scale: processClock.scale },
+    meshLoadErrors: 0,
+
+    recordMeshLoadError() {
+      debug.meshLoadErrors += 1;
+    },
 
     recordFrame(deltaMs, nowMs) {
       debug.frames += 1;
