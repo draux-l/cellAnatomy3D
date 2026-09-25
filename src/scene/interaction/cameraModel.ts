@@ -98,6 +98,16 @@ export function clampNavigationDistance(distance: number): number {
 export const ISOLATE_DISTANCE_FACTOR = 4;
 /** Flat allowance added to the isolate distance so a small organelle is not framed edge-to-edge. */
 export const ISOLATE_DISTANCE_MARGIN = 0.6;
+/**
+ * The ceiling on the isolate distance, in scene units.
+ *
+ * A record's extent is a half-diagonal, and this model's own parts are large: the endoplasmic
+ * reticulum, the ribosome clouds and the mitochondrial envelopes each report an extent above 1.2
+ * because their meshes are spread across the cell. At the factor above that asks for a distance past
+ * the far navigation clamp, which framed the organelle from outside the cell. The ceiling keeps the
+ * isolated view inside the cell while still backing off in proportion for the small parts.
+ */
+export const ISOLATE_DISTANCE_CEILING = 3.2;
 
 function unitOf([x, y, z]: readonly [number, number, number]): [number, number, number] {
   const length = Math.hypot(x, y, z);
@@ -147,14 +157,21 @@ export function defaultFocus(): FocusState {
  * record's measured `geometry.extent` — rather than from built geometry, which is what lets the
  * `?fixture=` route compute the identical pose in the app shell before the 3D chunk exists.
  */
+export function isolateDistanceFor(extent: number): number {
+  return clampNavigationDistance(
+    Math.min(
+      ISOLATE_DISTANCE_CEILING,
+      Math.max(0, extent) * ISOLATE_DISTANCE_FACTOR + ISOLATE_DISTANCE_MARGIN,
+    ),
+  );
+}
+
 export function focusForRecord(record: OrganelleRecord, cell: CellId): FocusState {
   const extent = extentFor(record);
 
   return {
     target: positionForRecord(record, cell),
-    distance: clampNavigationDistance(
-      Math.max(0, extent) * ISOLATE_DISTANCE_FACTOR + ISOLATE_DISTANCE_MARGIN,
-    ),
+    distance: isolateDistanceFor(extent),
   };
 }
 
@@ -222,9 +239,7 @@ export function isolateCameraPose(
   extent: number,
   viewDirection: readonly [number, number, number] = HERO_POSE.position,
 ): CameraPose {
-  const distance = clampNavigationDistance(
-    Math.max(0, extent) * ISOLATE_DISTANCE_FACTOR + ISOLATE_DISTANCE_MARGIN,
-  );
+  const distance = isolateDistanceFor(extent);
   const direction = unitOf(viewDirection);
 
   return {

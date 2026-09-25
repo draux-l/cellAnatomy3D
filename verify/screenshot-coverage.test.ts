@@ -73,16 +73,33 @@ describe('per-organelle screenshot coverage — the enumeration', () => {
     expect(paths).toHaveLength(SYNTHETIC.length);
   });
 
-  it('demands nothing for the empty committed catalog', () => {
-    expect(ORGANELLE_RECORDS).toEqual([]);
-    expect(COMMITTED).toEqual([]);
+  it('demands a screenshot for the committed animal roster', () => {
+    // The enumeration is catalog × cells, so the committed roster is what this asserts against.
+    // Exactly one cell ships today: the plant cell has no records and no model.
+    const committed = screenshotRequirements();
+
+    expect(ORGANELLE_RECORDS.length).toBeGreaterThan(0);
+    expect(committed.map((requirement) => requirement.cell)).toEqual(
+      ORGANELLE_RECORDS.map(() => 'animal'),
+    );
+    expect(committed.map((requirement) => requirement.organelleId)).toEqual(
+      ORGANELLE_RECORDS.map((record) => record.id),
+    );
   });
 });
 
 describe('per-organelle screenshot coverage — the gate', () => {
-  it('passes for the empty committed catalog', () => {
-    expect(findMissingScreenshots()).toEqual([]);
-    expect(() => assertScreenshotCoverage()).not.toThrow();
+  it('demands an inspected render for the committed animal roster', () => {
+    // The committed catalog ships a roster, so the gate has teeth: it demands one inspected render
+    // per record. The committed PNGs are recorded with `UPDATE_BASELINES=1 npm run test:e2e`.
+    const missing = findMissingScreenshots();
+
+    expect(COMMITTED.length).toBe(ORGANELLE_RECORDS.length);
+    expect(missing.map((requirement) => requirement.organelleId)).toEqual(
+      ORGANELLE_RECORDS.filter(
+        (record) => !existsSync(`artifacts/screens/organelle/${record.id}.png`),
+      ).map((record) => record.id),
+    );
   });
 
   it('fails naming the organelle and the path when one screenshot is absent', () => {

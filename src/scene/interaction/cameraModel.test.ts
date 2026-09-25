@@ -7,6 +7,7 @@ import {
   FOCUS_SNAP_EPSILON,
   HERO_POSE,
   ISOLATE_DISTANCE_FACTOR,
+  ISOLATE_DISTANCE_CEILING,
   ISOLATE_DISTANCE_MARGIN,
   NAVIGATION_LIMITS,
   approachFocus,
@@ -94,21 +95,36 @@ describe('isolateCameraPose', () => {
     expect(pose.target).toEqual([...position]);
   });
 
-  it('backs off in proportion to the organelle size', () => {
+  it('backs off in proportion to the organelle size, up to a ceiling', () => {
     const small = isolateCameraPose([0, 0, 0], 0.2);
-    const large = isolateCameraPose([0, 0, 0], 1);
+    const large = isolateCameraPose([0, 0, 0], 0.6);
     const distance = (pose: typeof small): number => Math.hypot(...pose.position);
 
     // Both sizes land on the near clamp, so the smaller one proves the clamp rather than the
-    // formula; the 1-unit organelle proves the formula.
+    // formula; the 0.6-unit organelle proves the formula.
     expect(distance(small)).toBeCloseTo(NAVIGATION_LIMITS.minDistance, 9);
     expect(large.position[2]).toBeGreaterThan(small.position[2]);
-    expect(distance(large)).toBeCloseTo(ISOLATE_DISTANCE_FACTOR + ISOLATE_DISTANCE_MARGIN, 6);
+    expect(distance(large)).toBeCloseTo(
+      Math.min(ISOLATE_DISTANCE_CEILING, 0.6 * ISOLATE_DISTANCE_FACTOR + ISOLATE_DISTANCE_MARGIN),
+      6,
+    );
+
+    // A record whose extent is that of a spread-out mesh — the ER, the ribosome clouds and the
+    // mitochondrial envelopes all exceed this — is framed from the ceiling rather than from outside
+    // the cell, so the isolated view stays inside the cell it belongs to.
+    expect(Math.hypot(...isolateCameraPose([0, 0, 0], 1.5).position)).toBeCloseTo(
+      ISOLATE_DISTANCE_CEILING,
+      9,
+    );
   });
 
   it('respects the navigation clamps', () => {
+    // The ceiling is below the far clamp and above the near one, so it is the ceiling — not the far
+    // clamp — that frames the largest parts.
+    expect(ISOLATE_DISTANCE_CEILING).toBeLessThan(NAVIGATION_LIMITS.maxDistance);
+    expect(ISOLATE_DISTANCE_CEILING).toBeGreaterThan(NAVIGATION_LIMITS.minDistance);
     expect(Math.hypot(...isolateCameraPose([0, 0, 0], 100).position)).toBeCloseTo(
-      NAVIGATION_LIMITS.maxDistance,
+      ISOLATE_DISTANCE_CEILING,
       9,
     );
     expect(Math.hypot(...isolateCameraPose([0, 0, 0], -5).position)).toBeCloseTo(
