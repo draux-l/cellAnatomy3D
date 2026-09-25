@@ -27,23 +27,57 @@ export const HERO_POSE: CameraPose = {
 };
 
 /**
- * Frames a whole cell, wall included.
+ * The whole-cell view: the model framed the way a plain glTF viewer presents the file.
  *
- * A composed cell is bigger than any single organelle: the wall's rounded polygon reaches ~1.27
- * scene units radially, and its band extends ~1.12 along the depth axis. At the hero pose that
- * combination clips the top and bottom of the frame, so the composed views get their own pose
- * rather than reusing the organelle one — which also keeps every committed organelle baseline
- * byte-identical.
+ * ## Why this is derived rather than picked
+ *
+ * A minimal standalone viewer — the same GLB, its own scene, no app furniture — frames the model by
+ * keeping the **membrane's half-diagonal** inside the vertical field of view with a small margin,
+ * aimed down a near-frontal direction with a slight upward tilt. That rule is what this pose
+ * reproduces, so both numbers come from the model instead of from taste:
+ *
+ * - `direction` is the plain viewer's own front, `[0.22, 0.28, 0.93]` normalised — near-frontal,
+ *   ~13° of azimuth and ~16° of elevation. The hero pose's ~25° of azimuth is what read as a view
+ *   "from the side and below".
+ * - `distance` is `membraneHalfDiagonal / tan(fov / 2) × 1.06` — the membrane record's own committed
+ *   `extent` (2.002279 scene units, `catalog/cells.ts`) over `tan(17.5°)`, with the plain viewer's
+ *   6 % margin. That is **6.7314 scene units**, and it is also the distance the isolate tween rests
+ *   at, so "back to the whole cell" returns to this exact framing.
+ *
+ * ## What it replaces
+ *
+ * Two poses, and both were genuinely wrong for a whole cell:
+ *
+ * - The **composed fixture** used `[2.0, 1.5, 4.6]` — 5.24 scene units, at which the silhouette filled
+ *   ~67 % of the frame height against this pose's 52 %. Tight, though not clipping.
+ * - The **real app** used the hero pose (3.35 scene units), which is *inside* the membrane: the plain
+ *   viewer renders the cell's interior from there, with the silhouette running off the bottom edge.
+ *
+ * Neither was the whole story — the model was also being mounted with a per-record offset, fixed in
+ * `scene/MeshCellGroup.tsx` — so this pose is one of two changes, not the only one. What this pose
+ * is measured against is the plain viewer: at the composed pose the app's silhouette and the plain
+ * viewer's agree to within a pixel, and the app's default view matches the proposed pose.
+ *
+ * `cameraModel.test.ts` re-derives the distance from the membrane record, so this constant cannot
+ * drift away from the model it frames. The numbers are scene units; the model's own units are ~247×
+ * larger and are never mixed in here.
  */
 export const CELL_POSE: CameraPose = {
-  position: [2.0, 1.5, 4.6],
+  position: [1.4871, 1.8927, 6.2864],
   target: [0, 0, 0],
   fov: 35,
 };
 
-/** Frames the cell at 100% disassembly, where parts travel up to ~1.6 units from the centre. */
+/**
+ * Frames the cell at 100% disassembly, where parts travel up to ~1.6 units from the centre.
+ *
+ * The same viewing direction as {@link CELL_POSE}, backed off proportionally: a wider subject needs
+ * a wider frame, and keeping the direction means raising the control never swings the view. The
+ * distance (8 scene units) stays inside the far navigation clamp, so the pose can never sit outside
+ * where the user is allowed to orbit.
+ */
 export const DISASSEMBLY_POSE: CameraPose = {
-  position: [2.4, 1.8, 5.5],
+  position: [1.7674, 2.2494, 7.4711],
   target: [0, 0, 0],
   fov: 35,
 };

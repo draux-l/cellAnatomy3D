@@ -44,7 +44,11 @@ export type FixtureName = 'cell';
 
 export const FIXTURE_NAMES: readonly FixtureName[] = ['cell'];
 
-/** The composer's default camera pose, re-exported so consumers need one import. */
+/**
+ * The camera poses the fixture route and the real app share, re-exported so consumers need one
+ * import. `CELL_POSE` is the whole-cell (composed) pose and is the real app's default;
+ * `HERO_POSE` is the organelle pose the isolate framing travels along.
+ */
 export { CELL_POSE, HERO_POSE, type CameraPose };
 
 /** Named poses. */
@@ -161,7 +165,12 @@ export function parseFixture(search: string): FixtureConfig {
   return {
     name,
     camera:
-      name === null ? yawPose(HERO_POSE, yaw) : fixtureCamera(name, disassemblyValue, yaw),
+      // The real app and the `cell` fixture frame the cell with the **same** pose. That is not a
+      // coincidence to be maintained by hand: it is what lets a `?fixture=cell` capture stand in
+      // for the real app when the framing is compared against a plain glTF viewer. The hero pose
+      // used to sit here, and it framed a single organelle from ~3.35 scene units — inside the
+      // membrane of a cell whose half-diagonal is 2.0.
+      name === null ? yawPose(CELL_POSE, yaw) : fixtureCamera(name, disassemblyValue, yaw),
     cell: name === null ? null : parseCell(cellParam),
     disassemblyValue,
     yaw,

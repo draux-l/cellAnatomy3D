@@ -3,6 +3,7 @@ import { Canvas } from '@react-three/fiber';
 import { AdaptiveDpr } from '@react-three/drei';
 import type { FixtureConfig } from '../app/fixture';
 import { useAppStore } from '../app/store';
+import { STRUCTURE_TOOLS_ENABLED } from '../app/structureTools';
 import type { CellId } from '../catalog/types';
 import {
   AnnotationOverlay,
@@ -54,6 +55,15 @@ export function CellViewer({ fixture }: { fixture: FixtureConfig }) {
    * React — the same mechanism the disassembly readout uses.
    */
   const annotationTarget: AnnotationLayerTarget = useMemo(createAnnotationLayerTarget, []);
+  /**
+   * Whether the annotation layer is mounted at all.
+   *
+   * Two independent gates, because they answer different questions: `STRUCTURE_TOOLS_ENABLED` is
+   * the product decision (the part-identification layer is hidden while the part definitions are
+   * rebuilt), and `fixture.showAnnotations` is the URL's capture override
+   * (`?annotations=off`). The flag is the outer one, so the layer cannot come back through a URL.
+   */
+  const annotationsMounted = STRUCTURE_TOOLS_ENABLED && fixture.showAnnotations;
 
   useEffect(() => {
     // A fixture names its disassembly state in the URL. Setting it once, rather than animating into
@@ -120,7 +130,8 @@ export function CellViewer({ fixture }: { fixture: FixtureConfig }) {
           fixture={fixture}
           tier={tier}
           hudTarget={hudTarget}
-          annotationTarget={fixture.showAnnotations ? annotationTarget : null}
+          structureToolsEnabled={STRUCTURE_TOOLS_ENABLED}
+          annotationTarget={annotationsMounted ? annotationTarget : null}
         />
         {/* Drei's adaptive pass only in the real app: it changes resolution in response to load,
             which would make a fixture screenshot depend on the machine. */}
@@ -129,15 +140,22 @@ export function CellViewer({ fixture }: { fixture: FixtureConfig }) {
 
       {/* The overlay itself. Outside the canvas, so it costs zero draw calls and its typography is
           the browser's rather than a texture atlas. */}
-      {fixture.showAnnotations ? <AnnotationOverlay cell={cell} target={annotationTarget} /> : null}
+      {annotationsMounted ? <AnnotationOverlay cell={cell} target={annotationTarget} /> : null}
 
       {fixture.showFps ? <FpsReadout /> : null}
 
-      <DisassemblyHud
-        value={disassemblyTarget}
-        target={hudTarget}
-        frozen={fixture.disassemblyValue !== null}
-      />
+      {/*
+        The exploded-view control. Hidden with the rest of the structure-study layer (see
+        `app/structureTools.ts`): the model is presented as the GLB authors it, so nothing on screen
+        offers to take it apart. The component is untouched and comes back with the flag.
+      */}
+      {STRUCTURE_TOOLS_ENABLED ? (
+        <DisassemblyHud
+          value={disassemblyTarget}
+          target={hudTarget}
+          frozen={fixture.disassemblyValue !== null}
+        />
+      ) : null}
     </div>
   );
 }

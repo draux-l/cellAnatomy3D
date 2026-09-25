@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FIXTURE_POSES, HERO_POSE, parseFixture } from './fixture';
+import { FIXTURE_POSES, parseFixture } from './fixture';
 import { CELL_POSE, yawPose } from '../scene/interaction/cameraModel';
 
 describe('parseFixture', () => {
@@ -9,8 +9,10 @@ describe('parseFixture', () => {
     expect(config.name).toBeNull();
     expect(config.cell).toBeNull();
     expect(config.disassemblyValue).toBeNull();
-    // The fixture always produces a yaw-adjusted pose, so this is a value comparison.
-    expect(config.camera).toEqual(HERO_POSE);
+    // The fixture always produces a yaw-adjusted pose, so this is a value comparison. The real app
+    // frames the whole cell with the same pose as the `cell` fixture — that is what lets a fixture
+    // capture stand in for the real app when the framing is compared against a plain glTF viewer.
+    expect(config.camera).toEqual(CELL_POSE);
   });
 
   it('ignores an unknown fixture instead of half-freezing the app', () => {

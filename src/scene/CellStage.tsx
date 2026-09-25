@@ -25,6 +25,10 @@ import { AnnotationDriver, type AnnotationLayerTarget } from '../ui/annotations/
  * and hit volumes through the pick registry. With the catalog empty there is nothing to act on yet,
  * which is why each one is mounted here and simply has no subjects.
  *
+ * Two of them — the disassembly loop and the annotation driver — are additionally behind
+ * `structureToolsEnabled`, so the cell can be presented exactly as the GLB authors it. The rest stay
+ * mounted unconditionally: mounting a model and measuring it is not a study aid.
+ *
  * The zoom clamp is the spec's "never passes inside the cell": `minDistance` is asserted against the
  * navigation limits by `cameraModel.test.ts`.
  */
@@ -33,12 +37,22 @@ export function CellStage({
   fixture,
   tier,
   hudTarget,
+  structureToolsEnabled,
   annotationTarget,
 }: {
   cell: CellId;
   fixture: FixtureConfig;
   tier: QualityTier;
   hudTarget: { current: DisassemblyHudTarget };
+  /**
+   * Whether the structure-study layer (the exploded view and the annotations) is on.
+   *
+   * Off means the cell renders **as the GLB authors it**: the disassembly loop is not mounted, so
+   * no organelle root is ever displaced. That is stronger than pinning the control at 0 %, which
+   * only happens to be a no-op — see `app/structureTools.ts`. The mechanisms themselves stay in the
+   * tree behind this one flag and come back when it flips.
+   */
+  structureToolsEnabled: boolean;
   /** The overlay's node registry, or null when the annotation layer is switched off. */
   annotationTarget: AnnotationLayerTarget | null;
 }) {
@@ -98,9 +112,12 @@ export function CellStage({
 
       {/*
         One loop for the whole cell: it damps the progress once, positions every organelle root, and
-        writes the readout when the whole percent changes.
+        writes the readout when the whole percent changes. Not mounted while the structure-study
+        layer is off — the cell stays exactly where the file put every mesh.
       */}
-      <DisassemblyDriver cell={cell} frozenValue={fixture.disassemblyValue} hudTarget={hudTarget} />
+      {structureToolsEnabled ? (
+        <DisassemblyDriver cell={cell} frozenValue={fixture.disassemblyValue} hudTarget={hudTarget} />
+      ) : null}
 
       {/*
         Mounted **after** the driver on purpose: within a frame, `useFrame` subscribers run in

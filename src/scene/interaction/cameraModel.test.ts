@@ -1,5 +1,6 @@
 import { Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
+import { getRecord } from '../../catalog/cells';
 import type { OrganelleRecord } from '../../catalog/types';
 import {
   CELL_POSE,
@@ -16,6 +17,7 @@ import {
   focusForRecord,
   focusSettled,
   isolateCameraPose,
+  type CameraPose,
 } from './cameraModel';
 
 /**
@@ -81,6 +83,58 @@ describe('navigation limits', () => {
     // from drifting into one another.
     expect(CELL_POSE).not.toEqual(HERO_POSE);
     expect(DISASSEMBLY_POSE).not.toEqual(CELL_POSE);
+  });
+});
+
+/**
+ * The composed pose is matched against a **plain glTF viewer**, so the assertion that matters is
+ * that the pose is still the plain viewer's rule applied to this model — not that it equals a
+ * number someone typed. Re-deriving it from the membrane record is what stops the constant from
+ * drifting away from the model it frames.
+ */
+describe('the composed whole-cell pose', () => {
+  /** The plain viewer's own margin: it keeps the half-diagonal 6 % inside the vertical field. */
+  const PLAIN_VIEWER_MARGIN = 1.06;
+
+  const membraneHalfDiagonal = (): number => {
+    const geometry = getRecord('membrane')?.geometry;
+
+    return geometry?.kind === 'mesh' ? geometry.extent : Number.NaN;
+  };
+
+  it('frames the membrane it is measured against, with the plain viewer margin', () => {
+    const halfDiagonal = membraneHalfDiagonal();
+
+    expect(Number.isFinite(halfDiagonal)).toBe(true);
+
+    const expected =
+      (halfDiagonal / Math.tan((CELL_POSE.fov * Math.PI) / 360)) * PLAIN_VIEWER_MARGIN;
+
+    expect(Math.hypot(...CELL_POSE.position)).toBeCloseTo(expected, 3);
+    // Outside the model's own reach: any closer and the camera renders the cell's interior, which is
+    // exactly the defect this pose replaces.
+    expect(Math.hypot(...CELL_POSE.position)).toBeGreaterThan(halfDiagonal);
+  });
+
+  it('keeps the plain viewer direction: near-frontal with a slight upward tilt', () => {
+    const [x, y, z] = CELL_POSE.position;
+    const distance = Math.hypot(x, y, z);
+    const azimuth = (Math.atan2(x, z) * 180) / Math.PI;
+    const elevation = (Math.asin(y / distance) * 180) / Math.PI;
+
+    // The hero pose sat at ~25° of azimuth, which is the "from the side and below" reading. The
+    // composed pose is the near-frontal one.
+    expect(azimuth).toBeGreaterThan(5);
+    expect(azimuth).toBeLessThan(20);
+    expect(elevation).toBeGreaterThan(10);
+    expect(elevation).toBeLessThan(25);
+  });
+
+  it('keeps the disassembly pose wider, and inside the far navigation clamp', () => {
+    const distance = (pose: CameraPose): number => Math.hypot(...pose.position);
+
+    expect(distance(DISASSEMBLY_POSE)).toBeGreaterThan(distance(CELL_POSE));
+    expect(distance(DISASSEMBLY_POSE)).toBeLessThanOrEqual(NAVIGATION_LIMITS.maxDistance);
   });
 });
 
