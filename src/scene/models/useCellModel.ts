@@ -14,10 +14,14 @@ import type { CellId, ModelManifest } from '../../catalog/types';
  *    audit hard-fails if a three.js marker comes back into the entry chunk.
  * 2. **The right decoder.** This model is compressed with `KHR_draco_mesh_compression`, **not**
  *    Meshopt. Wiring the wrong decoder is not a subtle bug: the parse fails outright. three r186's
- *    `DRACOLoader` ships and bundles its own decoder files and exposes the glTF-targeted pair as
- *    `DRACO_GLTF_CONFIG`; the model was produced by a glTF-targeted encoder, so that is the pair
- *    passed in. Nothing is served from `public/` — the decoder arrives as part of the lazy 3D chunk's
- *    own assets, which is also what keeps the first paint free of a decoder fetch.
+ *    `DRACOLoader` can resolve its glTF-targeted decoder pair from a bundler-emitted URL, but that
+ *    resolution only holds in the built bundle: the Vite dev server does not serve those files at the
+ *    URLs the loader asks for, so the request falls through to the SPA `index.html` and the parse
+ *    dies on `SyntaxError: Unexpected token '<'`. The decoder is therefore served from the stable
+ *    `public/draco/` path — the glTF-targeted `draco_wasm_wrapper.js`, `draco_decoder.wasm` and
+ *    `draco_decoder.js` copied verbatim from `three/examples/jsm/libs/draco/gltf/` — so dev and build
+ *    resolve the same three files identically. The decoder path is a plain string here, which keeps
+ *    the loader's own URL assets out of the entry graph.
  * 3. **As authored.** The loader applies **no** material substitution, no per-mesh re-centring and no
  *    decimation. The scene graph it returns is the file's own. The model's 16 materials and their
  *    colours are the model, and the transforms are the arrangement.
@@ -38,9 +42,14 @@ interface GltfLoaderModule {
     loadAsync(url: string): Promise<{ scene: Object3D }>;
   };
   DRACOLoader: new () => { setDecoderPath(path: unknown): void };
-  /** URLs of the glTF-targeted decoder pair, bundled by the build alongside three itself. */
-  DRACO_GLTF_CONFIG: { js: string; wasm: string };
 }
+
+/**
+ * The public path the glTF-targeted Draco decoder is served from. The files are copied verbatim
+ * from `three/examples/jsm/libs/draco/gltf/` into `public/draco/`, so the same URLs resolve in the
+ * dev server and in the built bundle.
+ */
+export const DRACO_DECODER_PATH = '/draco/';
 
 /** Lazily imports the GLTF loader and the Draco decoder (kept out of the shell graph). */
 async function importLoaders(): Promise<GltfLoaderModule> {
@@ -52,7 +61,6 @@ async function importLoaders(): Promise<GltfLoaderModule> {
   return {
     GLTFLoader: loader.GLTFLoader,
     DRACOLoader: draco.DRACOLoader,
-    DRACO_GLTF_CONFIG: draco.DRACO_GLTF_CONFIG,
   };
 }
 
@@ -92,8 +100,8 @@ async function parseCellModel(
   const loader = new loaders.GLTFLoader();
   const draco = new loaders.DRACOLoader();
 
-  // The glTF-targeted decoder pair, from the URLs the build emits next to three itself.
-  draco.setDecoderPath(loaders.DRACO_GLTF_CONFIG);
+  // The glTF-targeted decoder, from the stable public path both the dev server and the build serve.
+  draco.setDecoderPath(DRACO_DECODER_PATH);
   loader.setDRACOLoader(draco);
 
   const gltf = await loader.loadAsync(frame.file);

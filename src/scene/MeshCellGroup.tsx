@@ -343,7 +343,19 @@ export interface MeshCellGroupProps {
 }
 
 export function MeshCellGroup({ cell, model }: MeshCellGroupProps) {
-  const built = useMemo(() => buildModel(cell, model.root), [cell, model.root]);
+  /*
+   * Each mount builds on its **own clone** of the model, not on the loader's shared `model.root`.
+   *
+   * `buildModel` mutates the graph it is handed — it reparents every mesh into a per-record host with
+   * three's `attach()`. On the shared, cached root that mutation is not idempotent: React StrictMode
+   * invokes the render (and therefore this `useMemo` factory) more than once on mount, and the second
+   * pass finds a root whose meshes have already been moved out, so it mounts an empty frame group.
+   * That is a development-only failure — production builds never double-invoke — and it presented as
+   * the model rendering **nothing** under `npm run dev` (0 draw calls) while `npm run preview` of the
+   * build rendered it (22 draw calls). Cloning makes the build a pure function of its input; the
+   * clone shares geometries and materials, so the model still renders exactly as authored.
+   */
+  const built = useMemo(() => buildModel(cell, model.root.clone()), [cell, model.root]);
 
   useLayoutEffect(() => {
     for (const record of built.records) {
