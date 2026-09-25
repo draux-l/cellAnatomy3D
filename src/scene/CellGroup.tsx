@@ -24,7 +24,16 @@ export interface CellGroupProps {
 function CellModel({ cell }: CellGroupProps) {
   const state = useCellModel(cell);
 
-  if (state.status !== 'ready' || state.model === null) {
+  /*
+   * The model is checked against the cell as well as the status, and that is not belt-and-braces.
+   *
+   * `useCellModel` returns the previous hook state for one render when `cell` changes — React has
+   * re-rendered with the new `cell` before the effect that resets the state has run — so a switch to
+   * a cell with no model would briefly hand `MeshCellGroup` a model it cannot frame. That threw, and
+   * the thrown error unmounted the whole viewer (measured: `.cell-view` and `.nav` both went to
+   * zero, leaving a blank page after switching to the plant view).
+   */
+  if (state.status !== 'ready' || state.model === null || state.model.cell !== cell) {
     return null;
   }
 
