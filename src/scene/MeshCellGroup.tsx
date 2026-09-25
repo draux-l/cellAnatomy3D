@@ -92,7 +92,15 @@ function shiftBounds(bounds: Bounds3, offset: Vector3): Bounds3 {
   };
 }
 
-function buildModel(cell: CellId, root: Object3D): BuiltModel {
+/**
+ * The mount, as one pure-ish function over a model root.
+ *
+ * **Exported for the world-preservation test.** The contract that matters here — "every mesh keeps
+ * the world transform the file gave it" — is invisible in code review and was wrong for a while, so
+ * it is asserted against a real three.js graph in `MeshCellGroup.test.ts` rather than left to
+ * inspection.
+ */
+export function buildModel(cell: CellId, root: Object3D): BuiltModel {
   const frame = modelFor(cell)?.frame;
 
   if (!frame) {
@@ -162,9 +170,26 @@ function buildModel(cell: CellId, root: Object3D): BuiltModel {
     const record = getRecord(group.recordId);
     const host = hosts.get(group.recordId)!;
 
+    /**
+     * The meshes are **recorded here and moved later**, and that order is load-bearing.
+     *
+     * `Object3D.attach()` derives its world-preserving offset from `object.parent.matrixWorld`. When
+     * the mesh is *already* a child of the target, that offset is `this.matrixWorld⁻¹ ×
+     * this.matrixWorld` — the identity — so `attach` silently degrades to a no-op. The mount used to
+     * attach here, with the host still at the origin, and then attach again after the host had moved
+     * to the part's own centre: the second call did nothing, so the host's move was applied **on top
+     * of** its meshes rather than around them.
+     *
+     * The measured result was a per-record translation of `frame.scale × that record's own box
+     * centre`, in scene units: the Golgi by ≈(+0.57, −0.01, +0.53) — about 81 px right and 72 px down
+     * at the composed pose, the largest of the offsets — and the membrane by ≈0.31 units. The meshes
+     * the manifest does not map are never reparented, so they stayed put, and the two groups sliding
+     * apart is the displacement that reads as "the cell is stretched". Attaching **once**, after the
+     * host has been moved, is what makes the reparenting genuinely world-preserving — and therefore
+     * what makes 0 % disassembly the file unmodified.
+     */
     for (const mesh of group.meshes) {
       origins.set(mesh, mesh.parent);
-      host.attach(mesh);
     }
 
     const materials: Material[] = [];
@@ -240,6 +265,10 @@ function buildModel(cell: CellId, root: Object3D): BuiltModel {
      * Hand-subtracting a frame-unit or scene-unit offset is what produced every previous failure —
      * `position` is multiplied by the frame's scale, so a value measured in the wrong space lands
      * 247× off.
+     *
+     * This is the **first and only** reparenting of these meshes. It has to be, for the reason
+     * spelled out above: `attach` is a no-op against its own child, so a second call would leave the
+     * mesh where the host's move put it.
      */
     host.position.copy(centre);
     host.updateWorldMatrix(true, false);
