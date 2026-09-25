@@ -203,11 +203,18 @@ function buildModel(cell: CellId, root: Object3D): BuiltModel {
 
     const centre = box.isEmpty() ? new Vector3() : box.getCenter(new Vector3());
 
+    /*
+     * The bounds are published in **scene units**, while `box` was measured in the frame's units.
+     * Multiplying by the frame's scale is the one conversion: it is what makes the hit volume a
+     * scene-unit box at the scene root, and what keeps the anchor offset meaningful to the isolate
+     * framing (which reads the record's scene-unit placement).
+     */
+    const toScene = (v: number) => v * frame.scale;
     const bounds: Bounds3 = box.isEmpty()
       ? { min: [0, 0, 0], max: [0, 0, 0] }
       : {
-          min: [box.min.x - centre.x, box.min.y - centre.y, box.min.z - centre.z],
-          max: [box.max.x - centre.x, box.max.y - centre.y, box.max.z - centre.z],
+          min: [toScene(box.min.x - centre.x), toScene(box.min.y - centre.y), toScene(box.min.z - centre.z)],
+          max: [toScene(box.max.x - centre.x), toScene(box.max.y - centre.y), toScene(box.max.z - centre.z)],
         };
 
     /**
@@ -291,7 +298,7 @@ function MeshEmphasis({ materialsByRecord }: { materialsByRecord: Map<string, Ma
  * record's own measured bounds relative to its host, and follows the host's live position so a
  * separated organelle stays clickable.
  */
-function MeshPickVolumes({ records }: { records: BuiltRecord[] }) {
+function MeshPickVolumes({ records, frameScale }: { records: BuiltRecord[]; frameScale: number }) {
   const disassemblyTarget = useAppStore((state) => state.disassemblyTarget);
 
   const boxes = useMemo(
@@ -299,12 +306,21 @@ function MeshPickVolumes({ records }: { records: BuiltRecord[] }) {
       records.map((record) => ({
         recordId: record.recordId,
         envelope: record.envelope,
-        bounds: shiftBounds(record.bounds, record.host.position),
+        // The host's live position is in the frame's units; the bounds are scene units, so the
+        // offset is scaled by the frame on the way in.
+        bounds: shiftBounds(
+          record.bounds,
+          new Vector3(
+            record.host.position.x * frameScale,
+            record.host.position.y * frameScale,
+            record.host.position.z * frameScale,
+          ),
+        ),
       })),
     // The host positions are written by the frame loop, not by React, so the memo is rebuilt on every
     // disassembly step rather than on every frame.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [records, disassemblyTarget],
+    [records, disassemblyTarget, frameScale],
   );
 
   return (
@@ -355,7 +371,7 @@ export function MeshCellGroup({ cell, model }: MeshCellGroupProps) {
 
   return (
     <>
-      <MeshPickVolumes records={built.records} />
+      <MeshPickVolumes records={built.records} frameScale={built.frameScale} />
       {/*
         **One** `<primitive>`, and that is deliberate: the hosts are children of `frameGroup` and stay
         there. Rendering each host as its own `<primitive>` would reparent it to the R3F scene root —
