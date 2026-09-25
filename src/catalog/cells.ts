@@ -6,7 +6,7 @@ import { CELL_IDS, type CellId, type DisassemblyVector, type OrganelleRecord } f
  * **One cell, one model.** The catalog holds the animal cell only: its 14 organelles are the meshes
  * of the committed GLB (`catalog/models.ts`, 21 meshes mapped onto 14 records), and a record is the
  * *identity* of one part for the consumers that read a record — the hover label, the spec sheet, the
- * palette role, the isolate framing and the pick volume.
+ * palette role, the isolate framing and the pick target.
  *
  * ## Bilingual names only, for now
  *

@@ -22,7 +22,7 @@ import { AnnotationDriver, type AnnotationLayerTarget } from '../ui/annotations/
  *
  * The mechanisms (picking, isolate, disassembly, annotations) are independent of what the cell is
  * made of: they act on whatever the roster publishes — organelle roots through the anchor registry
- * and hit volumes through the pick registry. With the catalog empty there is nothing to act on yet,
+ * and pick targets through the pick registry. With the catalog empty there is nothing to act on yet,
  * which is why each one is mounted here and simply has no subjects.
  *
  * Two of them — the disassembly loop and the annotation driver — are additionally behind

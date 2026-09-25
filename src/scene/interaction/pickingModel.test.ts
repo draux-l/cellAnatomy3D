@@ -1,47 +1,134 @@
-import { describe, expect, it } from 'vitest';
-import { PICK_LAYER, PICK_PROXY_INFLATION, pickProxyTransform } from './pickingModel';
+import { Object3D } from 'three';
+import { afterEach, describe, expect, it } from 'vitest';
+import {
+  PICK_LAYER,
+  choosePick,
+  choosePickFromObjects,
+  clearPickTargets,
+  isOuterEnvelope,
+  isPickIndexReady,
+  pickTargetIds,
+  registerPickTarget,
+  setPickIndexReady,
+  unregisterPickTarget,
+} from './pickingModel';
 
 /**
- * The hit-volume arithmetic.
+ * The pick rule, the envelope definition and the target registry — everything the raycast needs
+ * decided before a renderer exists.
  *
- * The proxy's only job is to *contain* the organelle and be hittable, so both are asserted: the
- * box must cover every bound, and a sheet-like organelle (a crista, a Golgi cisterna) must still
- * get a usable thickness.
+ * The bounding-box arithmetic that used to live here is gone: the controller now raycasts the model's
+ * real triangles (`pickBvh.ts`), so there is no proxy transform left to test. What remains is the
+ * priority rule, which is unchanged and still the load-bearing part.
  */
 
-const BOUNDS = { min: [-1, -0.5, -0.25] as const, max: [1, 0.5, 0.25] as const };
+afterEach(() => {
+  clearPickTargets();
+});
 
-describe('pickProxyTransform', () => {
-  it('sits on the bounds centre and covers them with the inflation applied', () => {
-    const transform = pickProxyTransform({ min: [...BOUNDS.min], max: [...BOUNDS.max] });
-
-    expect(transform.center).toEqual([0, 0, 0]);
-    expect(transform.size).toEqual([2 * PICK_PROXY_INFLATION, 1 * PICK_PROXY_INFLATION, 0.5 * PICK_PROXY_INFLATION]);
+describe('choosePick', () => {
+  it('returns null when the ray crossed nothing', () => {
+    expect(choosePick([])).toBeNull();
   });
 
-  it('offsets the centre for an asymmetric build', () => {
-    const transform = pickProxyTransform({ min: [0, 0, 0], max: [2, 4, 6] });
-
-    expect(transform.center).toEqual([1, 2, 3]);
+  it('the nearest inner organelle wins over a nearer envelope', () => {
+    // The membrane is at 1, the cytoplasm at 2, the mitochondrion at 3: the mitochondrion is the
+    // answer, because the two envelopes are surfaces the user looks through.
+    expect(
+      choosePick([
+        { organelleId: 'membrane', envelope: true, distance: 1 },
+        { organelleId: 'cytoplasm', envelope: true, distance: 2 },
+        { organelleId: 'mitochondrion', envelope: false, distance: 3 },
+      ]),
+    ).toBe('mitochondrion');
   });
 
-  it('gives a flat organelle a hittable thickness on the flat axis', () => {
-    const transform = pickProxyTransform({ min: [-1, 0, -1], max: [1, 0, 1] });
-
-    expect(transform.size[1]).toBeGreaterThan(0);
-    expect(transform.size[1]).toBeGreaterThanOrEqual(0.02);
+  it('an envelope is picked only when nothing inside was crossed', () => {
+    expect(
+      choosePick([
+        { organelleId: 'membrane', envelope: true, distance: 1 },
+        { organelleId: 'cytoplasm', envelope: true, distance: 2 },
+      ]),
+    ).toBe('membrane');
   });
 
-  it('never returns a zero-size box, whatever the bounds', () => {
-    const transform = pickProxyTransform({ min: [0, 0, 0], max: [0, 0, 0] });
+  it('picks the nearest of several inner organelles', () => {
+    expect(
+      choosePick([
+        { organelleId: 'golgi', envelope: false, distance: 5 },
+        { organelleId: 'nucleus', envelope: false, distance: 2 },
+      ]),
+    ).toBe('nucleus');
+  });
+});
 
-    for (const extent of transform.size) {
-      expect(extent).toBeGreaterThan(0);
-    }
+describe('isOuterEnvelope', () => {
+  it('is true for a part at the origin that never separates', () => {
+    expect(isOuterEnvelope({ position: [0, 0, 0], disassembly: { direction: [0, 0, 0], distance: 0 } })).toBe(true);
+  });
+
+  it('is false for a part that sits off-origin, even if it never separates', () => {
+    expect(
+      isOuterEnvelope({ position: [0.1, 0, 0], disassembly: { direction: [0, 0, 0], distance: 0 } }),
+    ).toBe(false);
+  });
+
+  it('is false for a part at the origin that does separate', () => {
+    expect(
+      isOuterEnvelope({ position: [0, 0, 0], disassembly: { direction: [1, 0, 0], distance: 0.5 } }),
+    ).toBe(false);
+  });
+});
+
+describe('the pick target registry', () => {
+  it('maps a hit object back to its record, and keeps the record ids unique', () => {
+    const mitosis = new Object3D();
+    const secondMitosis = new Object3D();
+    const nucleus = new Object3D();
+
+    registerPickTarget({ object: mitosis, organelleId: 'mitochondrion', envelope: false });
+    registerPickTarget({ object: secondMitosis, organelleId: 'mitochondrion', envelope: false });
+    registerPickTarget({ object: nucleus, organelleId: 'nucleus', envelope: false });
+
+    expect(
+      choosePickFromObjects([
+        { object: nucleus, distance: 3 },
+        { object: secondMitosis, distance: 1 },
+      ]),
+    ).toBe('mitochondrion');
+
+    // One record, several meshes: the id appears once.
+    expect(pickTargetIds().sort()).toEqual(['mitochondrion', 'nucleus']);
+  });
+
+  it('forgets an object when it is unregistered', () => {
+    const mesh = new Object3D();
+
+    registerPickTarget({ object: mesh, organelleId: 'golgi', envelope: false });
+    unregisterPickTarget(mesh);
+
+    expect(choosePickFromObjects([{ object: mesh, distance: 1 }])).toBeNull();
+  });
+
+  it('ignores a hit on an object it does not know', () => {
+    expect(choosePickFromObjects([{ object: new Object3D(), distance: 0.5 }])).toBeNull();
+  });
+});
+
+describe('the pick index readiness gate', () => {
+  it('starts unarmed and follows the builder', () => {
+    clearPickTargets();
+    expect(isPickIndexReady()).toBe(false);
+
+    setPickIndexReady(true);
+    expect(isPickIndexReady()).toBe(true);
+
+    clearPickTargets();
+    expect(isPickIndexReady()).toBe(false);
   });
 
   it('declares a pick layer that is not the render layer', () => {
-    // The camera renders layer 0; the proxies render nowhere and are only ever raycast.
+    // The camera renders layer 0; the pick ray is pointed at this layer so its subjects are explicit.
     expect(PICK_LAYER).toBe(1);
   });
 });

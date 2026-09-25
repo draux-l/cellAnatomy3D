@@ -6,7 +6,7 @@ import { MODEL_MANIFEST, modelFor } from '../catalog/models';
 import type { CellId } from '../catalog/types';
 import type { Bounds3 } from '../catalog/vectors';
 import { registerOrganelleAnchor, unregisterOrganelleAnchor } from './anchors';
-import { isOuterEnvelope, PickVolume } from './interaction/Picking';
+import { isOuterEnvelope, PickTargets } from './interaction/Picking';
 import { applyEmphasis, emphasisFor, prepareEmphasis } from './highlight';
 import { partitionRecordMeshes } from './models/partitionModel';
 import type { LoadedCellModel } from './models/useCellModel';
@@ -32,10 +32,11 @@ import type { LoadedCellModel } from './models/useCellModel';
  *    `attach()`, so their world transforms are unchanged — which is why 0% disassembly is the file
  *    unmodified. The mitochondrion is one record holding two meshes, so its cristae and outer
  *    membranes move as one unit by construction.
- * 2. **An anchor and a hit volume per record.** The anchor is the top-centre of the record's mesh
- *    bounds. The hit volume is a box, not a raycast against 808,443 triangles (design D7), and it is
- *    placed from the record's bounds **converted into scene units** — a box built from the model's own
- *    ~600-unit space would swallow the whole cell and make every click resolve to one organelle.
+ * 2. **An anchor and a pick target per record.** The anchor is the top-centre of the record's mesh
+ *    bounds. The pick target is the record's **real meshes**, raycast directly and accelerated by a
+ *    per-geometry BVH built once on mount (`interaction/pickBvh.ts`). The inflated bounding-box proxy
+ *    that used to stand in for them is gone: the mitochondrion is one mesh of several scattered ovals
+ *    whose box spanned nearly the whole cell and won every overlap.
  *
  * **The hosts are built imperatively, in one `useMemo`, and that order is load-bearing.** Building
  * them as JSX and attaching in a child effect is wrong here: React mounts children before parents, so
@@ -58,6 +59,8 @@ import type { LoadedCellModel } from './models/useCellModel';
 interface BuiltRecord {
   recordId: string;
   host: Group;
+  /** The record's real meshes, as mounted under `host`. The pick index raycasts these. */
+  meshes: Mesh[];
   /** The record's mesh bounds in the host's own local space — frame units, host-relative. */
   bounds: Bounds3;
   envelope: boolean;
@@ -81,15 +84,6 @@ function anchorOffsetFor(bounds: Bounds3): Vector3 {
     bounds.max[1],
     (bounds.min[2] + bounds.max[2]) / 2,
   );
-}
-
-
-/** Shifts a bounds by a displacement, returning a fresh box. */
-function shiftBounds(bounds: Bounds3, offset: Vector3): Bounds3 {
-  return {
-    min: [bounds.min[0] + offset.x, bounds.min[1] + offset.y, bounds.min[2] + offset.z],
-    max: [bounds.max[0] + offset.x, bounds.max[1] + offset.y, bounds.max[2] + offset.z],
-  };
 }
 
 /**
@@ -230,9 +224,9 @@ export function buildModel(cell: CellId, root: Object3D): BuiltModel {
 
     /*
      * The bounds are published in **scene units**, while `box` was measured in the frame's units.
-     * Multiplying by the frame's scale is the one conversion: it is what makes the hit volume a
-     * scene-unit box at the scene root, and what keeps the anchor offset meaningful to the isolate
-     * framing (which reads the record's scene-unit placement).
+     * Multiplying by the frame's scale is the one conversion, and it keeps the published bounds in
+     * scene units while keeping the anchor offset meaningful to the isolate framing (which reads the
+     * record's scene-unit placement).
      */
     const toScene = (v: number) => v * frame.scale;
     const bounds: Bounds3 = box.isEmpty()
@@ -283,6 +277,7 @@ export function buildModel(cell: CellId, root: Object3D): BuiltModel {
     records.push({
       recordId: group.recordId,
       host,
+      meshes: group.meshes,
       bounds,
       envelope: record !== undefined && isOuterEnvelope(record),
     });
@@ -321,49 +316,29 @@ function MeshEmphasis({ materialsByRecord }: { materialsByRecord: Map<string, Ma
 }
 
 /**
- * The hit volumes, one per record, in the frame's units.
+ * The pick targets, one per record, as the record's **real meshes**.
  *
- * A volume is a box, not a raycast against 808,443 triangles (design D7). It is placed from the
- * record's own measured bounds relative to its host, and follows the host's live position so a
- * separated organelle stays clickable.
+ * Earlier this mounted an inflated box per record (design D7). That is what silently resolved most of
+ * the cell to "Mitocondrias": the mitochondrial outer membrane is one mesh of several ovals whose
+ * bounds span nearly the whole cell, so its box covered its neighbours. The meshes are now raycast
+ * directly, accelerated by a BVH built once when the model mounts (`interaction/pickBvh.ts`).
+ *
+ * Nothing here is per-frame. Because the targets are the meshes themselves, a separated organelle
+ * stays pickable for free — the ray follows each mesh's live world matrix, so no box has to be shifted
+ * when the disassembly loop moves a host.
  */
-function MeshPickVolumes({ records, frameScale }: { records: BuiltRecord[]; frameScale: number }) {
-  const disassemblyTarget = useAppStore((state) => state.disassemblyTarget);
-
-  const boxes = useMemo(
+function MeshPickTargets({ records }: { records: BuiltRecord[] }) {
+  const targets = useMemo(
     () =>
       records.map((record) => ({
-        recordId: record.recordId,
+        organelleId: record.recordId,
         envelope: record.envelope,
-        // The host's live position is in the frame's units; the bounds are scene units, so the
-        // offset is scaled by the frame on the way in.
-        bounds: shiftBounds(
-          record.bounds,
-          new Vector3(
-            record.host.position.x * frameScale,
-            record.host.position.y * frameScale,
-            record.host.position.z * frameScale,
-          ),
-        ),
+        meshes: record.meshes,
       })),
-    // The host positions are written by the frame loop, not by React, so the memo is rebuilt on every
-    // disassembly step rather than on every frame.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [records, disassemblyTarget, frameScale],
+    [records],
   );
 
-  return (
-    <>
-      {boxes.map((box) => (
-        <PickVolume
-          key={box.recordId}
-          organelleId={box.recordId}
-          bounds={box.bounds}
-          envelope={box.envelope}
-        />
-      ))}
-    </>
-  );
+  return <PickTargets targets={targets} />;
 }
 
 export interface MeshCellGroupProps {
@@ -412,7 +387,7 @@ export function MeshCellGroup({ cell, model }: MeshCellGroupProps) {
 
   return (
     <>
-      <MeshPickVolumes records={built.records} frameScale={built.frameScale} />
+      <MeshPickTargets records={built.records} />
       {/*
         **One** `<primitive>`, and that is deliberate: the hosts are children of `frameGroup` and stay
         there. Rendering each host as its own `<primitive>` would reparent it to the R3F scene root —

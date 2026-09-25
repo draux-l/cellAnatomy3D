@@ -46,19 +46,10 @@ export interface AnnotationMirrorEntry {
   anchor: [number, number];
   /** Ink opacity written for the leader and anchor (1 at rest, 0.5 when occluded). */
   opacity: number;
-  /** True when another organelle's hit volume stood between the camera and the anchor. */
+  /** True when another organelle's surface stood between the camera and the anchor. */
   occluded: boolean;
   /** True while this annotation is the hovered one. */
   hovered: boolean;
-}
-
-/** One hit volume as the harness reads it: where the box is, in scene space. */
-export interface PickVolumeMirror {
-  organelleId: string;
-  envelope: boolean;
-  center: [number, number, number];
-  size: [number, number, number];
-  parent: string;
 }
 
 export interface CellDebug {
@@ -101,15 +92,15 @@ export interface CellDebug {
   /** Records the model lifecycle, so the harness can wait for a real cell instead of guessing. */
   setModelStatus: (status: CellDebug['modelStatus'], cell: string | null) => void;
   /**
-   * The hit volumes the pick controller will ray, as world boxes.
+   * The cost of the most recent pick raycast, in milliseconds, and how many were taken.
    *
-   * A measurement of the render, never an input to it. Picking is the one mechanism whose failures
-   * are *silent* — a misplaced box means a click resolves to the wrong organelle, with no error
-   * anywhere — so the boxes are mirrored here for the harness to compare against the meshes they
-   * are supposed to contain.
+   * Picking is the one mechanism whose cost is invisible to the draw-call and triangle counters — it
+   * is CPU work between frames — so the harness reads it here. `pickMs` is the last raycast's duration;
+   * the probe hovers a grid and reports the distribution. A measurement of the render, never an input.
    */
-  setPickVolumes: (entries: readonly PickVolumeMirror[]) => void;
-  pickVolumes: PickVolumeMirror[];
+  recordPick: (ms: number) => void;
+  pickMs: number;
+  pickCount: number;
   /**
    * The quality tier the renderer is actually running (task 4.8).
    *
@@ -177,7 +168,8 @@ export function createCellDebug(options: CellDebugOptions = {}): CellDebug {
     frameStats: emptyFrameStats(),
     qualityTier: 'high',
     annotations: [],
-    pickVolumes: [],
+    pickMs: 0,
+    pickCount: 0,
 
     recordFrame(deltaMs, nowMs) {
       debug.frames += 1;
@@ -227,14 +219,9 @@ export function createCellDebug(options: CellDebugOptions = {}): CellDebug {
       debug.modelCell = cell;
     },
 
-    setPickVolumes(entries) {
-      debug.pickVolumes = entries.map((entry) => ({
-        organelleId: entry.organelleId,
-        envelope: entry.envelope,
-        center: [...entry.center],
-        size: [...entry.size],
-        parent: entry.parent,
-      }));
+    recordPick(ms) {
+      debug.pickMs = ms;
+      debug.pickCount += 1;
     },
 
     sampleRenderer(calls, triangles, nowMs) {
@@ -260,6 +247,8 @@ export function createCellDebug(options: CellDebugOptions = {}): CellDebug {
       debug.drawCallSampleTimesMs = [];
       debug.firstRenderAtMs = null;
       debug.frameStats = emptyFrameStats();
+      debug.pickMs = 0;
+      debug.pickCount = 0;
     },
   };
 

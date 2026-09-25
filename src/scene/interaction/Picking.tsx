@@ -1,78 +1,92 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect } from 'react';
 import { useThree } from '@react-three/fiber';
-import { BoxGeometry, Vector2, type Mesh } from 'three';
+import { Vector2, type Mesh } from 'three';
+import { cellDebug } from '../../app/debug';
 import { useAppStore } from '../../app/store';
-import type { Bounds3 } from '../../catalog/vectors';
 import {
   PICK_LAYER,
   choosePickFromObjects,
-  pickProxyTransform,
-  pickVolumeObjects,
-  registerPickVolume,
-  unregisterPickVolume,
+  isPickIndexReady,
+  pickTargetObjects,
+  registerPickTarget,
+  setPickIndexReady,
+  unregisterPickTarget,
 } from './pickingModel';
+import { buildPickIndex } from './pickBvh';
 import { isClickFromTrackedDown, recordPointerDown } from './pointer';
 
 export {
   PICK_LAYER,
-  PICK_PROXY_INFLATION,
   choosePick,
   isOuterEnvelope,
-  pickProxyTransform,
+  isPickIndexReady,
 } from './pickingModel';
-export type { PickHit, PickProxyTransform } from './pickingModel';
+export type { PickHit, PickTargetEntry } from './pickingModel';
 
 /**
- * The pick layer (design D7).
+ * The pick controller (design D7, revised for exact geometry).
  *
- * A raycast against the composed cell would test every organelle mesh. This replaces that with
- * **one simplified hit volume per pickable record** — a box around the record's own built bounds —
- * so a pointer costs about ten box tests instead of a scene traversal.
+ * A raycast against the composed cell would test every organelle mesh. The previous answer was **one
+ * simplified hit box per record** — cheap, but wrong on this model: the mitochondrion is one mesh of
+ * several scattered ovals whose box spans nearly the whole cell, so its box covered its neighbours and
+ * won every overlap (measured: most probes returned "Mitocondrias"). The controller now raycasts the
+ * **real triangles**, accelerated by a per-geometry BVH (`pickBvh.ts`) so the cost stays O(log n) at
+ * ~808k triangles.
  *
- * Three deliberate properties:
+ * Three properties are kept from the box version:
  *
- * 1. **The hit volumes are never rendered.** They live on `PICK_LAYER`, the camera renders layer 0,
- *    and the pick ray is pointed at layer 1 — so the volumes cost **zero draw calls**, and no
- *    organelle mesh can ever be raycast.
- * 2. **The pointer logic is ours, not R3F's.** R3F only raycasts objects that carry handlers, and
- *    its per-object dispatch cannot express "the nearest *inner* organelle wins, the envelope only
- *    when nothing inside was hit". One controller, one rule the browser check actually exercised.
- * 3. **Nothing is per-frame.** Hover is a discrete store value written on pointer movement, and
- *    pointer movement is coalesced to one raycast per animation frame.
+ * 1. **Nothing is per-frame in React.** Hover is a discrete store value written on pointer movement,
+ *    and pointer movement is coalesced to one raycast per animation frame.
+ * 2. **The pointer logic is ours, not R3F's.** R3F only raycasts objects that carry handlers, and its
+ *    per-object dispatch cannot express the priority rule ("the nearest *inner* organelle wins, the
+ *    envelope only when nothing inside was hit").
+ * 3. **The pick layer is explicit.** The real meshes keep layer 0 (rendered) and enable `PICK_LAYER`,
+ *    and the ray is pointed at `PICK_LAYER`, so the ray's subjects are unambiguous.
  */
 
-export interface PickVolumeProps {
+export interface PickTarget {
   organelleId: string;
-  bounds: Bounds3;
-  /** True when this record is the cell's outer boundary. */
   envelope: boolean;
+  /** The record's real meshes, as mounted. */
+  meshes: readonly Mesh[];
 }
 
-/** One invisible hit volume, registered so the controller can ray it. */
-export function PickVolume({ organelleId, bounds, envelope }: PickVolumeProps) {
-  const geometry = useMemo(() => new BoxGeometry(1, 1, 1), []);
-  const transform = useMemo(() => pickProxyTransform(bounds), [bounds]);
+/**
+ * Registers a record's meshes as pick targets and builds their BVHs once.
+ *
+ * Registration is immediate (so the annotation layer's occlusion query has its subjects), but the pick
+ * index reports ready only after every tree is built. Until then `PickController` does not pick: a
+ * partial index would resolve some organelles and silently miss others.
+ */
+export function PickTargets({ targets }: { targets: readonly PickTarget[] }) {
+  useEffect(() => {
+    const meshes: Mesh[] = [];
+    // Arm the index from scratch: a previous mount's meshes are gone, and stale targets must not
+    // answer a ray.
+    setPickIndexReady(false);
 
-  useEffect(() => () => geometry.dispose(), [geometry]);
-
-  const assign = (mesh: Mesh | null): void => {
-    if (mesh) {
-      registerPickVolume({ object: mesh, organelleId, envelope });
+    for (const target of targets) {
+      for (const mesh of target.meshes) {
+        mesh.layers.enable(PICK_LAYER);
+        registerPickTarget({ object: mesh, organelleId: target.organelleId, envelope: target.envelope });
+        meshes.push(mesh);
+      }
     }
-  };
 
-  useEffect(() => () => unregisterPickVolume(organelleId), [organelleId]);
+    const cancel = buildPickIndex(meshes, () => setPickIndexReady(true));
 
-  return (
-    <mesh
-      ref={assign}
-      geometry={geometry}
-      position={transform.center}
-      scale={transform.size}
-      layers={PICK_LAYER}
-      userData={{ organelleId, pickEnvelope: envelope }}
-    />
-  );
+    return () => {
+      cancel();
+      setPickIndexReady(false);
+
+      for (const mesh of meshes) {
+        unregisterPickTarget(mesh);
+        mesh.layers.disable(PICK_LAYER);
+      }
+    };
+  }, [targets]);
+
+  return null;
 }
 
 /**
@@ -80,7 +94,7 @@ export function PickVolume({ organelleId, bounds, envelope }: PickVolumeProps) {
  *
  * It owns three gestures: hover (a raycast per animation frame), click-to-isolate (a click is a
  * press and release that travelled less than the slop), and empty-space click (a click whose ray
- * crossed no volume).
+ * crossed no surface).
  */
 export function PickController() {
   const gl = useThree((state) => state.gl);
@@ -120,6 +134,10 @@ export function PickController() {
     };
 
     const pickAt = (event: PointerEvent): string | null => {
+      if (!isPickIndexReady()) {
+        return null;
+      }
+
       const rect = element.getBoundingClientRect();
       const ndc = new Vector2(
         ((event.clientX - rect.left) / rect.width) * 2 - 1,
@@ -127,9 +145,17 @@ export function PickController() {
       );
 
       raycaster.layers.set(PICK_LAYER);
+      // Each mesh returns only its own nearest surface; the union is then sorted by distance. This is
+      // several times faster than collecting every triangle hit in a ~800k-triangle cell.
+      raycaster.firstHitOnly = true;
       raycaster.setFromCamera(ndc, camera);
 
-      return choosePickFromObjects(raycaster.intersectObjects(pickVolumeObjects(), false));
+      const started = performance.now();
+      const intersections = raycaster.intersectObjects(pickTargetObjects(), false);
+
+      cellDebug.recordPick(performance.now() - started);
+
+      return choosePickFromObjects(intersections);
     };
 
     const onPointerMove = (event: PointerEvent): void => schedulePick(event);

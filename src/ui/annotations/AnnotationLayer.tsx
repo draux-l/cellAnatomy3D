@@ -457,7 +457,7 @@ function round(value: number): number {
 }
 
 /**
- * One occlusion ray per anchor against the inner hit volumes (≤10 boxes, design D7's cost).
+ * One occlusion ray per anchor against the inner pick targets (real meshes, BVH-accelerated).
  *
  * The shared raycaster is borrowed and returned exactly as it was found: the pick controller owns
  * its `layers` and its `far`, and leaving either changed would silently truncate the next pick.

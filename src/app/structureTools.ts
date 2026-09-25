@@ -26,7 +26,7 @@
  *   organelle root. At 0 % the driver is a no-op, but switching it off makes "the model is whole"
  *   structural rather than a consequence of a store default.
  *
- * It deliberately does **not** turn off `scene/models/*`, the anchor registry or the pick volumes:
+ * It deliberately does **not** turn off `scene/models/*`, the anchor registry or the pick targets:
  * those are how the model is mounted and measured, not a study aid, and the model must keep
  * rendering as authored with them.
  *

@@ -123,7 +123,7 @@ export function CellViewer({ fixture }: { fixture: FixtureConfig }) {
           far: 100,
         }}
         // No `onPointerMissed` here: the pick controller owns click classification, because a
-        // "miss" in R3F's terms would be every click (the hit volumes carry no R3F handlers) and
+        // "miss" in R3F's terms would be every click (the pick targets carry no R3F handlers) and
         // would clear a selection the controller just made.
       >
         <CellStage
