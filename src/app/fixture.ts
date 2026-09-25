@@ -1,6 +1,7 @@
 import { CELL_IDS, type CellId } from '../catalog/types';
 import {
   CELL_POSE,
+  DISASSEMBLY_POSE,
   HERO_POSE,
   yawPose,
   type CameraPose,
@@ -50,6 +51,32 @@ export { CELL_POSE, HERO_POSE, type CameraPose };
 export const FIXTURE_POSES = {
   cell: CELL_POSE,
 } satisfies Record<FixtureName, CameraPose>;
+
+/**
+ * The pose a composed fixture frames with, given how far the parts have travelled.
+ *
+ * A cell at rest and a fully exploded cell are different-sized subjects, and this model's own parts
+ * are large (the mitochondrial envelopes and the branching network each span most of the cell), so a
+ * single pose cannot frame both. Interpolating the composed pose toward the disassembly pose keeps the
+ * screenshot a pure function of the URL, which is the property every fixture depends on.
+ */
+export function fixtureCamera(fixture: FixtureName, value: number | null, yaw: number): CameraPose {
+  if (fixture !== 'cell' || value === null || value <= 0) {
+    return yawPose(FIXTURE_POSES[fixture], yaw);
+  }
+
+  const t = Math.min(1, value / 100);
+  const base = FIXTURE_POSES[fixture];
+  const wide = DISASSEMBLY_POSE;
+  const lerp = (a: readonly [number, number, number], b: readonly [number, number, number]) =>
+    [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t] as [
+      number,
+      number,
+      number,
+    ];
+
+  return yawPose({ position: lerp(base.position, wide.position), target: [...base.target], fov: base.fov }, yaw);
+}
 
 export interface FixtureConfig {
   /** Active fixture, or null when the real app should run. */
@@ -129,11 +156,14 @@ export function parseFixture(search: string): FixtureConfig {
   // `tasks.md` writes the cell as `cell=`, the fixtures write it as `view=`.
   const cellParam = params.get('view') ?? params.get('cell');
 
+  const disassemblyValue = name === 'cell' ? parseDisassembly(params.get('value')) ?? 0 : null;
+
   return {
     name,
-    camera: name === null ? yawPose(HERO_POSE, yaw) : yawPose(FIXTURE_POSES[name], yaw),
+    camera:
+      name === null ? yawPose(HERO_POSE, yaw) : fixtureCamera(name, disassemblyValue, yaw),
     cell: name === null ? null : parseCell(cellParam),
-    disassemblyValue: name === 'cell' ? parseDisassembly(params.get('value')) ?? 0 : null,
+    disassemblyValue,
     yaw,
     select: name === 'cell' ? parseSelect(params.get('select')) : null,
     showAnnotations: parseToggle(params.get('annotations')),

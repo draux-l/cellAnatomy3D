@@ -201,18 +201,39 @@ function buildModel(cell: CellId, root: Object3D): BuiltModel {
           max: [box.max.x - centre.x, box.max.y - centre.y, box.max.z - centre.z],
         };
 
-    /*
-     * The host stays at the frame group's origin and the meshes keep the transforms `attach` gave
-     * them. That is the whole mount: the model is exactly as authored, and a disassembly offset is
-     * added on top of a host that begins at zero.
+    /**
+     * The host becomes a **pivot at the part's own centre**: it moves to that centre and each mesh
+     * moves back by the same amount, so the assembly renders exactly where the file put it.
      *
-     * `centre` is recorded as data (the isolate framing reads it through the record's own placement)
-     * but it must NOT be applied as a host translation: a mesh's local `position` is usually zero
-     * with all its geometry in the vertices, so subtracting a frame-unit centre from it moves the
-     * mesh by `−centre` in *local* space — which the frame then scales down 247×, leaving the mesh
-     * where it was while the host jumps. That is the bug that displaced the model.
+     * This is what makes `disassemblyOffset` mean "away from this part's own centre" rather than
+     * "away from the cell's centre". Without it every part travels from the origin along a
+     * cell-radial direction, and a 1.5-unit travel throws the whole cell's contents out of frame —
+     * measured: at 100% only the membrane and cytoplasm survived, at 9 draw calls.
+     *
+     * `attach` already gave each mesh a local transform in the frame's units, so subtracting a
+     * frame-unit centre from `mesh.position` is consistent. The host's new position is published on
+     * `userData` because the disassembly loop writes over `position` every frame and needs the
+     * authored base to add its offset to.
      */
-    host.userData.basePosition = [0, 0, 0];
+    /*
+     * The host becomes a pivot at the part's own centre, without moving the model a pixel.
+     *
+     * The arithmetic is done in **world** space and finished by `attach`, because that is the only
+     * space three keeps consistent for us: the host is moved to the part's world centre, and each
+     * mesh is re-attached, which recomputes its local transform from its (unchanged) world matrix.
+     * Hand-subtracting a frame-unit or scene-unit offset is what produced every previous failure —
+     * `position` is multiplied by the frame's scale, so a value measured in the wrong space lands
+     * 247× off.
+     */
+    host.position.copy(centre);
+    host.updateWorldMatrix(true, false);
+
+    for (const mesh of group.meshes) {
+      mesh.updateWorldMatrix(true, false);
+      host.attach(mesh);
+    }
+
+    host.userData.basePosition = host.position.toArray();
 
     records.push({
       recordId: group.recordId,

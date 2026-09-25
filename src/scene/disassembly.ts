@@ -88,6 +88,12 @@ export function disassembledPosition(
   const [ox, oy, oz] = disassemblyOffset(record, progress);
 
   if (isMeshGeometry(record.geometry)) {
+    /*
+     * A mesh host lives **inside** the model's frame group, so its `position` is expressed in the
+     * frame's own units — scene units divided by the frame's scale. Both the authored base and the
+     * travel are converted here, which is the one place the frame's scale is reconciled with the
+     * scene-unit numbers the catalog authors.
+     */
     const scale = modelFor(cell)?.frame.scale ?? 1;
     const base = registeredOrganelleRoot(record.id)?.userData.basePosition;
 
