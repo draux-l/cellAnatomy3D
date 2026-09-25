@@ -39,9 +39,17 @@ const FALLBACK_DIRECTION = new Vector3(...CELL_POSE.position).normalize();
 export interface IsolateCameraProps {
   controlsRef: RefObject<OrbitControlsHandle | null>;
   cell: CellId;
+  /**
+   * Pin the framing instead of tweening into it.
+   *
+   * A `?fixture=…&select=` capture must not depend on how many frames the page happened to run, so
+   * under a fixture the isolate arrives on the first frame. The placement below is idempotent, which
+   * is what lets the snapped and the tweened arrival share one code path.
+   */
+  snap: boolean;
 }
 
-export function IsolateCamera({ controlsRef, cell }: IsolateCameraProps) {
+export function IsolateCamera({ controlsRef, cell, snap }: IsolateCameraProps) {
   const camera = useThree((state) => state.camera);
   const selectedId = useAppStore((state) => state.selectedId);
   const desired = useRef<FocusState>(defaultFocus());
@@ -52,8 +60,17 @@ export function IsolateCamera({ controlsRef, cell }: IsolateCameraProps) {
     const record = selectedId === null ? undefined : getRecord(selectedId);
 
     desired.current = record ? focusForRecord(record, cell) : defaultFocus();
+
+    if (snap) {
+      // Arrive before the first frame, so the first rendered frame is already the final pose.
+      current.current = {
+        target: [...desired.current.target],
+        distance: desired.current.distance,
+      };
+    }
+
     animating.current = true;
-  }, [selectedId, cell]);
+  }, [selectedId, cell, snap]);
 
   useFrame((_state, delta) => {
     const controls = controlsRef.current;
@@ -68,6 +85,7 @@ export function IsolateCamera({ controlsRef, cell }: IsolateCameraProps) {
       // Arrived: stop writing so an orbit after the isolate is not fought by the tween.
       current.current = { target: [...target.target], distance: target.distance };
       controls.target.set(target.target[0], target.target[1], target.target[2]);
+      placeCamera(camera, controls, target.distance);
       animating.current = false;
 
       return;
@@ -81,16 +99,32 @@ export function IsolateCamera({ controlsRef, cell }: IsolateCameraProps) {
       current.current.target[2],
     );
 
-    SCRATCH_OFFSET.copy(camera.position).sub(controls.target);
-
-    if (SCRATCH_OFFSET.lengthSq() < 1e-8) {
-      SCRATCH_OFFSET.copy(FALLBACK_DIRECTION);
-    }
-
-    SCRATCH_OFFSET.setLength(current.current.distance);
-    camera.position.copy(controls.target).add(SCRATCH_OFFSET);
-    controls.update();
+    placeCamera(camera, controls, current.current.distance);
   });
 
   return null;
+}
+
+/**
+ * Puts the camera on its current view ray at `distance` from the controls target.
+ *
+ * The orbit **angle** is never touched: only the distance is set, so the user's chosen viewing
+ * direction survives both isolating and returning. Called on arrival as well as during the tween, so
+ * a snapped arrival (which never ran a damped step) is framed exactly like a tweened one; on a
+ * tweened arrival the camera is already there and the call is a no-op.
+ */
+function placeCamera(
+  camera: { position: Vector3 },
+  controls: OrbitControlsHandle,
+  distance: number,
+): void {
+  SCRATCH_OFFSET.copy(camera.position).sub(controls.target);
+
+  if (SCRATCH_OFFSET.lengthSq() < 1e-8) {
+    SCRATCH_OFFSET.copy(FALLBACK_DIRECTION);
+  }
+
+  SCRATCH_OFFSET.setLength(distance);
+  camera.position.copy(controls.target).add(SCRATCH_OFFSET);
+  controls.update();
 }

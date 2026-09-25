@@ -52,9 +52,29 @@ export interface AnnotationMirrorEntry {
   hovered: boolean;
 }
 
+/** One hit volume as the harness reads it: where the box is, in scene space. */
+export interface PickVolumeMirror {
+  organelleId: string;
+  envelope: boolean;
+  center: [number, number, number];
+  size: [number, number, number];
+  parent: string;
+}
+
 export interface CellDebug {
   /** Active `?fixture=` name, or null for the real app. */
   fixture: string | null;
+  /**
+   * Where the selected cell's model is in its load lifecycle.
+   *
+   * A **measurement of what the app did**, not an input to it: the harness has to wait for a model
+   * that arrives over the network before it can capture a frame that contains it, and a screenshot
+   * taken mid-load would be a picture of the lighting rig. `absent` means the cell has no committed
+   * model at all, which is different from `error`.
+   */
+  modelStatus: 'idle' | 'loading' | 'ready' | 'error' | 'absent';
+  /** The cell `modelStatus` describes. */
+  modelCell: string | null;
   /** Total frames rendered since load. */
   frames: number;
   /**
@@ -78,6 +98,18 @@ export interface CellDebug {
   frameStats: FrameStats;
   /** The per-frame solver output the annotation layer wrote, mirrored for the harness. */
   annotations: AnnotationMirrorEntry[];
+  /** Records the model lifecycle, so the harness can wait for a real cell instead of guessing. */
+  setModelStatus: (status: CellDebug['modelStatus'], cell: string | null) => void;
+  /**
+   * The hit volumes the pick controller will ray, as world boxes.
+   *
+   * A measurement of the render, never an input to it. Picking is the one mechanism whose failures
+   * are *silent* — a misplaced box means a click resolves to the wrong organelle, with no error
+   * anywhere — so the boxes are mirrored here for the harness to compare against the meshes they
+   * are supposed to contain.
+   */
+  setPickVolumes: (entries: readonly PickVolumeMirror[]) => void;
+  pickVolumes: PickVolumeMirror[];
   /**
    * The quality tier the renderer is actually running (task 4.8).
    *
@@ -134,6 +166,8 @@ export function createCellDebug(options: CellDebugOptions = {}): CellDebug {
 
   const debug: CellDebug = {
     fixture: options.fixture ?? null,
+    modelStatus: 'idle',
+    modelCell: null,
     frames: 0,
     sceneRenders: 0,
     drawCalls: 0,
@@ -143,6 +177,7 @@ export function createCellDebug(options: CellDebugOptions = {}): CellDebug {
     frameStats: emptyFrameStats(),
     qualityTier: 'high',
     annotations: [],
+    pickVolumes: [],
 
     recordFrame(deltaMs, nowMs) {
       debug.frames += 1;
@@ -184,6 +219,21 @@ export function createCellDebug(options: CellDebugOptions = {}): CellDebug {
         opacity: entry.opacity,
         occluded: entry.occluded,
         hovered: entry.hovered,
+      }));
+    },
+
+    setModelStatus(status, cell) {
+      debug.modelStatus = status;
+      debug.modelCell = cell;
+    },
+
+    setPickVolumes(entries) {
+      debug.pickVolumes = entries.map((entry) => ({
+        organelleId: entry.organelleId,
+        envelope: entry.envelope,
+        center: [...entry.center],
+        size: [...entry.size],
+        parent: entry.parent,
       }));
     },
 

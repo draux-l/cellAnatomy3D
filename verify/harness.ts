@@ -39,6 +39,8 @@ export interface CellDebugSnapshot {
   triangles: number;
   firstRenderAtMs: number | null;
   frameStats: FrameStatsSnapshot;
+  /** `ready`/`absent`/`error` — where the selected cell's model load got to. */
+  modelStatus: 'idle' | 'loading' | 'ready' | 'error' | 'absent';
 }
 
 /** One annotation as the layer wrote it (the `__cellDebug.annotations` mirror). */
@@ -138,8 +140,36 @@ export async function readCellDebug(page: Page): Promise<CellDebugSnapshot | nul
       triangles: debug.triangles,
       firstRenderAtMs: debug.firstRenderAtMs,
       frameStats: debug.frameStats,
+      modelStatus: debug.modelStatus,
     };
   });
+}
+
+/**
+ * Waits for the selected cell's model to settle.
+ *
+ * A cell whose model arrives over the network needs this before anything is measured: a frame
+ * captured mid-load is a picture of the lighting rig, and an `error` must fail loudly rather than
+ * pass as "nothing to see". `absent` is a legitimate settled state — the plant cell ships no model.
+ */
+export async function waitForModel(page: Page): Promise<CellDebugSnapshot['modelStatus']> {
+  await page.waitForFunction(
+    () => {
+      const status = window.__cellDebug?.modelStatus;
+
+      return status === 'ready' || status === 'absent' || status === 'error';
+    },
+    null,
+    { timeout: FRAME_TIMEOUT_MS },
+  );
+
+  const status = (await readCellDebug(page))!.modelStatus;
+
+  if (status === 'error') {
+    throw new Error('the cell model failed to load — see the page console for the decoder/parse error');
+  }
+
+  return status;
 }
 
 /** Navigates to a fixture and waits until it has rendered enough frames to be measurable. */
@@ -151,6 +181,10 @@ export async function openFixture(
   await page.goto(fixtureUrl(fixture, params), { waitUntil: 'load' });
 
   await page.waitForSelector('canvas', { state: 'attached', timeout: FRAME_TIMEOUT_MS });
+
+  // The model settles first: the draw-call sample below is 1 Hz and must describe the finished
+  // scene, not the frames before the model arrived.
+  await waitForModel(page);
 
   /*
    * Re-baseline after the canvas mounts, and require both a fresh frame window and a draw-call
@@ -184,6 +218,7 @@ export async function openFixture(
 export async function openApp(page: Page, path = '/'): Promise<void> {
   await page.goto(path, { waitUntil: 'load' });
   await page.waitForSelector('canvas', { state: 'attached', timeout: FRAME_TIMEOUT_MS });
+  await waitForModel(page);
 }
 
 export async function capturePng(page: Page): Promise<Buffer> {

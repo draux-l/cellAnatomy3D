@@ -213,18 +213,32 @@ export interface ProceduralFallback {
 }
 
 /**
- * A mesh build: one or more meshes from a committed model (design D29).
+ * A mesh build: one or more meshes from a committed model.
  *
  * The mitochondrion is one record referencing two meshes (outer membranes + cristae), so
- * `meshes` is a list, not a single reference. `fallback` carries the record's **previous**
- * procedural geometry unchanged, so a failed load reproduces the organelle exactly as the
- * procedural path renders it — the fallback is byte-identical, not merely similar.
+ * `meshes` is a list, not a single reference.
+ *
+ * **`fallback` is optional, and every record ships without one.** The 2026-09 rebuild removed the
+ * procedural organelle builders outright, so a record that declared a fallback would be pointing
+ * at geometry that no longer exists — data that reads as a safety net and is in fact a lie. A
+ * missing model therefore renders nothing, and the integrity gate says so rather than pretending.
+ * The key stays in the model so a future record may declare one; when present it is validated.
  */
 export interface MeshGeometrySpec {
   kind: 'mesh';
   /** ≥1 reference. An empty list fails the integrity gate naming record + field. */
   meshes: readonly MeshAssetRef[];
-  fallback: ProceduralFallback;
+  /**
+   * Scene-unit **half-diagonal of the part's own bounds**, measured from the model.
+   *
+   * This is the record's extent as the viewer needs it: the isolate framing backs the camera off by
+   * a multiple of it, and nothing else can supply the number once the procedural builders (and
+   * their `size` parameter) are gone. It is committed data, not measured at load, so the `?fixture=`
+   * route can frame an organelle in the shell before the 3D chunk exists.
+   */
+  extent: number;
+  /** An optional declarative fallback. Absent on every shipped record; see the note above. */
+  fallback?: ProceduralFallback;
 }
 
 /** How the record's geometry is built. Addresses the builder registry by id, not by path. */
@@ -263,18 +277,21 @@ export interface CellModelFrame {
 /**
  * What happens to one model mesh.
  *
- * - `map` — has a catalog record: pickable, annotated, drawn with `materialKey`.
+ * - `map` — has a catalog record: pickable, annotated, drawn with the model's own material.
  * - `unmapped` — a real, identified structure with no canonical roster entry: drawn as part of the
  *   model root, unpickable and unannotated. No label is invented for it (design D26).
- * - `omit` — hidden: debris, or a mesh whose identification is still an open maintainer decision.
+ * - `omit` — hidden.
+ *
+ * **No shipped mesh is `omit`.** Every mesh in the animal model is part of the model, so hiding one
+ * would be losing the thing the model is. The policy value survives because the vocabulary is data.
  */
 export type MeshPolicy = 'map' | 'unmapped' | 'omit';
 
 export const MESH_POLICIES = ['map', 'unmapped', 'omit'] as const satisfies readonly MeshPolicy[];
 
-/** One row of the identification map: a model node turned into (record, material key) or a policy. */
+/** One row of the identification map: a model node turned into a record reference or a policy. */
 export interface ManifestMesh {
-  /** GLB node name. */
+  /** GLB node name, as authored — `Nulo__Material.013_0`. */
   node: string;
   /** 0-based occurrence among nodes sharing `node`; absent when the name is unique. */
   occurrence?: number;
@@ -282,8 +299,12 @@ export interface ManifestMesh {
   /** The catalog record this mesh belongs to when `policy === 'map'`; otherwise null. */
   recordId: string | null;
   /**
-   * The material key the loader assigns. Required for `map` and `unmapped` (both render), null for
-   * `omit`.
+   * The **palette-override** material key for this mesh, or null.
+   *
+   * The default render keeps the model's own material, so this key is a hook, not a description: it
+   * names the catalog material a future palette override would substitute. `null` means "there is
+   * no catalog key for this surface" — which is what the unmapped meshes carry, because no role is
+   * invented for a structure the roster does not name.
    */
   materialKey: MaterialKeyName | null;
 }
@@ -295,8 +316,14 @@ export interface CellModelManifest {
   meshes: readonly ManifestMesh[];
 }
 
-/** Both cells' models, keyed by cell id. */
-export type ModelManifest = Readonly<Record<CellId, CellModelManifest>>;
+/**
+ * The cells that ship a model, keyed by cell id.
+ *
+ * Partial on purpose: only the animal cell has a committed `.glb` today, and inventing a plant
+ * entry (with a file and a sha256 for bytes that do not exist) would be fabricated data. A missing
+ * key means "this cell has no model", which is exactly the fact.
+ */
+export type ModelManifest = Readonly<Partial<Record<CellId, CellModelManifest>>>;
 
 /**
  * A cell-specific deviation from a record's own data (design D3, extended for composition).

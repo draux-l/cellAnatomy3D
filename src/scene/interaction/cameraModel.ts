@@ -10,7 +10,7 @@
  * module has to be safe to pull into the entry graph — and it is plain trigonometry.
  */
 
-import { baseGeometryParamsFor, positionForRecord } from '../../catalog/params';
+import { extentFor, positionForRecord } from '../../catalog/params';
 import type { CellId, OrganelleRecord } from '../../catalog/types';
 
 export interface CameraPose {
@@ -143,13 +143,12 @@ export function defaultFocus(): FocusState {
 /**
  * The focus that frames one record, in one cell.
  *
- * The extent comes from the record's own parameters rather than from built geometry, which is what
- * lets the `?fixture=isolate` route compute the identical pose in the app shell before the 3D
- * chunk exists.
+ * The extent comes from the record's own data — a procedural record's `size` parameter, a mesh
+ * record's measured `geometry.extent` — rather than from built geometry, which is what lets the
+ * `?fixture=` route compute the identical pose in the app shell before the 3D chunk exists.
  */
 export function focusForRecord(record: OrganelleRecord, cell: CellId): FocusState {
-  const size = baseGeometryParamsFor(record).size;
-  const extent = typeof size === 'number' && Number.isFinite(size) ? size : 0.3;
+  const extent = extentFor(record);
 
   return {
     target: positionForRecord(record, cell),

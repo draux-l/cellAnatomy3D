@@ -2,8 +2,9 @@ import { useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { DISASSEMBLY_MAX, DISASSEMBLY_MIN, clampDisassembly, useAppStore } from '../app/store';
 import { rosterFor } from '../catalog/cells';
+import { modelFor } from '../catalog/models';
 import { positionForRecord } from '../catalog/params';
-import type { CellId, OrganelleRecord } from '../catalog/types';
+import { isMeshGeometry, type CellId, type OrganelleRecord } from '../catalog/types';
 import { travelDistanceFor } from '../catalog/vectors';
 import { t } from '../ui/i18n';
 import { disassemblyStateKey, formatDisassemblyPercent } from '../ui/hud/disassemblyCopy';
@@ -67,8 +68,16 @@ export function disassemblyOffset(
 /**
  * Where one organelle's root sits at a given progress.
  *
- * A record that never separates (a zero vector with zero distance) returns its own placement at
- * every value, which is why the membrane and the wall stay put while everything else leaves.
+ * Two mountings, one rule: the offset is always `direction × travel`, and only the base differs.
+ *
+ * - **A procedural record** starts at its own catalog placement, in scene units.
+ * - **A mesh record** starts at its part's centre *inside the model's frame*, which carries a uniform
+ *   scale. Its offset therefore has to be expressed in the same units — the disassembly distance is
+ *   authored in scene units, so it is divided by the model's scale before being written. Nothing
+ *   about the model's own transform changes; only the magnitude of the displacement is reconciled.
+ *
+ * A record that never separates (a zero vector with zero distance) returns its own base at every
+ * value, which is why the membrane and the cytoplasm stay exactly where the file put them.
  */
 export function disassembledPosition(
   record: OrganelleRecord,
@@ -77,6 +86,17 @@ export function disassembledPosition(
 ): [number, number, number] {
   const [px, py, pz] = positionForRecord(record, cell);
   const [ox, oy, oz] = disassemblyOffset(record, progress);
+
+  if (isMeshGeometry(record.geometry)) {
+    const scale = modelFor(cell)?.frame.scale ?? 1;
+    const base = registeredOrganelleRoot(record.id)?.userData.basePosition;
+
+    // The host's authored base is published by its mount, so this function stays a pure function of
+    // the record and the progress plus one number the mount already knows.
+    const [bx, by, bz] = Array.isArray(base) ? base : [0, 0, 0];
+
+    return [bx + ox / scale, by + oy / scale, bz + oz / scale];
+  }
 
   return [px + ox, py + oy, pz + oz];
 }

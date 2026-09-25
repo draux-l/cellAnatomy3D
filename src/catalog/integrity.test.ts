@@ -1,6 +1,10 @@
+import { ORGANELLE_RECORDS } from './cells';
+import { MODEL_MANIFEST } from './models';
 import { describe, expect, it } from 'vitest';
 import {
+  CANONICAL_ANIMAL_IDS,
   PENDING_BUILDER_IDS,
+  PLANT_ONLY_IDS,
   assertCatalogIntegrity,
   formatIssues,
   isValidRecord,
@@ -51,6 +55,7 @@ const MESH: Record<string, unknown> = {
   geometry: {
     kind: 'mesh',
     meshes: [{ cell: 'animal', node: MESH_NODE, materialKey: 'innerMembrane' }],
+    extent: 0.3,
     fallback: {
       builder: 'mitochondrion',
       params: { size: 0.3, detail: 1, count: 0 },
@@ -442,6 +447,28 @@ describe('catalog integrity — the mesh branch (tasks 11.4, 12.3)', () => {
     expect(validateRecord(MESH, 0, MESH_OPTIONS)).toEqual([]);
   });
 
+  it('accepts a mesh record that declares no fallback', () => {
+    // The procedural builders were removed, so a fallback-less mesh record is the shipped shape:
+    // there is nothing to fall back to and the gate must not invent a requirement.
+    const geometry = MESH.geometry as unknown as Record<string, unknown>;
+    const { fallback: _fallback, ...withoutFallback } = geometry;
+
+    expect(validateRecord({ ...MESH, geometry: withoutFallback }, 0, MESH_OPTIONS)).toEqual([]);
+  });
+
+  it('fails on a missing or non-positive extent, naming the field', () => {
+    const geometry = MESH.geometry as unknown as Record<string, unknown>;
+    const missing = validateRecord(
+      { ...MESH, geometry: { ...geometry, extent: undefined } },
+      0,
+      MESH_OPTIONS,
+    );
+    const zero = validateRecord({ ...MESH, geometry: { ...geometry, extent: 0 } }, 0, MESH_OPTIONS);
+
+    expect(missing.map((issue) => issue.field)).toContain('geometry.extent');
+    expect(zero.map((issue) => issue.field)).toContain('geometry.extent');
+  });
+
   it('fails on an empty mesh list, naming record and field', () => {
     const geometry = MESH.geometry as unknown as Record<string, unknown>;
     const issues = validateRecord({ ...MESH, geometry: { ...geometry, meshes: [] } }, 0, MESH_OPTIONS);
@@ -560,8 +587,7 @@ describe('catalog integrity — the mesh branch (tasks 11.4, 12.3)', () => {
   });
 });
 
-describe('catalog integrity — the build gate', () => {
-  it('throws with every offender named', () => {
+describe('catalog integrity — the build gate', () => {  it('throws with every offender named', () => {
     const broken = [
       record({ id: 'alpha', disassembly: undefined }),
       record({ id: 'beta', paletteRole: 'teal', size: undefined }),
@@ -587,5 +613,56 @@ describe('catalog integrity — the build gate', () => {
     expect(issues).toHaveLength(1);
     expect(issues[0]?.recordId).toBe('#0');
     expect(issues[0]?.field).toBe('record');
+  });
+});
+
+describe('catalog integrity — the committed catalog', () => {
+  it('passes every record-level and manifest-level rule', () => {
+    // The gate is normally exercised with injected records; this runs it against the records that
+    // actually ship, with the committed identification map injected as data.
+    const issues = validateCatalog(ORGANELLE_RECORDS, {
+      manifest: MODEL_MANIFEST,
+      registeredBuilderIds: [],
+    });
+
+    // Every record-level rule passes: ids, bilingual copy, sizes, the mesh references resolving to
+    // the committed manifest, the material-key vocabulary and the outward disassembly vectors.
+    expect(issues.filter((issue) => !issue.field.startsWith('roster.'))).toEqual([]);
+  });
+
+  it('records the roster gaps the committed catalog knowingly has', () => {
+    // Two facts, both real and both asserted rather than hidden:
+    // 1. the animal cell's source model has no lysosome, so the canonical roster is one short;
+    // 2. the plant cell has no records and no model, so its whole roster is absent.
+    const issues = validateCatalog(ORGANELLE_RECORDS, { manifest: MODEL_MANIFEST });
+    const expected = [
+      ...CANONICAL_ANIMAL_IDS.flatMap((id) => [
+        ...(id === 'lysosome'
+          ? [
+              {
+                recordId: '<catalog>',
+                field: 'roster.animal',
+                message: `is missing the canonical organelle "${id}"`,
+              },
+            ]
+          : []),
+        {
+          recordId: '<catalog>',
+          field: 'roster.plant',
+          message: `is missing the shared organelle "${id}"`,
+        },
+      ]),
+      ...PLANT_ONLY_IDS.map((id) => ({
+        recordId: '<catalog>',
+        field: 'roster.plant',
+        message: `is missing the plant-only organelle "${id}"`,
+      })),
+    ];
+
+    expect(issues).toEqual(expected);
+  });
+
+  it('gives every record a distinct material key inside its cell', () => {
+    expect(validateMaterialKeyOwnership(ORGANELLE_RECORDS)).toEqual([]);
   });
 });

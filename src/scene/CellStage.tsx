@@ -86,10 +86,13 @@ export function CellStage({
       />
 
       {/*
-        A fixture pins the camera in the URL, so the isolate tween only runs in the real app —
-        otherwise a screenshot would depend on how long the page had been open.
+        The isolate camera runs in the real app and under a `select` fixture, where it snaps rather
+        than tweens. A fixture without a selection would only re-assert the composed pose, so it is
+        left unmounted — which also keeps the pose a pure function of the URL.
       */}
-      {fixture.name === null ? <IsolateCamera controlsRef={controlsRef} cell={cell} /> : null}
+      {fixture.name === null || fixture.select !== null ? (
+        <IsolateCamera controlsRef={controlsRef} cell={cell} snap={fixture.select !== null} />
+      ) : null}
 
       <PickController />
 

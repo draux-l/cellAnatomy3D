@@ -58,7 +58,16 @@ export function CellViewer({ fixture }: { fixture: FixtureConfig }) {
   useEffect(() => {
     // A fixture names its disassembly state in the URL. Setting it once, rather than animating into
     // it, is what makes the screenshot a function of the URL.
+    //
+    // Order matters: the two controls hand off to each other in the store (each clears the other), so
+    // a fixture that names both pins the selection — a per-organelle capture is about the part, and
+    // an exploded cell would move it out of its own frame.
     useAppStore.getState().setDisassembly(fixture.disassemblyValue ?? 0);
+
+    if (fixture.select !== null) {
+      useAppStore.getState().setSelected(fixture.select);
+    }
+
     hudTarget.current.lastWritten = -1;
   }, [fixture]);
 

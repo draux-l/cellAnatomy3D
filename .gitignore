@@ -19,6 +19,11 @@ artifacts/tmp/
 # third-party copyright questions. Provenance is documented in text instead.
 references/
 
+# The maintainer's raw model drop. The shipped copy lives in `public/models/`
+# (committed, because the app fetches it); this folder is scratch space and a
+# multi-megabyte binary must never be committed twice.
+Nuevos modelos/
+
 # Local environment
 .env
 .env.local

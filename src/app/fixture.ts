@@ -28,8 +28,15 @@ import {
  * | `view=<animal\|plant>` | which cell to render (also accepted as `cell=`) |
  * | `value=<0…100>` | pins the disassembly target **and** damped value |
  * | `yaw=<degrees>` | rotates the camera pose about Y, so an orbit sweep is a set of URLs |
+ * | `select=<organelle-id>` | isolates that organelle **and snaps the camera to it** |
  * | `annotations=off` | mounts the viewer without the annotation layer |
  * | `fps=off` | mounts the viewer without the FPS readout |
+ *
+ * `select` exists because the per-organelle screenshot gate (`verify/screenshot-coverage.ts`)
+ * demands one inspected render per catalog record, and clicking a canvas pixel is not a
+ * deterministic way to produce one. The camera **snaps** rather than tweens for the same reason the
+ * disassembly value is pinned: a screenshot must be a function of the URL, not of how many frames
+ * the page happened to run.
  */
 
 export type FixtureName = 'cell';
@@ -54,6 +61,8 @@ export interface FixtureConfig {
   disassemblyValue: number | null;
   /** Camera azimuth offset in degrees, for the annotation orbit sweep. */
   yaw: number;
+  /** Isolated organelle id the fixture pins, or null when nothing is selected. */
+  select: string | null;
   /** False when `?annotations=off`: mount the viewer without the annotation layer. */
   showAnnotations: boolean;
   /** False when `?fps=off`: mount the viewer without the FPS readout. */
@@ -103,6 +112,11 @@ function parseToggle(raw: string | null): boolean {
   return raw !== 'off';
 }
 
+/** An organelle id, or null. Resolution to a record happens in the catalog, not here. */
+function parseSelect(raw: string | null): string | null {
+  return raw === null || raw.trim().length === 0 ? null : raw;
+}
+
 /**
  * Reads a query string into a fixture config. An unknown `fixture` value is ignored, so a typo
  * renders the real app instead of a half-frozen one.
@@ -121,6 +135,7 @@ export function parseFixture(search: string): FixtureConfig {
     cell: name === null ? null : parseCell(cellParam),
     disassemblyValue: name === 'cell' ? parseDisassembly(params.get('value')) ?? 0 : null,
     yaw,
+    select: name === 'cell' ? parseSelect(params.get('select')) : null,
     showAnnotations: parseToggle(params.get('annotations')),
     showFps: parseToggle(params.get('fps')),
   };

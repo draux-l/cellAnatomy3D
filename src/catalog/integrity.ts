@@ -227,6 +227,13 @@ function manifestRow(
  * Every failure names the record id and the offending `geometry.meshes[...]` field. The manifest is
  * injected as data so the catalog stays three-free, and a mesh reference that the manifest does not
  * know — or knows as a *different* record — is a build failure, never a silent skip.
+ *
+ * **`extent` is required and positive.** It is the record's only size data on the mesh path, so a
+ * record without it would frame its isolate view by a silent default.
+ *
+ * **`fallback` is optional.** It is absent on every shipped record because the procedural builders
+ * were removed; when a record does declare one, its builder must still resolve to the declared
+ * vocabulary, so a half-authored fallback cannot ship.
  */
 function validateMeshGeometry(
   geometry: Record<string, unknown>,
@@ -313,10 +320,20 @@ function validateMeshGeometry(
     });
   }
 
+  if (!isFiniteNumber(geometry.extent) || geometry.extent <= 0) {
+    add('geometry.extent', 'is required and must be a positive scene-unit extent');
+  }
+
   const fallback = geometry.fallback;
 
+  if (fallback === undefined) {
+    // Legal: the procedural builders were removed, so a mesh record legitimately has nothing to fall
+    // back to. A missing model renders nothing and the loader says so loudly.
+    return;
+  }
+
   if (!isPlainObject(fallback)) {
-    add('geometry.fallback', 'is required — every mesh record declares its procedural fallback (D27)');
+    add('geometry.fallback', 'must be an object when present');
   } else {
     if (
       !isNonEmptyString(fallback.builder) ||
