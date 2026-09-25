@@ -50,6 +50,10 @@ export const M0_COLORS = {
   lysosome: '#cf7f5c',
   /** `organelles` palette role, the folded membrane network. */
   er: '#8fae85',
+  /** `organelles` palette role, the smooth (agranular) tubular network. */
+  smoothEr: '#d98fb0',
+  /** `organelles` palette role, the small centriole cylinders of the centrosome. */
+  centriole: '#b7c9e2',
   /** `organelles` palette role, the stacked cisternae. */
   golgi: '#c9a05a',
   /** `organelles` palette role, the budding transport vesicles. */
@@ -162,6 +166,8 @@ export function createOrganelleMaterials(): OrganelleMaterials {
     granule: createBody(M0_COLORS.granule, true),
     lysosome: createBody(M0_COLORS.lysosome),
     er: createBody(M0_COLORS.er),
+    smoothEr: createBody(M0_COLORS.smoothEr),
+    centriole: createBody(M0_COLORS.centriole),
     golgi: createBody(M0_COLORS.golgi),
     vesicle: createBody(M0_COLORS.vesicle),
     // The envelope is as translucent as the mitochondrion's: the grana are the teaching object

@@ -44,12 +44,15 @@ import type { CellId, CellModelManifest, ModelManifest } from './types';
  *
  * `materialKey` is the **palette-override hook**, not a description of the render: the default
  * viewer keeps each mesh's own GLB material (the model's 16 authored colours *are* the model), and
- * the key names the catalog role a future palette override would substitute. Unmapped meshes carry
- * `null`, because no role is invented for a structure the roster does not name.
+ * the key names the catalog role a future palette override would substitute.
  *
- * The maintainer's verified map (`references/glb-animal-part-map`, Engram) is the source for every
- * row; the unresolved meshes are recorded as `unmapped` and **still render** — they are part of the
- * model, and hiding one would be losing the model.
+ * The maintainer's verified map is the source for every row, and it assigns **all 21 meshes to the
+ * 14 records — none is left over**. Two parts own mesh pairs/groups: the nucleus is meshes [2]+[3]
+ * (the inner sphere must not split from it) and the mitochondria are [13]+[14] (cristae + outer
+ * membranes). The repeat-named groups resolve by `occurrence`: `Nulo__Material.027_0` ×4 → nucleolus
+ * (meshes [5]–[8]) and `Nulo__Material.018_0` ×3 → ribosomes (meshes [17]–[19]). Because every mesh
+ * is mapped, no row carries the `unmapped` policy any more; the policy vocabulary survives because
+ * it is data.
  */
 
 /** The animal cell's committed model. */
@@ -63,32 +66,38 @@ export const ANIMAL_CELL_MODEL: CellModelManifest = {
     center: [-23.142113, -67.996469, 30.208282],
   },
   meshes: [
-    // [0] — branching filament network (`Material.013`). Identified, not in the canonical roster:
-    // rendered unlabelled rather than given an invented name.
-    { node: 'Nulo__Material.013_0', policy: 'unmapped', recordId: null, materialKey: null },
-    // [1] — loose fragments (`Material.003`). Part of the model; no roster entry.
-    { node: 'Nulo__Material.003_0', policy: 'unmapped', recordId: null, materialKey: null },
+    // [0] — branching filament network (`Material.013`) → cytoskeleton.
+    {
+      node: 'Nulo__Material.013_0',
+      policy: 'map',
+      recordId: 'cytoskeleton',
+      materialKey: 'cytoskeleton',
+    },
+    // [1] — small loose bodies (`Material.003`) → centrioles.
+    { node: 'Nulo__Material.003_0', policy: 'map', recordId: 'centriole', materialKey: 'centriole' },
+    // [2] + [3] — the nucleus is ONE part in TWO meshes: the outer and inner spheres. Both rows
+    // name the same record so both move as one unit; the inner sphere must not be separated.
     { node: 'Nulo__Material.010_0', policy: 'map', recordId: 'nucleus', materialKey: 'nucleus' },
-    { node: 'Nulo__Material.009_0', policy: 'map', recordId: 'nucleolus', materialKey: 'nucleolus' },
+    { node: 'Nulo__Material.009_0', policy: 'map', recordId: 'nucleus', materialKey: 'nucleus' },
     {
       node: 'Nulo__Material.001_0',
       policy: 'map',
       recordId: 'nuclear-envelope',
       materialKey: 'nuclearEnvelope',
     },
-    // The four chromatin bodies share one authored name; `occurrence` is the only reliable key.
-    { node: 'Nulo__Material.027_0', occurrence: 0, policy: 'map', recordId: 'chromatin', materialKey: 'chromatin' },
-    { node: 'Nulo__Material.027_0', occurrence: 1, policy: 'map', recordId: 'chromatin', materialKey: 'chromatin' },
-    { node: 'Nulo__Material.027_0', occurrence: 2, policy: 'map', recordId: 'chromatin', materialKey: 'chromatin' },
-    { node: 'Nulo__Material.027_0', occurrence: 3, policy: 'map', recordId: 'chromatin', materialKey: 'chromatin' },
-    // [9] — a broad folded sheet (`Material.025`). Unresolved: left visible, unmapped.
-    { node: 'Nulo__Material.025_0', policy: 'unmapped', recordId: null, materialKey: null },
-    // [10] — the green body (`Material.1`). Unresolved: left visible, unmapped.
-    { node: 'Nulo__Material.1_0', policy: 'unmapped', recordId: null, materialKey: null },
+    // [5]–[8]: the four nucleolus bodies share one authored name; `occurrence` is the only key.
+    { node: 'Nulo__Material.027_0', occurrence: 0, policy: 'map', recordId: 'nucleolus', materialKey: 'nucleolus' },
+    { node: 'Nulo__Material.027_0', occurrence: 1, policy: 'map', recordId: 'nucleolus', materialKey: 'nucleolus' },
+    { node: 'Nulo__Material.027_0', occurrence: 2, policy: 'map', recordId: 'nucleolus', materialKey: 'nucleolus' },
+    { node: 'Nulo__Material.027_0', occurrence: 3, policy: 'map', recordId: 'nucleolus', materialKey: 'nucleolus' },
+    // [9] — small vesicles (`Material.025`) → lysosomes.
+    { node: 'Nulo__Material.025_0', policy: 'map', recordId: 'lysosome', materialKey: 'lysosome' },
+    // [10] — the green body (`Material.1`) → small vacuoles.
+    { node: 'Nulo__Material.1_0', policy: 'map', recordId: 'small-vacuoles', materialKey: 'vacuole' },
     { node: 'Nulo__Material_0', policy: 'map', recordId: 'membrane', materialKey: 'membrane' },
     { node: 'Nulo__Material.006_0', policy: 'map', recordId: 'golgi', materialKey: 'golgi' },
-    // The mitochondrion is ONE part in TWO meshes: cristae (`Material.007`) + outer membranes
-    // (`Material.008`). Both rows name the same record, so they move as one unit.
+    // [13] + [14] — the mitochondrion is ONE part in TWO meshes: cristae (`Material.007`) + outer
+    // membranes (`Material.008`). Both rows name the same record, so they move as one unit.
     {
       node: 'Nulo__Material.007_0',
       policy: 'map',
@@ -101,15 +110,21 @@ export const ANIMAL_CELL_MODEL: CellModelManifest = {
       recordId: 'mitochondrion',
       materialKey: 'outerMembrane',
     },
-    // [15] — the magenta angular stack (`Material.026`). Unresolved: left visible, unmapped.
-    { node: 'Nulo__Material.026_0', policy: 'unmapped', recordId: null, materialKey: null },
+    // [15] — the magenta tubular stack (`Material.026`) → smooth ER.
+    {
+      node: 'Nulo__Material.026_0',
+      policy: 'map',
+      recordId: 'smooth-endoplasmic-reticulum',
+      materialKey: 'smoothEr',
+    },
+    // [16] — the folded network around the nucleus (`Material.005`) → rough ER.
     {
       node: 'Nulo__Material.005_0',
       policy: 'map',
       recordId: 'endoplasmic-reticulum',
       materialKey: 'er',
     },
-    // Three ribosome clouds share one authored name.
+    // [17]–[19]: three ribosome clouds share one authored name.
     { node: 'Nulo__Material.018_0', occurrence: 0, policy: 'map', recordId: 'ribosome', materialKey: 'granule' },
     { node: 'Nulo__Material.018_0', occurrence: 1, policy: 'map', recordId: 'ribosome', materialKey: 'granule' },
     { node: 'Nulo__Material.018_0', occurrence: 2, policy: 'map', recordId: 'ribosome', materialKey: 'granule' },

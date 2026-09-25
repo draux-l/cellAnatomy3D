@@ -164,25 +164,36 @@ describe('the model mount', () => {
     const byRecord = new Map(built.records.map((record) => [record.recordId, record.host]));
     const parentOf = (name: string) => meshes.find((mesh) => mesh.name === name)!.parent;
 
+    // The verified map assigns all 21 meshes to 14 records, so the mount publishes 14 hosts.
+    expect(built.records).toHaveLength(14);
+
     // The mechanism the disassembly loop drives: a mapped mesh must live under its record's host,
     // or there is nothing for the loop to move.
     expect(parentOf('Nulo__Material_0')).toBe(byRecord.get('membrane'));
     expect(parentOf('Nulo__Material.006_0')).toBe(byRecord.get('golgi'));
     expect(parentOf('Nulo__Material.007_0')).toBe(byRecord.get('mitochondrion'));
     expect(parentOf('Nulo__Material.008_0')).toBe(byRecord.get('mitochondrion'));
-    expect(parentOf('Nulo__Material.010_0')).toBe(byRecord.get('nucleus'));
+    expect(parentOf('Nulo__Material.013_0')).toBe(byRecord.get('cytoskeleton'));
+    expect(parentOf('Nulo__Material.003_0')).toBe(byRecord.get('centriole'));
+    expect(parentOf('Nulo__Material.026_0')).toBe(byRecord.get('smooth-endoplasmic-reticulum'));
+    expect(parentOf('Nulo__Material.005_0')).toBe(byRecord.get('endoplasmic-reticulum'));
 
-    // The mitochondrion is one record in two meshes: both move as one unit.
+    // The nucleus is one record in two meshes ([2] + [3]): both move as one unit.
+    expect(parentOf('Nulo__Material.010_0')).toBe(byRecord.get('nucleus'));
+    expect(parentOf('Nulo__Material.009_0')).toBe(byRecord.get('nucleus'));
+    expect(parentOf('Nulo__Material.010_0')).toBe(parentOf('Nulo__Material.009_0'));
+
+    // The mitochondrion is the other pair.
     expect(parentOf('Nulo__Material.007_0')).toBe(parentOf('Nulo__Material.008_0'));
 
-    // The four chromatin bodies share one host.
-    const chromatin = byRecord.get('chromatin');
-    expect(meshes.filter((mesh) => mesh.parent === chromatin)).toHaveLength(4);
+    // The four repeat-named bodies share one host; so do the three ribosome clouds.
+    const nucleolus = byRecord.get('nucleolus');
+    expect(meshes.filter((mesh) => mesh.parent === nucleolus)).toHaveLength(4);
+    const ribosome = byRecord.get('ribosome');
+    expect(meshes.filter((mesh) => mesh.parent === ribosome)).toHaveLength(3);
 
-    // An unmapped mesh is part of the model but not a record: it must not be reparented.
-    expect(parentOf('Nulo__Material.013_0')).not.toBe(undefined);
-    expect(parentOf('Nulo__Material.013_0')).not.toBe(byRecord.get('golgi'));
-    expect(meshes.find((mesh) => mesh.name === 'Nulo__Material.013_0')!.parent?.name).toBe('Nulo_');
+    // Every mesh is mapped now: none is left behind under the model's own node.
+    expect(meshes.some((mesh) => mesh.parent?.name === 'Nulo_')).toBe(false);
   });
 
   it('puts each host on the centre of the part it pivots', () => {

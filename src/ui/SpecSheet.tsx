@@ -31,7 +31,13 @@ export interface SpecSheetFieldsProps {
 }
 
 /**
- * The four educational fields, in the order a reader needs them.
+ * The educational fields a record actually carries, in the order a reader needs them.
+ *
+ * **Absent fields render no row.** The record set loaded name-first: `func`, `size` and `funFact`
+ * are authored later, and a field that is not there must leave no trace — an empty row, a dash or a
+ * placeholder would read as real content. So each row is emitted only when its data exists, and a
+ * name-only record renders exactly one row. The sheet's own shape follows the record's, which is
+ * the single-source-of-truth rule applied to optional data.
  *
  * The `data-spec-field` attributes are the sheet's own state written to the DOM, so the
  * end-to-end suite can compare what the user reads against the catalog record it came from.
@@ -47,24 +53,30 @@ export function SpecSheetFields({ record, locale }: SpecSheetFieldsProps) {
           {record.name[locale]}
         </dd>
       </div>
-      <div className="spec-sheet__row">
-        <dt className="spec-sheet__label">{t('spec.field.function')}</dt>
-        <dd className="spec-sheet__value" data-spec-field="func">
-          {record.func[locale]}
-        </dd>
-      </div>
-      <div className="spec-sheet__row">
-        <dt className="spec-sheet__label">{t('spec.field.size')}</dt>
-        <dd className="spec-sheet__value" data-spec-field="size">
-          {formatOrganelleSize(record.size, locale)}
-        </dd>
-      </div>
-      <div className="spec-sheet__row">
-        <dt className="spec-sheet__label">{t('spec.field.funFact')}</dt>
-        <dd className="spec-sheet__value" data-spec-field="funFact">
-          {record.funFact[locale]}
-        </dd>
-      </div>
+      {record.func ? (
+        <div className="spec-sheet__row">
+          <dt className="spec-sheet__label">{t('spec.field.function')}</dt>
+          <dd className="spec-sheet__value" data-spec-field="func">
+            {record.func[locale]}
+          </dd>
+        </div>
+      ) : null}
+      {record.size ? (
+        <div className="spec-sheet__row">
+          <dt className="spec-sheet__label">{t('spec.field.size')}</dt>
+          <dd className="spec-sheet__value" data-spec-field="size">
+            {formatOrganelleSize(record.size, locale)}
+          </dd>
+        </div>
+      ) : null}
+      {record.funFact ? (
+        <div className="spec-sheet__row">
+          <dt className="spec-sheet__label">{t('spec.field.funFact')}</dt>
+          <dd className="spec-sheet__value" data-spec-field="funFact">
+            {record.funFact[locale]}
+          </dd>
+        </div>
+      ) : null}
     </dl>
   );
 }

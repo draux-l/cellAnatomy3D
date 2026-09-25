@@ -35,3 +35,22 @@
  * "keep the code".
  */
 export const STRUCTURE_TOOLS_ENABLED: boolean = false;
+
+/**
+ * The hover name popup: a **separate** flag, on by default.
+ *
+ * Hovering a part shows a small popup with the part's name in the active locale. This is the one
+ * part-identification surface the product wants while the descriptions are being authored, and it is
+ * deliberately **not** the annotation layer: it draws no leader lines and no columns, and it is
+ * gated here rather than by `STRUCTURE_TOOLS_ENABLED`, so turning the structure-study layer back on
+ * does not change it and turning it off does not remove it.
+ *
+ * The two flags answer different questions:
+ *
+ * - `STRUCTURE_TOOLS_ENABLED` — "is the study layer (exploded view + leader-line annotations) shown?"
+ * - `HOVER_LABEL_ENABLED` — "does hovering a part name it?"
+ *
+ * Typed `boolean` for the same reason as the flag above: both branches stay reachable for the
+ * compiler and the bundler.
+ */
+export const HOVER_LABEL_ENABLED: boolean = true;

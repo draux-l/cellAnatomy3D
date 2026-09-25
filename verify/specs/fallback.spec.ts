@@ -24,8 +24,9 @@ import { assertCoverage, measurePng } from '../metrics';
  *    non-blank coverage metric — the same definition of "not blank" every other render is held to.
  * 2. **The images are real.** Both cell images decode (`naturalWidth > 0`); a broken `src` renders
  *    an empty box that a presence-only assertion would happily accept.
- * 3. **The sheets are the catalog's.** Every organelle of both rosters is present with its four
- *    fields equal to the record, in the active language.
+ * 3. **The sheets are the catalog's.** Every organelle of both rosters is present, with every field
+ *    it carries equal to the record, in the active language. Descriptions are authored in a later
+ *    pass, so an absent field renders no row rather than a blank.
  *
  * Run with `UPDATE_BASELINES=1 npm run test:e2e` to commit the inspected screenshots.
  */
@@ -180,9 +181,12 @@ test.describe('the WebGL-unavailable fallback', () => {
 
       expect(card, `no sheet for ${record.id}`).toBeDefined();
       expect(card!.name).toBe(record.name.es);
-      expect(card!.func).toBe(record.func.es);
-      expect(card!.size).toBe(formatOrganelleSize(record.size, 'es'));
-      expect(card!.funFact).toBe(record.funFact.es);
+      // The descriptions are authored in a later pass: a present field renders its value, an absent
+      // field renders no row at all (the selector reads `''`). Both are asserted, so the sheet can
+      // neither invent content nor lose a field that has been supplied.
+      expect(card!.func).toBe(record.func ? record.func.es : '');
+      expect(card!.size).toBe(record.size ? formatOrganelleSize(record.size, 'es') : '');
+      expect(card!.funFact).toBe(record.funFact ? record.funFact.es : '');
     }
 
     console.log(

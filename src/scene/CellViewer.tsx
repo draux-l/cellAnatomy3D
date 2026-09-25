@@ -11,6 +11,7 @@ import {
   type AnnotationLayerTarget,
 } from '../ui/annotations/AnnotationLayer';
 import { FpsReadout } from '../ui/hud/FpsReadout';
+import { HoverLabel } from '../ui/HoverLabel';
 import { DisassemblyHud } from '../ui/hud/DisassemblyHud';
 import { CellStage } from './CellStage';
 import type { DisassemblyHudTarget } from './disassembly';
@@ -141,6 +142,13 @@ export function CellViewer({ fixture }: { fixture: FixtureConfig }) {
       {/* The overlay itself. Outside the canvas, so it costs zero draw calls and its typography is
           the browser's rather than a texture atlas. */}
       {annotationsMounted ? <AnnotationOverlay cell={cell} target={annotationTarget} /> : null}
+
+      {/*
+        The hover name popup. Separate from the annotation layer and gated by its own flag
+        (`HOVER_LABEL_ENABLED`), so the leader lines stay hidden while hovering still names a part.
+        It follows the pointer with direct DOM writes, so it never re-renders React per frame.
+      */}
+      <HoverLabel />
 
       {fixture.showFps ? <FpsReadout /> : null}
 

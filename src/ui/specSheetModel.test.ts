@@ -18,8 +18,14 @@ describe('formatOrganelleSize', () => {
     expect(formatOrganelleSize({ value: 50, unit: 'nm' }, 'es')).toBe('50 nm');
   });
 
-  it('formats every catalog record in both locales with its own unit', () => {
+  it('formats every catalog record that declares a size, in both locales with its own unit', () => {
+    // Sizes are authored in a later pass, so a name-only record legitimately has none; the loop
+    // still proves that every *present* catalog size formats with its own unit in both locales.
     for (const record of ORGANELLE_RECORDS) {
+      if (!record.size) {
+        continue;
+      }
+
       for (const locale of ['es', 'en'] as const) {
         const formatted = formatOrganelleSize(record.size, locale);
 
@@ -39,6 +45,10 @@ describe('formatOrganelleSize', () => {
 
   it('uses only declared size units', () => {
     for (const record of ORGANELLE_RECORDS) {
+      if (!record.size) {
+        continue;
+      }
+
       expect(SIZE_UNITS).toContain(record.size.unit);
     }
   });

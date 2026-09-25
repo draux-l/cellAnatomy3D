@@ -122,6 +122,7 @@ export type MaterialKeyName =
   | 'granule'
   | 'lysosome'
   | 'er'
+  | 'smoothEr'
   | 'golgi'
   | 'vesicle'
   | 'chloroplast'
@@ -129,6 +130,7 @@ export type MaterialKeyName =
   | 'cellWall'
   | 'vacuole'
   | 'cytoskeleton'
+  | 'centriole'
   | 'peroxisome'
   | 'plasmodesma';
 
@@ -145,6 +147,7 @@ export const MATERIAL_KEY_NAMES = [
   'granule',
   'lysosome',
   'er',
+  'smoothEr',
   'golgi',
   'vesicle',
   'chloroplast',
@@ -152,6 +155,7 @@ export const MATERIAL_KEY_NAMES = [
   'cellWall',
   'vacuole',
   'cytoskeleton',
+  'centriole',
   'peroxisome',
   'plasmodesma',
 ] as const satisfies readonly MaterialKeyName[];
@@ -359,12 +363,20 @@ export type PerCellOverrides = Partial<Record<CellId, PerCellOverride>>;
 export interface OrganelleRecord {
   /** Stable English identifier. Never localized (spec: Technical Identifiers Stay English). */
   id: string;
-  /** Annotation label, spec sheet, and quiz answer. */
+  /** Annotation label, spec sheet, and quiz answer. Required — every record is named. */
   name: Localized;
-  /** Spec sheet: what the organelle does. */
-  func: Localized;
-  size: SizeWithUnit;
-  funFact: Localized;
+  /**
+   * Spec sheet: what the organelle does.
+   *
+   * **Optional while the educational copy is authored in a separate pass.** The 2026-09 rebuild
+   * loaded the model's parts as name-only records first; the maintainer supplies the descriptions,
+   * sizes and fun facts afterwards. When a field is absent the sheet omits its row entirely rather
+   * than rendering a blank or a placeholder that would read as real content. The integrity gate
+   * validates each of these fields only when it is present.
+   */
+  func?: Localized;
+  size?: SizeWithUnit;
+  funFact?: Localized;
   paletteRole: PaletteRole;
   /**
    * Scene-unit placement of the organelle root relative to the cell origin.

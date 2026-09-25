@@ -104,8 +104,27 @@ export const BANNED_ROSTER_TERMS = [
   'erythrocyte',
 ] as const;
 
-/** Fields that carry user-facing copy and therefore must exist in both languages. */
-export const LOCALIZED_FIELDS = ['name', 'func', 'funFact'] as const;
+/**
+ * The localized fields **required** on every record. Only the name is required: the record set was
+ * loaded name-first, and the descriptions are authored in a later pass. A present field is still
+ * validated in both languages; an absent one is a legitimate gap rather than a defect.
+ */
+export const REQUIRED_LOCALIZED_FIELDS = ['name'] as const;
+
+/**
+ * Localized fields that are optional but must carry both languages **when present**.
+ *
+ * The distinction matters: a half-authored `func` (Spanish only) is a defect, while no `func` at all
+ * is the documented name-only state. The spec sheet omits the row for an absent field instead of
+ * rendering a blank that would read as content.
+ */
+export const OPTIONAL_LOCALIZED_FIELDS = ['func', 'funFact'] as const;
+
+/** Every field that carries user-facing bilingual copy, required or not. */
+export const LOCALIZED_FIELDS = [
+  ...REQUIRED_LOCALIZED_FIELDS,
+  ...OPTIONAL_LOCALIZED_FIELDS,
+] as const;
 
 const COLOUR_KEY_PATTERN = /colou?r/i;
 const COLOUR_VALUE_PATTERNS = [
@@ -376,12 +395,16 @@ export function validateRecord(
     add('id', 'is required and must be an English kebab-case identifier');
   }
 
-  for (const field of LOCALIZED_FIELDS) {
-    const localized = record[field];
-
+  /**
+   * Validates one localized block in both languages.
+   *
+   * `required` decides the message only; an absent block is skipped before this is called. A present
+   * block with a blank locale always fails, so a half-translated value cannot ship.
+   */
+  const validateLocalized = (field: string, localized: unknown, required: boolean): void => {
     if (!isPlainObject(localized)) {
-      add(field, 'is required and must carry both languages');
-      continue;
+      add(field, required ? 'is required and must carry both languages' : 'must carry both languages when present');
+      return;
     }
 
     for (const locale of ['es', 'en'] as const) {
@@ -389,19 +412,37 @@ export function validateRecord(
         add(`${field}.${locale}`, `is empty — every educational string needs a ${locale} value`);
       }
     }
+  };
+
+  for (const field of REQUIRED_LOCALIZED_FIELDS) {
+    validateLocalized(field, record[field], true);
+  }
+
+  for (const field of OPTIONAL_LOCALIZED_FIELDS) {
+    const localized = record[field];
+
+    if (localized === undefined || localized === null) {
+      // Name-only record: the description is authored later, so its absence is not a defect.
+      continue;
+    }
+
+    validateLocalized(field, localized, false);
   }
 
   const size = record.size;
 
-  if (!isPlainObject(size)) {
-    add('size', 'is required and needs a value and a unit');
-  } else {
-    if (!isFiniteNumber(size.value) || size.value <= 0) {
-      add('size.value', 'is required and must be a positive number');
-    }
+  if (size !== undefined && size !== null) {
+    // Absent, like `func`, is the documented name-only state; present-but-malformed is a defect.
+    if (!isPlainObject(size)) {
+      add('size', 'must be an object with a value and a unit when present');
+    } else {
+      if (!isFiniteNumber(size.value) || size.value <= 0) {
+        add('size.value', 'must be a positive number when a size is declared');
+      }
 
-    if (!isNonEmptyString(size.unit) || !(SIZE_UNITS as readonly string[]).includes(size.unit)) {
-      add('size.unit', `is ${String(size.unit)}, which is not one of ${SIZE_UNITS.join(', ')}`);
+      if (!isNonEmptyString(size.unit) || !(SIZE_UNITS as readonly string[]).includes(size.unit)) {
+        add('size.unit', `is ${String(size.unit)}, which is not one of ${SIZE_UNITS.join(', ')}`);
+      }
     }
   }
 

@@ -176,19 +176,27 @@ describe('catalog integrity — builder resolution (D3, task 3.2)', () => {
 });
 
 describe('catalog integrity — required fields', () => {
-  it('fails naming the record and the missing field', () => {
-    const issues = validateRecord(record({ size: undefined }));
+  it('accepts a name-only record: the descriptions are authored in a later pass', () => {
+    // The 2026-09 rebuild loaded the parts name-first. An absent `func`, `size` or `funFact` is the
+    // documented state, not a defect — only a *malformed present* field fails.
+    const issues = validateRecord(record({ func: undefined, size: undefined, funFact: undefined }));
+
+    expect(issues).toEqual([]);
+  });
+
+  it('fails naming the record and the field when a present size is malformed', () => {
+    const issues = validateRecord(record({ size: { value: -1, unit: 'µm' } }));
 
     expect(issues).toHaveLength(1);
     expect(issues[0]?.recordId).toBe('mitochondrion');
-    expect(issues[0]?.field).toBe('size');
-    expect(formatIssues(issues)).toContain('[mitochondrion] size:');
+    expect(issues[0]?.field).toBe('size.value');
+    expect(formatIssues(issues)).toContain('[mitochondrion] size.value:');
   });
 
-  it('fails on a missing localized field, naming the whole field', () => {
-    const issues = validateRecord(record({ funFact: undefined }));
+  it('fails on a half-authored optional localized field, naming the empty locale', () => {
+    const issues = validateRecord(record({ funFact: { es: 'Solo español' } as never }));
 
-    expect(issues.map((issue) => issue.field)).toEqual(['funFact']);
+    expect(issues.map((issue) => issue.field)).toEqual(['funFact.en']);
   });
 
   it('fails on a missing geometry seed', () => {
@@ -590,7 +598,7 @@ describe('catalog integrity — the mesh branch (tasks 11.4, 12.3)', () => {
 describe('catalog integrity — the build gate', () => {  it('throws with every offender named', () => {
     const broken = [
       record({ id: 'alpha', disassembly: undefined }),
-      record({ id: 'beta', paletteRole: 'teal', size: undefined }),
+      record({ id: 'beta', paletteRole: 'teal', size: { value: 0, unit: 'cm' } }),
     ];
 
     expect(() => assertCatalogIntegrity(broken)).toThrow(/Catalog integrity failed/);
@@ -631,27 +639,16 @@ describe('catalog integrity — the committed catalog', () => {
   });
 
   it('records the roster gaps the committed catalog knowingly has', () => {
-    // Two facts, both real and both asserted rather than hidden:
-    // 1. the animal cell's source model has no lysosome, so the canonical roster is one short;
-    // 2. the plant cell has no records and no model, so its whole roster is absent.
+    // One fact, real and asserted rather than hidden: the plant cell has no records and no model,
+    // so its whole roster is absent. The animal roster is now complete — the model's mesh [9] is a
+    // lysosome, so the canonical animal gap the previous catalog recorded is closed.
     const issues = validateCatalog(ORGANELLE_RECORDS, { manifest: MODEL_MANIFEST });
     const expected = [
-      ...CANONICAL_ANIMAL_IDS.flatMap((id) => [
-        ...(id === 'lysosome'
-          ? [
-              {
-                recordId: '<catalog>',
-                field: 'roster.animal',
-                message: `is missing the canonical organelle "${id}"`,
-              },
-            ]
-          : []),
-        {
-          recordId: '<catalog>',
-          field: 'roster.plant',
-          message: `is missing the shared organelle "${id}"`,
-        },
-      ]),
+      ...CANONICAL_ANIMAL_IDS.map((id) => ({
+        recordId: '<catalog>',
+        field: 'roster.plant',
+        message: `is missing the shared organelle "${id}"`,
+      })),
       ...PLANT_ONLY_IDS.map((id) => ({
         recordId: '<catalog>',
         field: 'roster.plant',
@@ -660,6 +657,7 @@ describe('catalog integrity — the committed catalog', () => {
     ];
 
     expect(issues).toEqual(expected);
+    expect(issues.some((issue) => issue.field === 'roster.animal')).toBe(false);
   });
 
   it('gives every record a distinct material key inside its cell', () => {

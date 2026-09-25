@@ -108,6 +108,36 @@ body {
   height: 100%;
 }
 
+/* ---------------------------------------------------------------------------------------------
+   The hover name popup: a separate presentation from the hidden leader-line study layer.
+
+   One line naming the hovered part, following the pointer. Fixed and pointer-transparent so it
+   never reflows the canvas and never steals the click that opens the spec sheet; the initial
+   transform parks it off-screen so it cannot flash at the origin before the first placement.
+   --------------------------------------------------------------------------------------------- */
+.hover-label {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 5;
+  max-width: min(300px, calc(100vw - 24px));
+  padding: 6px 10px;
+  border: 1px solid #2a3644;
+  border-radius: 6px;
+  background: rgb(10 14 19 / 92%);
+  color: var(--cell-fg);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 45%);
+  pointer-events: none;
+  transform: translate3d(-9999px, -9999px, 0);
+}
+
 .app__note {
   margin: 0;
   padding: 24px 32px;

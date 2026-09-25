@@ -105,11 +105,20 @@ describe('bilingual parity', () => {
 
   it('accepts the catalog records under the same rule', () => {
     // The catalog has its own gate (`catalog/integrity.ts`) and applies the same definition of
-    // "translated", so the two halves of the content model cannot disagree.
+    // "translated", so the two halves of the content model cannot disagree. Optional fields are
+    // checked only when present, matching the name-first record set.
     for (const record of ORGANELLE_RECORDS) {
-      expect(
-        findBilingualGaps({ [`${record.id}.name`]: record.name, [`${record.id}.func`]: record.func }),
-      ).toEqual([]);
+      const fields: Record<string, unknown> = { [`${record.id}.name`]: record.name };
+
+      if (record.func) {
+        fields[`${record.id}.func`] = record.func;
+      }
+
+      if (record.funFact) {
+        fields[`${record.id}.funFact`] = record.funFact;
+      }
+
+      expect(findBilingualGaps(fields)).toEqual([]);
     }
   });
 });
