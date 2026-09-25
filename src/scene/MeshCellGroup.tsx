@@ -65,6 +65,9 @@ interface BuiltRecord {
 
 interface BuiltModel {
   frameGroup: Group;
+  /** The frame's uniform scale and the translation that recentres the cell. Applied by the JSX. */
+  frameScale: number;
+  framePosition: [number, number, number];
   records: BuiltRecord[];
   materialsByRecord: Map<string, Material[]>;
   /** Where each mesh came from, so unmounting restores the cached model graph. */
@@ -120,17 +123,23 @@ function buildModel(cell: CellId, root: Object3D): BuiltModel {
   const frameGroup = new Group();
 
   frameGroup.name = `cell-frame:${cell}`;
+  frameGroup.add(root);
 
-  // The frame goes **on the model root itself**: a uniform scale about the cell's centre, expressed
-  // as `scale` + the translation that recentres it. Nothing else in the graph carries the scale, so
-  // `attach` reads it directly from the root's own world matrix.
-  root.scale.setScalar(frame.scale);
-  root.position.set(
+  /*
+   * The frame is written here **and** passed as JSX props below, and both are necessary.
+   *
+   * Here, because `buildModel` measures every host's bounds through the frame's matrices and those
+   * numbers are the ones that render. And as props, because R3F reconciles a `<primitive>`'s
+   * transform from its props and would otherwise reset this group to scale 1 — which is exactly what
+   * happened: the hosts stayed at the model's raw 50-unit scale, so at 0% they happened to sit at the
+   * origin and looked right, and any disassembly offset threw them thousands of pixels off screen.
+   */
+  frameGroup.scale.setScalar(frame.scale);
+  frameGroup.position.set(
     -frame.center[0] * frame.scale,
     -frame.center[1] * frame.scale,
     -frame.center[2] * frame.scale,
   );
-  frameGroup.add(root);
   frameGroup.updateWorldMatrix(false, true);
 
   const hosts = new Map<string, Group>();
@@ -243,7 +252,18 @@ function buildModel(cell: CellId, root: Object3D): BuiltModel {
     });
   }
 
-  return { frameGroup, records, materialsByRecord, origins };
+  return {
+    frameGroup,
+    frameScale: frame.scale,
+    framePosition: [
+      -frame.center[0] * frame.scale,
+      -frame.center[1] * frame.scale,
+      -frame.center[2] * frame.scale,
+    ],
+    records,
+    materialsByRecord,
+    origins,
+  };
 }
 
 /** The hover/isolate emphasis, written to each record's own materials on a store change. */
@@ -336,16 +356,17 @@ export function MeshCellGroup({ cell, model }: MeshCellGroupProps) {
   return (
     <>
       <MeshPickVolumes records={built.records} />
-      <primitive object={built.frameGroup} />
       {/*
-        One `<primitive>` per host. They were detached from the frame group in `buildModel`, so they
-        are mounted here as siblings of it: `frameGroup` carries the model's own scale and offset,
-        each host carries its measured scene-unit position, and the disassembly loop writes over that
-        position every frame.
+        **One** `<primitive>`, and that is deliberate: the hosts are children of `frameGroup` and stay
+        there. Rendering each host as its own `<primitive>` would reparent it to the R3F scene root —
+        stripping the frame's scale and its centring translation — which is what put every organelle
+        at ~50 scene units once the disassembly loop moved it off the origin.
       */}
-      {built.records.map((record) => (
-        <primitive key={record.recordId} object={record.host} />
-      ))}
+      <primitive
+        object={built.frameGroup}
+        scale={built.frameScale}
+        position={built.framePosition}
+      />
       <MeshEmphasis materialsByRecord={built.materialsByRecord} />
     </>
   );

@@ -162,6 +162,7 @@ export function DisassemblyDriver({ cell, frozenValue, hudTarget }: DisassemblyD
       const [x, y, z] = disassembledPosition(record, cell, progress);
 
       object.position.set(x, y, z);
+
     }
 
     const hud = hudTarget.current;
