@@ -52,8 +52,8 @@ export const UI_MESSAGES = {
     en: 'Exploded view',
   },
   'view.disassembly.hint': {
-    es: 'Ayuda de estudio: muestra cómo encajan las partes. No es algo que la célula haga.',
-    en: 'Study aid: shows how the parts fit together. This is not something a cell does.',
+    es: 'Ayuda de estudio: aparta las piezas para verlas por separado. No es algo que la célula haga.',
+    en: 'Study aid: pulls the parts apart so they can be seen separately. This is not something a cell does.',
   },
   'view.disassembly.control': {
     es: 'Separación de los orgánulos',
@@ -72,6 +72,25 @@ export const UI_MESSAGES = {
     en: 'Fully separated',
   },
   /*
+   * The inspection's step control.
+   *
+   * The inspection shows one part at a time; these two move to its neighbour in the exit order, so a
+   * reader can walk the whole cell without going back to the arrangement first. The counter between
+   * them is a plain "3 / 11" and needs no translation.
+   */
+  'inspection.nav': {
+    es: 'Recorrer las piezas',
+    en: 'Step through the parts',
+  },
+  'inspection.previous': {
+    es: 'Pieza anterior',
+    en: 'Previous part',
+  },
+  'inspection.next': {
+    es: 'Pieza siguiente',
+    en: 'Next part',
+  },
+  /*
    * The FPS readout's accessible name.
    *
    * The unit itself is rendered as `fps`, a technical identifier that is the same in both
@@ -80,6 +99,17 @@ export const UI_MESSAGES = {
   'hud.fps.title': {
     es: 'Fotogramas por segundo medidos',
     en: 'Measured frames per second',
+  },
+  /*
+   * The readout's second figure: the frame rate of the worst 5 % of the measured window.
+   *
+   * The headline is a median over about ten seconds, which is deliberately insensitive to a short
+   * hitch — so a drop the user can *feel* leaves it unmoved. This label is what makes the number
+   * beside it legible as "the worst it got", rather than as a second opinion on the same thing.
+   */
+  'hud.fps.worst': {
+    es: 'Peor 5 %:',
+    en: 'Worst 5%:',
   },
   /*
    * The view navigation and the landing state.

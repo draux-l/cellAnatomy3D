@@ -35,16 +35,14 @@ export const PICK_LAYER = 1;
  * True for a record that *is* the cell's outer boundary.
  *
  * This is not a new concept: the catalog already writes the outer envelope as the record that
- * never separates (`distance: 0`) and sits at the cell origin. The membrane and the cytoplasm are
- * exactly those records, and their surfaces enclose every other organelle — so testing them first
- * would make every inner organelle unreachable.
+ * **never separates** (`separates: false`) and sits at the cell origin. The membrane and the
+ * cytoplasm are exactly those records, and their surfaces enclose every other organelle — so testing
+ * them first would make every inner organelle unreachable.
  */
-export function isOuterEnvelope(record: Pick<OrganelleRecord, 'disassembly' | 'position'>): boolean {
+export function isOuterEnvelope(record: Pick<OrganelleRecord, 'separates' | 'position'>): boolean {
   const [x, y, z] = record.position;
 
-  return (
-    record.disassembly.distance === 0 && Math.hypot(x, y, z) <= 1e-6
-  );
+  return !record.separates && Math.hypot(x, y, z) <= 1e-6;
 }
 
 export interface PickHit {
@@ -115,9 +113,36 @@ export function clearPickTargets(): void {
   READY = false;
 }
 
-/** The real meshes the pick ray tests, one entry per mesh (a record may own several). */
+/**
+ * True when this object and every ancestor is visible.
+ *
+ * `Raycaster` does **not** consult `visible` — it tests layers and calls `raycast` — so an object
+ * hidden by an ancestor is still hit. Every "is this on screen?" decision in the pick path has to
+ * ask this instead.
+ */
+function isRendered(object: Object3D): boolean {
+  let node: Object3D | null = object;
+
+  while (node !== null) {
+    if (!node.visible) {
+      return false;
+    }
+
+    node = node.parent;
+  }
+
+  return true;
+}
+
+/**
+ * The real meshes the pick ray tests, one entry per mesh (a record may own several).
+ *
+ * **Geometry that is not being drawn is skipped.** Without this, a click in the inspection view would
+ * still resolve to a part that is hidden: only the part's *host* is hidden, and the ray is aimed at
+ * the meshes.
+ */
 export function pickTargetObjects(): Object3D[] {
-  return [...TARGETS.keys()];
+  return [...TARGETS.keys()].filter(isRendered);
 }
 
 export function pickTargetIds(): string[] {

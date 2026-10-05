@@ -12,16 +12,19 @@ export const FPS_READOUT_INTERVAL_MS = 500;
 export const FPS_READOUT_MAX_HZ = 1000 / FPS_READOUT_INTERVAL_MS;
 
 /**
- * The readout text for a measured p50.
+ * The readout text for one measured frame rate.
+ *
+ * Takes any of the sampler's figures, not just the median: the readout shows the median and the
+ * worst 5 %, and both are formatted by this one function so they cannot drift apart.
  *
  * Rounds for display only, and never clips to a range: `formatFps(3.4)` is `3.4`, and a value above
  * the target is displayed as measured too. One decimal rather than none because an integer would
  * turn a genuine 3.4 fps reading into a 15% error against the value it claims to report.
  */
-export function formatFps(p50Fps: number): string {
-  if (!Number.isFinite(p50Fps) || p50Fps < 0) {
+export function formatFps(fps: number): string {
+  if (!Number.isFinite(fps) || fps < 0) {
     return '0.0';
   }
 
-  return p50Fps.toFixed(1);
+  return fps.toFixed(1);
 }

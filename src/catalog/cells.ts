@@ -1,4 +1,4 @@
-import { CELL_IDS, type CellId, type DisassemblyVector, type OrganelleRecord } from './types';
+import { CELL_IDS, type CellId, type OrganelleRecord } from './types';
 
 /**
  * The organelle roster.
@@ -27,19 +27,45 @@ import { CELL_IDS, type CellId, type DisassemblyVector, type OrganelleRecord } f
  * - `geometry.extent` is what the isolate camera backs off by, now that no builder `size` parameter
  *   exists.
  *
- * ## The disassembly vectors are deliberate placeholders
+ * ## The disassembly policy is a flag; where a part goes is a rule
  *
- * The exploded view is hidden (`app/structureTools.ts`) and the maintainer will define the travel
- * later, so every record declares the explicit "does not separate" zero vector — no travel distance
- * is tuned here. Two consequences worth naming:
+ * A record declares only `separates`. **Where** it travels is decided by the layout
+ * (`catalog/separation.ts`), because the product has two views of the same control:
  *
- * - It is honest: a record whose vector were invented would be data no one authored.
- * - The two **boundary surfaces** are the records at the cell origin. `isOuterEnvelope`
- *   (`scene/interaction/pickingModel.ts`) keys on `distance === 0` **and** `position ≈ 0`, and every
- *   inner organelle sits off-origin, so the membrane and the cytoplasm remain non-occluding pick
- *   envelopes while the rest stay reachable. The cytoplasm is declared at the origin for exactly that
- *   reason: its mesh centre is measured at `[0.0066, 0.2901, 0.0194]`, but an off-origin cytoplasm
- *   would make its whole-cell hit box a normal pick target and swallow every organelle click.
+ * - **`ordered`** — one ring of evenly spaced slots in the plane of the default view, with a slot
+ *   radius that grows with the part's own `extent`. Predictable and legible: it answers *what parts
+ *   are there*, and it is the menu the inspection is chosen from.
+ * - **`real`** — every part travels along the ray it genuinely occupies, to a radius that clears the
+ *   membrane by its own size. Less tidy and a wider frame, but it answers *where each part is*, which
+ *   is the only thing that teaches the cell's spatial arrangement.
+ *
+ * Neither is authored per record, and that is deliberate: a second set of numbers per view would be
+ * data no one could keep in sync, and it could not express a view that does not exist yet. Both
+ * layouts derive from `position` and `geometry.extent` — data this file already measures — and both
+ * answer to one invariant: **every slot clears the membrane by the part's own radius**.
+ *
+ * Three records declare `separates: false`, and each for its own reason:
+ *
+ * - `membrane` and `cytoplasm` are the cell's **envelope**. They are declared at the origin so
+ *   `isOuterEnvelope` (`scene/interaction/pickingModel.ts`) keys on `separates === false` **and**
+ *   `position ≈ 0` and reads them as surfaces the user looks *through*, not answers. The cytoplasm's
+ *   mesh centre is measured at `[0.0066, 0.2901, 0.0194]`; an off-origin cytoplasm would make its
+ *   whole-cell hit box a normal pick target and swallow every organelle click.
+ * - `cytoskeleton` is the **scaffold**, kept in place so the arrangement opens around a stable frame
+ *   of reference. Its `position` is off-origin, so keeping it still does not change its pick
+ *   classification.
+ *
+ * Two properties of this model are decided by the `.glb`, not by the code, and the layouts have to
+ * live with both:
+ *
+ * - Five records are **distributed networks**, not compact bodies (`cytoskeleton` 1.781,
+ *   `mitochondrion` 1.513, `ribosome` 1.241, `endoplasmic-reticulum` 1.228, `lysosome` 1.131 — each a
+ *   half-diagonal against a cell radius of 2.002). They span the cell and cannot be extracted whole;
+ *   their bounding spheres overlap the rest by construction.
+ * - Two groups are **co-located**: `ribosome` sits inside `endoplasmic-reticulum` (centres 0.009
+ *   apart), and the nucleus, its envelope, the nucleolus and the centrioles share one ray within 4°.
+ *   The `real` layout therefore **stacks** them along the shared ray, which is the honest picture:
+ *   they really are on top of one another in the cell.
  *
  * ## Node addressing
  *
@@ -67,9 +93,6 @@ function deepFreeze<T>(value: T): T {
 
 export { deepFreeze };
 
-/** The explicit "this part does not separate (yet)" vector: disassembly is hidden and unauthored. */
-const NO_DISASSEMBLY: DisassemblyVector = { direction: [0, 0, 0], distance: 0 };
-
 /**
  * The catalog, inner → outer. Every record is a name-only mesh record for the animal cell.
  *
@@ -91,7 +114,7 @@ export const ORGANELLE_RECORDS: readonly OrganelleRecord[] = deepFreeze<Organell
       ],
       extent: 0.604948,
     },
-    disassembly: { ...NO_DISASSEMBLY },
+    separates: true,
     cells: ['animal'],
     pickable: true,
   },
@@ -111,7 +134,7 @@ export const ORGANELLE_RECORDS: readonly OrganelleRecord[] = deepFreeze<Organell
       ],
       extent: 0.233636,
     },
-    disassembly: { ...NO_DISASSEMBLY },
+    separates: true,
     cells: ['animal'],
     pickable: true,
   },
@@ -122,10 +145,15 @@ export const ORGANELLE_RECORDS: readonly OrganelleRecord[] = deepFreeze<Organell
     position: [-0.064116, 0.520904, -0.356455],
     geometry: {
       kind: 'mesh',
-      meshes: [{ cell: 'animal', node: 'Nulo__Material.001_0', materialKey: 'nuclearEnvelope' }],
+      meshes: [
+        { cell: 'animal', node: 'Nulo__Material.001_0', materialKey: 'nuclearEnvelope' },
+        // The pores are a second surface of the same part: a ring of them sits on the envelope, and
+        // isolating the record without this row shows an empty shell (`catalog/models.ts`, row [1]).
+        { cell: 'animal', node: 'Nulo__Material.003_0', materialKey: 'nuclearPore' },
+      ],
       extent: 0.761429,
     },
-    disassembly: { ...NO_DISASSEMBLY },
+    separates: true,
     cells: ['animal'],
     pickable: true,
   },
@@ -133,13 +161,19 @@ export const ORGANELLE_RECORDS: readonly OrganelleRecord[] = deepFreeze<Organell
     id: 'centriole',
     name: { es: 'Centríolos (centrosoma)', en: 'Centrioles (centrosome)' },
     paletteRole: 'organelles',
-    position: [-0.055464, 0.813822, -0.362531],
+    /*
+     * Re-measured after the split: this record is now the **two rods** of `Material.025`, not the
+     * nuclear pores it used to carry. The pores' numbers described a different part entirely.
+     */
+    position: [-0.374983, -0.109058, 0.816204],
     geometry: {
       kind: 'mesh',
-      meshes: [{ cell: 'animal', node: 'Nulo__Material.003_0', materialKey: 'centriole' }],
-      extent: 0.480949,
+      // One node, shared with `lysosome`: this record owns the first two body groups of
+      // `Material.025` and the lysosomes own the rest (`catalog/models.ts`, row [9]).
+      meshes: [{ cell: 'animal', node: 'Nulo__Material.025_0', materialKey: 'centriole' }],
+      extent: 0.228698,
     },
-    disassembly: { ...NO_DISASSEMBLY },
+    separates: true,
     cells: ['animal'],
     pickable: true,
   },
@@ -157,7 +191,7 @@ export const ORGANELLE_RECORDS: readonly OrganelleRecord[] = deepFreeze<Organell
       ],
       extent: 1.513169,
     },
-    disassembly: { ...NO_DISASSEMBLY },
+    separates: true,
     cells: ['animal'],
     pickable: true,
   },
@@ -171,7 +205,7 @@ export const ORGANELLE_RECORDS: readonly OrganelleRecord[] = deepFreeze<Organell
       meshes: [{ cell: 'animal', node: 'Nulo__Material.005_0', materialKey: 'er' }],
       extent: 1.227892,
     },
-    disassembly: { ...NO_DISASSEMBLY },
+    separates: true,
     cells: ['animal'],
     pickable: true,
   },
@@ -185,7 +219,7 @@ export const ORGANELLE_RECORDS: readonly OrganelleRecord[] = deepFreeze<Organell
       meshes: [{ cell: 'animal', node: 'Nulo__Material.026_0', materialKey: 'smoothEr' }],
       extent: 0.446803,
     },
-    disassembly: { ...NO_DISASSEMBLY },
+    separates: true,
     cells: ['animal'],
     pickable: true,
   },
@@ -199,7 +233,7 @@ export const ORGANELLE_RECORDS: readonly OrganelleRecord[] = deepFreeze<Organell
       meshes: [{ cell: 'animal', node: 'Nulo__Material.006_0', materialKey: 'golgi' }],
       extent: 0.651287,
     },
-    disassembly: { ...NO_DISASSEMBLY },
+    separates: true,
     cells: ['animal'],
     pickable: true,
   },
@@ -218,7 +252,7 @@ export const ORGANELLE_RECORDS: readonly OrganelleRecord[] = deepFreeze<Organell
       ],
       extent: 1.240848,
     },
-    disassembly: { ...NO_DISASSEMBLY },
+    separates: true,
     cells: ['animal'],
     pickable: true,
   },
@@ -226,13 +260,16 @@ export const ORGANELLE_RECORDS: readonly OrganelleRecord[] = deepFreeze<Organell
     id: 'lysosome',
     name: { es: 'Lisosomas', en: 'Lysosomes' },
     paletteRole: 'organelles',
-    position: [0.039886, 0.11381, 0.343495],
+    // Re-measured after the split: only the round vesicles of `Material.025` remain, so the box is
+    // the union of those two and not of the whole 56-body mesh.
+    position: [0.039886, 0.188369, 0.216124],
     geometry: {
       kind: 'mesh',
+      // The rest of `Material.025`: the round vesicles. The rods beside them are the centrioles.
       meshes: [{ cell: 'animal', node: 'Nulo__Material.025_0', materialKey: 'lysosome' }],
-      extent: 1.130731,
+      extent: 1.051921,
     },
-    disassembly: { ...NO_DISASSEMBLY },
+    separates: true,
     cells: ['animal'],
     pickable: true,
   },
@@ -246,7 +283,7 @@ export const ORGANELLE_RECORDS: readonly OrganelleRecord[] = deepFreeze<Organell
       meshes: [{ cell: 'animal', node: 'Nulo__Material.1_0', materialKey: 'vacuole' }],
       extent: 0.308558,
     },
-    disassembly: { ...NO_DISASSEMBLY },
+    separates: true,
     cells: ['animal'],
     pickable: true,
   },
@@ -260,7 +297,7 @@ export const ORGANELLE_RECORDS: readonly OrganelleRecord[] = deepFreeze<Organell
       meshes: [{ cell: 'animal', node: 'Nulo__Material.013_0', materialKey: 'cytoskeleton' }],
       extent: 1.780936,
     },
-    disassembly: { ...NO_DISASSEMBLY },
+    separates: false,
     cells: ['animal'],
     pickable: true,
   },
@@ -279,7 +316,7 @@ export const ORGANELLE_RECORDS: readonly OrganelleRecord[] = deepFreeze<Organell
       ],
       extent: 1.818815,
     },
-    disassembly: { ...NO_DISASSEMBLY },
+    separates: false,
     cells: ['animal'],
     pickable: true,
   },
@@ -295,7 +332,7 @@ export const ORGANELLE_RECORDS: readonly OrganelleRecord[] = deepFreeze<Organell
       meshes: [{ cell: 'animal', node: 'Nulo__Material_0', materialKey: 'membrane' }],
       extent: 2.002279,
     },
-    disassembly: { ...NO_DISASSEMBLY },
+    separates: false,
     cells: ['animal'],
     pickable: true,
   },

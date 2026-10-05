@@ -1,5 +1,5 @@
 import { Vector3, type Object3D } from 'three';
-import { buildBounds, type PositionSource } from '../catalog/vectors';
+import { buildBounds, type PositionSource } from '../catalog/bounds';
 
 /**
  * Where each organelle's label anchor is, in world space.
@@ -10,10 +10,10 @@ import { buildBounds, type PositionSource } from '../catalog/vectors';
  * per frame — a lookup and one matrix multiply.
  *
  * **Registered by identity, not by geometry.** The offset is computed from the organelle's built
- * bounding box rather than hand-authored, for the same reason `catalog/vectors.ts` computes travel
- * from built geometry: the anchor has to sit *on the part*, and the part is what the builder
- * produced. The top-centre of the box is the attachment point a leader line wants — it is the
- * silhouette's highest point, so the line does not have to cross the organelle to reach it.
+ * bounding box rather than hand-authored: the anchor has to sit *on the part*, and the part is what
+ * the mount actually measured. The top-centre of the box is the attachment point a leader line wants
+ * — it is the silhouette's highest point, so the line does not have to cross the organelle to reach
+ * it.
  *
  * The registry is world-space-correct during orbit **and** disassembly because it stores the root
  * `Object3D` and reads its live `matrixWorld`; whatever moves the organelle moves the anchor.

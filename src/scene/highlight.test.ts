@@ -86,6 +86,30 @@ describe('applyEmphasis', () => {
     expect(body.opacity).toBeLessThan(1);
   });
 
+  it('restores the resting transparency, so the shader variant stays one three already compiled', () => {
+    const body = prepareEmphasis(new MeshStandardMaterial({ opacity: 1, transparent: false }));
+
+    applyEmphasis(body, 'dimmed');
+    applyEmphasis(body, 'base');
+
+    // `transparent` is part of three's program key. A material that never went back would sit in the
+    // transparent pass for the rest of the session, and every switch would recompile its shader —
+    // which is a hitch on the user's click, not a tidiness problem.
+    expect(body.transparent).toBe(false);
+    expect(body.opacity).toBe(1);
+  });
+
+  it('keeps a genuinely translucent material translucent', () => {
+    // The cytoplasm ships as BLEND. De-emphasizing it must not decide it is opaque afterwards.
+    const shell = prepareEmphasis(new MeshPhysicalMaterial({ opacity: 0.5, transparent: true }));
+
+    applyEmphasis(shell, 'dimmed');
+    applyEmphasis(shell, 'base');
+
+    expect(shell.transparent).toBe(true);
+    expect(shell.opacity).toBeCloseTo(0.5, 6);
+  });
+
   it('records the resting opacity once, even if prepare runs again later', () => {
     const material = new MeshStandardMaterial({ opacity: 0.4, transparent: true });
 

@@ -70,13 +70,19 @@ describe('the FPS readout reads the one sampler', () => {
   it('is the only reader of p50Fps outside the debug bridge', () => {
     const readers = sourceFiles().filter((file) => code(join(ROOT, file)).includes('p50Fps'));
 
-    // `fpsCadence.ts` names the field in its parameter, which is what makes the display format
-    // testable; it reads nothing.
-    expect(readers.sort()).toEqual([
-      'src/app/debug.ts',
-      'src/ui/hud/FpsReadout.tsx',
-      'src/ui/hud/fpsCadence.ts',
-    ]);
+    // `fpsCadence.ts` used to name the field in its parameter; it now formats whichever figure it is
+    // handed, so what reads the sampler is the sampler and its one reader.
+    expect(readers.sort()).toEqual(['src/app/debug.ts', 'src/ui/hud/FpsReadout.tsx']);
+  });
+
+  it('shows the worst of the window beside the median, so a hitch is visible', () => {
+    const text = code(READOUT);
+
+    // The median is deliberately insensitive to a short hitch, which is exactly why it looked like a
+    // lie: a 200 ms frame among six hundred barely moves it. The p95 comes from the same ring buffer
+    // and is the figure that answers "did it just stutter".
+    expect(text).toContain('cellDebug.frameStats.p95Fps');
+    expect(text.match(/data-role="fps-worst"/g)).toHaveLength(1);
   });
 
   it('reads the value on an interval instead of sampling it again', () => {

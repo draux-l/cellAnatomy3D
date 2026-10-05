@@ -64,18 +64,18 @@ describe('choosePick', () => {
 
 describe('isOuterEnvelope', () => {
   it('is true for a part at the origin that never separates', () => {
-    expect(isOuterEnvelope({ position: [0, 0, 0], disassembly: { direction: [0, 0, 0], distance: 0 } })).toBe(true);
+    expect(isOuterEnvelope({ position: [0, 0, 0], separates: false })).toBe(true);
   });
 
   it('is false for a part that sits off-origin, even if it never separates', () => {
     expect(
-      isOuterEnvelope({ position: [0.1, 0, 0], disassembly: { direction: [0, 0, 0], distance: 0 } }),
+      isOuterEnvelope({ position: [0.1, 0, 0], separates: false }),
     ).toBe(false);
   });
 
   it('is false for a part at the origin that does separate', () => {
     expect(
-      isOuterEnvelope({ position: [0, 0, 0], disassembly: { direction: [1, 0, 0], distance: 0.5 } }),
+      isOuterEnvelope({ position: [0, 0, 0], separates: true }),
     ).toBe(false);
   });
 });

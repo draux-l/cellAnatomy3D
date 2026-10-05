@@ -42,7 +42,7 @@ const BASE: OrganelleRecord = {
     params: { size: 0.3, detail: 1, count: 0, cristaeCount: 12 },
     seed: 'mitochondrion/v1',
   },
-  disassembly: { direction: [-0.72, -0.38, 0.58], distance: 0.75 },
+  separates: true,
   cells: ['animal', 'plant'],
   pickable: true,
 };
@@ -109,7 +109,7 @@ function catalog(): Record<string, unknown>[] {
     record({ id: 'golgi' }),
     record({ id: 'ribosome' }),
     record({ id: 'lysosome' }),
-    record({ id: 'membrane', position: [0, 0, 0], disassembly: { direction: [0, 0, 0], distance: 0 } }),
+    record({ id: 'membrane', position: [0, 0, 0], separates: false }),
     record({ id: 'cell-wall', cells: ['plant'] }),
     record({ id: 'chloroplast', cells: ['plant'] }),
     record({ id: 'vacuole', cells: ['plant'] }),
@@ -127,7 +127,7 @@ describe('catalog integrity — a well-formed synthetic catalog', () => {
     const membrane = record({
       id: 'membrane',
       position: [0, 0, 0],
-      disassembly: { direction: [0, 0, 0], distance: 0 },
+      separates: false,
     });
 
     expect(isValidRecord(membrane)).toBe(true);
@@ -281,62 +281,35 @@ describe('catalog integrity — no literal colours', () => {
   });
 });
 
-describe('catalog integrity — disassembly vector (D16)', () => {
-  it('fails when the vector is omitted, and says a zero vector is the explicit choice', () => {
-    const issues = validateRecord(record({ disassembly: undefined }));
+describe('catalog integrity — the disassembly policy (D16)', () => {
+  it('fails when the flag is omitted, and says `false` is the explicit choice', () => {
+    const issues = validateRecord(record({ separates: undefined }));
 
     expect(issues).toHaveLength(1);
     expect(issues[0]?.recordId).toBe('mitochondrion');
-    expect(issues[0]?.field).toBe('disassembly');
-    expect(issues[0]?.message).toContain('[0,0,0]');
+    expect(issues[0]?.field).toBe('separates');
+    expect(issues[0]?.message).toContain('never separates');
   });
 
-  it('fails on an inward direction and names the record', () => {
-    const position = BASE.position;
-    const length = Math.hypot(...position);
-    const inward: [number, number, number] = [
-      -position[0] / length,
-      -position[1] / length,
-      -position[2] / length,
-    ];
-
-    const issues = validateRecord(record({ disassembly: { direction: inward, distance: 0.75 } }));
-
-    expect(issues).toHaveLength(1);
-    expect(issues[0]?.recordId).toBe('mitochondrion');
-    expect(issues[0]?.field).toBe('disassembly.direction');
-    expect(issues[0]?.message).toContain('centre');
+  it('accepts both values: a part either separates or it does not', () => {
+    expect(validateRecord(record({ separates: true }))).toEqual([]);
+    expect(validateRecord(record({ separates: false }))).toEqual([]);
   });
 
-  it('fails on a non-normalizable direction while a distance is declared', () => {
-    const issues = validateRecord(record({ disassembly: { direction: [0, 0, 0], distance: 2 } }));
-
-    expect(issues).toHaveLength(1);
-    expect(issues[0]?.field).toBe('disassembly.direction');
-    expect(issues[0]?.message).toContain('not normalizable');
+  it('rejects a non-boolean, because a truthy string is not a decision', () => {
+    expect(validateRecord(record({ separates: 'yes' })).map((issue) => issue.field)).toEqual([
+      'separates',
+    ]);
   });
 
-  it('fails on a negative distance', () => {
-    const issues = validateRecord(
-      record({ disassembly: { direction: BASE.disassembly.direction, distance: -1 } }),
-    );
-
-    expect(issues).toHaveLength(1);
-    expect(issues[0]?.field).toBe('disassembly.distance');
-    expect(issues[0]?.message).toContain('positive');
-  });
-
-  it('fails on a non-finite direction component', () => {
-    const issues = validateRecord(
-      record({ disassembly: { direction: [1, Number.NaN, 0], distance: 1 } }),
-    );
-
-    expect(issues.map((issue) => issue.field)).toEqual(['disassembly.direction']);
-  });
-
-  it('rejects the omission but accepts an explicit zero vector with zero distance', () => {
-    expect(validateRecord(record({ disassembly: { direction: [0, 0, 0], distance: 0 } }))).toEqual([]);
-    expect(validateRecord(record({ disassembly: { direction: [0, 0, 0] } })).length).toBeGreaterThan(0);
+  it('does not police where a part goes: that belongs to the layout', () => {
+    /*
+     * The vector rules that used to live here — normalizable, outward, destination outside the
+     * membrane — all described geometry a record no longer declares. Where a part travels is derived
+     * per layout from `position` and `geometry.extent`, so `separation.test.ts` holds the geometric
+     * invariant over the whole catalog, in every layout. This gate checks only the declaration.
+     */
+    expect(validateRecord(record({ separates: true, position: [0, 0, 0] }))).toEqual([]);
   });
 });
 
@@ -388,7 +361,13 @@ describe('catalog integrity — per-cell overrides (composition)', () => {
     expect(issues).toEqual([]);
   });
 
-  it('applies the outward rule to a per-cell placement as well as the record position', () => {
+  it('does not constrain a per-cell placement by the disassembly rule', () => {
+    /*
+     * The rule that used to live here — "a per-cell placement must keep the vector pointing outward"
+     * — belonged to the radial exploded view. A per-cell override moves where a part *starts*, and
+     * the rule now is about where it *lands*: an authored slot on the ring, which is the same in
+     * every cell. So an inward per-cell placement is legal.
+     */
     const position = BASE.position;
     const length = Math.hypot(...position);
     const inward: [number, number, number] = [
@@ -397,11 +376,7 @@ describe('catalog integrity — per-cell overrides (composition)', () => {
       -position[2] / length,
     ];
 
-    const issues = validateRecord(record({ perCell: { plant: { position: inward } } }));
-
-    expect(issues).toHaveLength(1);
-    expect(issues[0]?.field).toBe('perCell.plant.position');
-    expect(issues[0]?.message).toContain('centre');
+    expect(validateRecord(record({ perCell: { plant: { position: inward } } }))).toEqual([]);
   });
 });
 
@@ -597,7 +572,7 @@ describe('catalog integrity — the mesh branch (tasks 11.4, 12.3)', () => {
 
 describe('catalog integrity — the build gate', () => {  it('throws with every offender named', () => {
     const broken = [
-      record({ id: 'alpha', disassembly: undefined }),
+      record({ id: 'alpha', separates: undefined }),
       record({ id: 'beta', paletteRole: 'teal', size: { value: 0, unit: 'cm' } }),
     ];
 
@@ -607,7 +582,7 @@ describe('catalog integrity — the build gate', () => {  it('throws with every 
       assertCatalogIntegrity(broken);
     } catch (error) {
       const message = error instanceof Error ? error.message : '';
-      const mentioned = ['disassembly', 'paletteRole', 'size'].filter((field) => message.includes(field));
+      const mentioned = ['separates', 'paletteRole', 'size'].filter((field) => message.includes(field));
 
       expect(mentioned).toHaveLength(3);
       expect(message).toContain('alpha');
@@ -634,7 +609,7 @@ describe('catalog integrity — the committed catalog', () => {
     });
 
     // Every record-level rule passes: ids, bilingual copy, sizes, the mesh references resolving to
-    // the committed manifest, the material-key vocabulary and the outward disassembly vectors.
+    // the committed manifest, the material-key vocabulary, and the `separates` declaration.
     expect(issues.filter((issue) => !issue.field.startsWith('roster.'))).toEqual([]);
   });
 

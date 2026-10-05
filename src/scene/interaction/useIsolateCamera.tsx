@@ -1,15 +1,18 @@
 import { useEffect, useRef, type RefObject } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Vector3 } from 'three';
-import { useAppStore } from '../../app/store';
+import { DISASSEMBLY_MIN, useAppStore } from '../../app/store';
 import { getRecord } from '../../catalog/cells';
+import { extentFor } from '../../catalog/params';
 import type { CellId } from '../../catalog/types';
+import { SCATTER_LAYOUT } from '../disassembly';
 import {
   CELL_POSE,
   approachFocus,
   defaultFocus,
-  focusForRecord,
+  dispersionFocus,
   focusSettled,
+  inspectionDistanceFor,
   type FocusState,
 } from './cameraModel';
 
@@ -52,6 +55,7 @@ export interface IsolateCameraProps {
 export function IsolateCamera({ controlsRef, cell, snap }: IsolateCameraProps) {
   const camera = useThree((state) => state.camera);
   const selectedId = useAppStore((state) => state.selectedId);
+  const disassemblyTarget = useAppStore((state) => state.disassemblyTarget);
   const desired = useRef<FocusState>(defaultFocus());
   const current = useRef<FocusState>(defaultFocus());
   const animating = useRef(false);
@@ -59,7 +63,33 @@ export function IsolateCamera({ controlsRef, cell, snap }: IsolateCameraProps) {
   useEffect(() => {
     const record = selectedId === null ? undefined : getRecord(selectedId);
 
-    desired.current = record ? focusForRecord(record, cell) : defaultFocus();
+    /*
+     * Three framings, one owner, and the store keeps them in a defined order: inspecting a part wins
+     * over the dispersion, which wins over the composed pose.
+     *
+     * The dispersion framing is why this hook touches the camera in the real app at all. The exploded
+     * view is a far wider subject than the cell — the parts orbit out to a radius of ~5.5 scene units
+     * against the membrane's 2.0 — so without backing off, dragging the slider would push the parts
+     * out of frame.
+     */
+    if (record) {
+      /*
+       * Inspection: the part comes **to the camera**. The driver has taken it to the cell's centre,
+       * so the framing target is the cell's centre and only the distance depends on the part.
+       *
+       * Holding the target fixed is the point: the shot is identical for every part, no matter which
+       * orbit slot it came from, and the whole camera move is one number. The orbit angle is still
+       * the user's, so "turn it around" works from wherever they were looking.
+       */
+      desired.current = {
+        target: [...CELL_POSE.target],
+        distance: inspectionDistanceFor(extentFor(record)),
+      };
+    } else if (disassemblyTarget > DISASSEMBLY_MIN) {
+      desired.current = dispersionFocus(disassemblyTarget, cell, SCATTER_LAYOUT);
+    } else {
+      desired.current = defaultFocus();
+    }
 
     if (snap) {
       // Arrive before the first frame, so the first rendered frame is already the final pose.
@@ -70,7 +100,7 @@ export function IsolateCamera({ controlsRef, cell, snap }: IsolateCameraProps) {
     }
 
     animating.current = true;
-  }, [selectedId, cell, snap]);
+  }, [selectedId, cell, snap, disassemblyTarget]);
 
   useFrame((_state, delta) => {
     const controls = controlsRef.current;

@@ -44,7 +44,7 @@ const RECORD: OrganelleRecord = {
     params: { size: 0.3, detail: 1, count: 6 },
     seed: 'golgi/v1',
   },
-  disassembly: { direction: [0.6, -0.3, 0.6], distance: 0.65 },
+  separates: true,
   perCell: { plant: { position: [-0.36, 0.52, 0.15] } },
   cells: ['animal', 'plant'],
   pickable: true,

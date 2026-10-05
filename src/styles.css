@@ -606,3 +606,69 @@ body {
   text-transform: uppercase;
   color: var(--cell-muted);
 }
+
+/*
+ * The readout's second figure: the frame rate of the worst 5 % of the measured window.
+ *
+ * On its own line, smaller and muted, so the median stays the headline — and tabular, so the two
+ * numbers do not jitter as they change twice a second.
+ */
+.fps-readout__worst {
+  display: block;
+  margin-top: 2px;
+  font-size: 10px;
+  color: var(--cell-muted);
+}
+
+.fps-readout__worst-value {
+  font-variant-numeric: tabular-nums;
+  color: var(--cell-fg);
+}
+
+/* ---------------------------------------------------------------------------------------------
+   The inspection step control.
+
+   Sits bottom-right — opposite the exploded-view control and below the spec sheet — so the study
+   surfaces never overlap each other. Same panel recipe as the other overlays: a dark translucent
+   card that stays clickable and never reflows the canvas.
+   --------------------------------------------------------------------------------------------- */
+.inspector-nav {
+  position: absolute;
+  right: 24px;
+  bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 1px solid #1d2530;
+  border-radius: 10px;
+  background: rgb(10 14 19 / 82%);
+  backdrop-filter: blur(6px);
+  pointer-events: auto;
+}
+
+.inspector-nav__step {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid #1d2530;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--cell-fg);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.inspector-nav__step:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.inspector-nav__count {
+  min-width: 44px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  color: var(--cell-muted);
+}

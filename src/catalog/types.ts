@@ -74,23 +74,6 @@ export interface SizeWithUnit {
 export const SIZE_UNITS = ['µm', 'nm'] as const;
 
 /**
- * Where an organelle travels when the disassembly control is raised (design D16).
- *
- * The vector is **required data**: an omitted vector fails the catalog integrity check. A
- * zero-length direction with `distance: 0` is the explicit "this part never separates" choice
- * (an outer envelope the author keeps in place), not an omission.
- *
- * `direction` is authored unit-length and cell-origin-relative; its radial component must be
- * outward or zero so no organelle is ever driven inward through the cell centre. The same record
- * yields the same vector in animal view, plant view and comparison mode — the records are frozen
- * and no view path can override them.
- */
-export interface DisassemblyVector {
-  direction: [number, number, number];
-  distance: number;
-}
-
-/**
  * The geometry kind discriminator (design D19/D29).
  *
  * A record's geometry is a discriminated union so every consumer is forced by the type checker to
@@ -281,7 +264,9 @@ export interface CellModelFrame {
 /**
  * What happens to one model mesh.
  *
- * - `map` — has a catalog record: pickable, annotated, drawn with the model's own material.
+ * - `map` — has one catalog record: pickable, annotated, drawn with the model's own material.
+ * - `split` — the node draws **several** anatomical parts, and is divided into them by the geometry
+ *   itself. See `ManifestSplit`.
  * - `unmapped` — a real, identified structure with no canonical roster entry: drawn as part of the
  *   model root, unpickable and unannotated. No label is invented for it (design D26).
  * - `omit` — hidden.
@@ -289,9 +274,48 @@ export interface CellModelFrame {
  * **No shipped mesh is `omit`.** Every mesh in the animal model is part of the model, so hiding one
  * would be losing the thing the model is. The policy value survives because the vocabulary is data.
  */
-export type MeshPolicy = 'map' | 'unmapped' | 'omit';
+export type MeshPolicy = 'map' | 'split' | 'unmapped' | 'omit';
 
-export const MESH_POLICIES = ['map', 'unmapped', 'omit'] as const satisfies readonly MeshPolicy[];
+export const MESH_POLICIES = [
+  'map',
+  'split',
+  'unmapped',
+  'omit',
+] as const satisfies readonly MeshPolicy[];
+
+/**
+ * One node, several anatomical parts.
+ *
+ * The identification map turns a **node** into a record, which works while a node is one part. The
+ * animal model breaks that rule: `Nulo__Material.025_0` draws the lysosomes **and** the centrioles in
+ * a single mesh, so the app called the centrioles "Lisosomas" and no data edit could separate them.
+ *
+ * The split is decided by the **geometry**, not by coordinates written here — see
+ * `scene/models/bodyClusters.ts` for how a part is recovered from a surface the exporter cut apart.
+ * This declaration only carries the two things the geometry cannot know: how close counts as "the
+ * same part", and which record each part belongs to.
+ */
+export interface ManifestSplit {
+  /**
+   * How close two bodies' centres have to be to count as one part, in **scene units**.
+   *
+   * Read off the measurement rather than guessed, and it has a wide plateau: 0.05 to 0.08 gives the
+   * same groups on this model, which is the signature of a real separation rather than a tuned
+   * threshold (`artifacts/tmp/clusters.mjs`).
+   */
+  radius: number;
+  /**
+   * The records the parts go to, **in part order** — the biggest part first. The last entry takes
+   * every remaining part, so `['centriole', 'lysosome']` means "the biggest part is the centrioles,
+   * everything else is lysosomes" without having to know how many parts there turn out to be.
+   *
+   * **A record may appear more than once**, and that is how a part made of several groups is
+   * declared: this model's two centrioles are two separate rods, so the list is
+   * `['centriole', 'centriole', 'lysosome']` — the first two groups are the centrioles and only the
+   * remainder belongs to the lysosomes.
+   */
+  records: readonly string[];
+}
 
 /** One row of the identification map: a model node turned into a record reference or a policy. */
 export interface ManifestMesh {
@@ -311,6 +335,8 @@ export interface ManifestMesh {
    * invented for a structure the roster does not name.
    */
   materialKey: MaterialKeyName | null;
+  /** Present exactly when `policy === 'split'`. */
+  split?: ManifestSplit;
 }
 
 /** One cell's committed model: its frame plus the identification map over its meshes. */
@@ -380,12 +406,26 @@ export interface OrganelleRecord {
   paletteRole: PaletteRole;
   /**
    * Scene-unit placement of the organelle root relative to the cell origin.
-   * Design D3 omits placement, but D16's integrity check is defined as
-   * `dot(direction, normalize(recordPosition)) >= 0`, so a record position must exist as data.
+   *
+   * Load-bearing well beyond rendering: its direction is the ray the **real** scatter layout sends
+   * the part along, and it is the pivot the isolate framing turns around.
    */
   position: [number, number, number];
   geometry: GeometrySpec;
-  disassembly: DisassemblyVector;
+  /**
+   * Whether this part takes part in the exploded view.
+   *
+   * It is a **marker, not geometry**, and that is the point. *Where* a part travels is decided by the
+   * view's layout rule (`catalog/separation.ts`), which is the only thing that knows whether the
+   * arrangement is the ordered ring or the parts' real positions — and both are derived from data the
+   * record already owns (`position`, `geometry.extent`). Authoring a second copy of those numbers per
+   * view would be data no one could keep in sync, and it could not express a view that does not exist
+   * yet.
+   *
+   * `false` is the explicit "this part never separates" choice: the membrane and the cytoplasm are
+   * the cell's envelope, and the cytoskeleton is the scaffold. Omission is an integrity failure.
+   */
+  separates: boolean;
   /**
    * Where this record deviates from its own data in one cell. Omitted when the record composes
    * identically in both cells, which is the common case.

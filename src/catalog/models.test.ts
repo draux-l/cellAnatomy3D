@@ -103,6 +103,14 @@ describe('the committed model manifest', () => {
         );
 
         expect(row, `${record.id} references ${ref.node} which is not in the manifest`).toBeDefined();
+
+        if (row!.policy === 'split') {
+          // A node two records share: the row names neither of them, so each record has to find itself
+          // in the split's group list instead.
+          expect(row!.split?.records).toContain(record.id);
+          continue;
+        }
+
         expect(row!.recordId).toBe(record.id);
         expect(row!.policy).toBe('map');
         expect(row!.materialKey).toBe(ref.materialKey);

@@ -29,6 +29,7 @@ export const RESTING_EMISSIVE = '#000000';
 export const RESTING_EMISSIVE_INTENSITY = 1;
 
 const BASE_OPACITY_KEY = 'cellBaseOpacity';
+const BASE_TRANSPARENT_KEY = 'cellBaseTransparent';
 
 export type EmphasisMode = 'base' | 'hovered' | 'dimmed';
 
@@ -56,12 +57,16 @@ export function emphasisFor(
 }
 
 /**
- * Records a material's resting opacity once, so de-emphasis is always relative to the palette's
- * own value rather than to a previous emphasis mode.
+ * Records a material's resting opacity **and transparency** once, so de-emphasis is always relative
+ * to the palette's own value rather than to a previous emphasis mode.
  */
 export function prepareEmphasis<T extends Material>(material: T): T {
   if (typeof material.userData[BASE_OPACITY_KEY] !== 'number') {
     material.userData[BASE_OPACITY_KEY] = material.opacity;
+  }
+
+  if (typeof material.userData[BASE_TRANSPARENT_KEY] !== 'boolean') {
+    material.userData[BASE_TRANSPARENT_KEY] = material.transparent;
   }
 
   return material;
@@ -69,17 +74,25 @@ export function prepareEmphasis<T extends Material>(material: T): T {
 
 /** Writes one emphasis mode to a material. Idempotent, so it is safe to call every store change. */
 export function applyEmphasis<T extends Material>(material: T, mode: EmphasisMode): T {
-  const stored = material.userData[BASE_OPACITY_KEY];
-  const baseOpacity = typeof stored === 'number' ? stored : material.opacity;
+  const storedOpacity = material.userData[BASE_OPACITY_KEY];
+  const baseOpacity = typeof storedOpacity === 'number' ? storedOpacity : material.opacity;
+  const storedTransparent = material.userData[BASE_TRANSPARENT_KEY];
+  const baseTransparent =
+    typeof storedTransparent === 'boolean' ? storedTransparent : material.transparent;
   const emissiveMaterial = material as Material & { emissive?: Color; emissiveIntensity?: number };
 
   material.opacity = mode === 'dimmed' ? baseOpacity * DIMMED_OPACITY_FACTOR : baseOpacity;
-
-  if (mode === 'dimmed') {
-    // A de-emphasized organelle is written as translucent even if it was opaque, so the "others
-    // recede" reading holds for solid bodies and shells alike.
-    material.transparent = true;
-  }
+  /*
+   * Written in **both** directions, and that is a performance fix, not tidiness.
+   *
+   * A de-emphasized organelle is written as translucent even if it was opaque, so the "others
+   * recede" reading holds for solid bodies and shells alike. It used to be set only on the way in,
+   * which left every material it had ever dimmed permanently in the transparent pass — and
+   * `transparent` is part of **three's program key**, so the first flip recompiles that material's
+   * shader. Restoring the resting value means the variant is one three already has, and the recompile
+   * happens once, at pre-warm, instead of on the user's first click (`scene/MeshCellGroup.tsx`).
+   */
+  material.transparent = mode === 'dimmed' ? true : baseTransparent;
 
   if (emissiveMaterial.emissive) {
     emissiveMaterial.emissive.set(mode === 'hovered' ? HIGHLIGHT_EMISSIVE : RESTING_EMISSIVE);

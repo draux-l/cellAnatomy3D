@@ -20,8 +20,8 @@ import { getRecord } from '../catalog/cells';
  * 2. **Non-blocking.** `pointer-events: none` (in the stylesheet) means the popup never steals the
  *    click that opens the spec sheet, nor an orbit drag.
  * 3. **Gated by its own flag.** `HOVER_LABEL_ENABLED` (`app/structureTools.ts`) is independent of
- *    `STRUCTURE_TOOLS_ENABLED`: this popup draws no leader lines and does not re-enable the
- *    annotation layer.
+ *    both `DISPERSION_ENABLED` and `ANNOTATIONS_ENABLED`: this popup draws no leader lines, does not
+ *    re-enable the annotation layer, and does not depend on the model being taken apart.
  *
  * It is plain DOM beside the canvas rather than a portal from inside it, for the same reason the
  * annotation overlay is: React Three Fiber's reconciler owns the canvas subtree and would read DOM

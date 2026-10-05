@@ -93,23 +93,27 @@ describe('app store shape', () => {
 });
 
 /**
- * The disassembly/isolation handoff (design D13, spec: `Disassembly and isolation hand off to each
- * other`). Four guards, all preconditions on actions that already existed — no state machine.
+ * The handoff between the two study controls, and it is now **one-directional**.
  *
- * The reason is the accuracy tie-break: a detached organelle floating inside a displaced cell
- * teaches a false spatial relationship, so the two controls must never be active at once.
+ * - Raising the disassembly clears the isolate: moving the control asks to leave the single part and
+ *   look at the arrangement.
+ * - Selecting a part **keeps** the disassembly. The old reverse guard existed because "a detached
+ *   organelle floating inside a displaced cell" teaches a false spatial relationship — but the
+ *   inspection hides every other part, so the chosen one is alone and there is no cell to misread.
+ *
+ * What both actions share is that each writes through ONE `set`, so one gesture is one render.
  */
-describe('disassembly and isolation are mutually exclusive', () => {
+describe('the two study controls hand off in one direction', () => {
   beforeEach(() => {
     useAppStore.setState(DEFAULTS);
   });
 
-  it('forces the cell back together when an organelle is isolated', () => {
+  it('keeps the arrangement when a part is inspected', () => {
     useAppStore.getState().setDisassembly(60);
     useAppStore.getState().setSelected('golgi');
 
     expect(useAppStore.getState().selectedId).toBe('golgi');
-    expect(useAppStore.getState().disassemblyTarget).toBe(0);
+    expect(useAppStore.getState().disassemblyTarget).toBe(60);
   });
 
   it('clears the isolate when disassembly is raised', () => {
@@ -144,15 +148,22 @@ describe('disassembly and isolation are mutually exclusive', () => {
     expect(useAppStore.getState().disassemblyTarget).toBe(0);
   });
 
-  it('notifies subscribers once per guard, not once per action', () => {
+  it('notifies subscribers once per action, not once per key', () => {
     // A guard that set two keys with two `set` calls would render twice for one user gesture.
-    const seen: number[] = [];
-    const unsubscribe = useAppStore.subscribe((state) => seen.push(state.disassemblyTarget));
+    const seen: Array<[string | null, number]> = [];
+    const unsubscribe = useAppStore.subscribe((state) =>
+      seen.push([state.selectedId, state.disassemblyTarget]),
+    );
 
     useAppStore.getState().setDisassembly(60);
     useAppStore.getState().setSelected('golgi');
 
-    expect(seen).toEqual([60, 0]);
+    // Two gestures, two notifications — and the selection now carries the arrangement instead of
+    // resetting it.
+    expect(seen).toEqual([
+      [null, 60],
+      ['golgi', 60],
+    ]);
 
     unsubscribe();
   });
@@ -208,9 +219,9 @@ describe('language switching is non-destructive', () => {
     expect(useAppStore.getState().selectedId).toBe('golgi');
   });
 
-  it('preserves the disassembly value in the other mutually-exclusive shape', () => {
+  it('preserves the disassembly value in the arrangement shape', () => {
     loadDistinctiveState();
-    // Raising disassembly clears the isolate, so this is the state the pair never shares.
+    // Raising the disassembly clears the isolate, so this is the arrangement-only shape.
     useAppStore.getState().setDisassembly(60);
 
     const before = preservedState();

@@ -73,8 +73,19 @@ export const ANIMAL_CELL_MODEL: CellModelManifest = {
       recordId: 'cytoskeleton',
       materialKey: 'cytoskeleton',
     },
-    // [1] — small loose bodies (`Material.003`) → centrioles.
-    { node: 'Nulo__Material.003_0', policy: 'map', recordId: 'centriole', materialKey: 'centriole' },
+    /*
+     * [1] — the bead clusters ringing the nucleus (`Material.003`) → the **nuclear pores**, which
+     * belong to the envelope they sit on. Identified by isolating the record and looking: it renders
+     * eleven clusters of small bodies arranged in a ring, which is how this model draws pores. It was
+     * mapped to the centrioles, and that was wrong — the centrioles are the striped rods inside
+     * `Material.025`.
+     */
+    {
+      node: 'Nulo__Material.003_0',
+      policy: 'map',
+      recordId: 'nuclear-envelope',
+      materialKey: 'nuclearPore',
+    },
     // [2] + [3] — the nucleus is ONE part in TWO meshes: the outer and inner spheres. Both rows
     // name the same record so both move as one unit; the inner sphere must not be separated.
     { node: 'Nulo__Material.010_0', policy: 'map', recordId: 'nucleus', materialKey: 'nucleus' },
@@ -90,8 +101,27 @@ export const ANIMAL_CELL_MODEL: CellModelManifest = {
     { node: 'Nulo__Material.027_0', occurrence: 1, policy: 'map', recordId: 'nucleolus', materialKey: 'nucleolus' },
     { node: 'Nulo__Material.027_0', occurrence: 2, policy: 'map', recordId: 'nucleolus', materialKey: 'nucleolus' },
     { node: 'Nulo__Material.027_0', occurrence: 3, policy: 'map', recordId: 'nucleolus', materialKey: 'nucleolus' },
-    // [9] — small vesicles (`Material.025`) → lysosomes.
-    { node: 'Nulo__Material.025_0', policy: 'map', recordId: 'lysosome', materialKey: 'lysosome' },
+    /*
+     * [9] — **one node, two anatomical parts** (`Material.025`). Isolating the record shows both: the
+     * round vesicles are the lysosomes, and the two striped rods beside them are the centrioles, which
+     * is why the app used to label the centrioles "Lisosomas".
+     *
+     * The split is resolved from the geometry when the model mounts (`scene/models/bodyClusters.ts`):
+     * the body groups come out biggest first, and the biggest are the rods.
+     */
+    {
+      node: 'Nulo__Material.025_0',
+      policy: 'split',
+      recordId: null,
+      materialKey: null,
+      /*
+       * The four groups come out as **[rod, rod, vesicle, vesicle]** — two rods of ~27 bodies each
+       * and two single-body vesicles. So the centrioles are the **first two**, and only the
+       * remainder is the lysosome; naming the record once would have quietly handed the second rod
+       * to the lysosomes.
+       */
+      split: { radius: 0.06, records: ['centriole', 'centriole', 'lysosome'] },
+    },
     // [10] — the green body (`Material.1`) → small vacuoles.
     { node: 'Nulo__Material.1_0', policy: 'map', recordId: 'small-vacuoles', materialKey: 'vacuole' },
     { node: 'Nulo__Material_0', policy: 'map', recordId: 'membrane', materialKey: 'membrane' },

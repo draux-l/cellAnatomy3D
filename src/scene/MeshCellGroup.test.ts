@@ -7,9 +7,12 @@ import {
   MeshBasicMaterial,
   Object3D,
   Vector3,
+  type BufferGeometry,
 } from 'three';
 import { describe, expect, it } from 'vitest';
-import { buildModel } from './MeshCellGroup';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { attachMount, buildModel, releaseMount } from './MeshCellGroup';
+import { clearOrganelleAnchors } from './anchors';
 
 /**
  * The mount's one hard contract: **0 % disassembly is the file unmodified.**
@@ -81,11 +84,29 @@ function syntheticRoot(): { root: Group; meshes: Mesh[] } {
   root.add(node);
 
   const geometry = new BoxGeometry(2, 2, 2);
+  /*
+   * The real model has one node that draws **four** anatomical parts — two rods, each a cluster of
+   * bodies, and two single vesicles — and the split separates them by proximity. A single box cannot
+   * express that, so this fixture is six boxes: two tight pairs (each pair inside the split radius, so
+   * each collapses to one group of two bodies) and two lone boxes, well apart from everything.
+   *
+   * Measured in the geometry's own units, where the split's 0.06 scene-unit radius is ~14.8 of them.
+   */
+  const twoBodyPair = (offset: number): BufferGeometry[] => [
+    new BoxGeometry(1.5, 1.5, 1.5).translate(offset, 0, 0),
+    new BoxGeometry(1.5, 1.5, 1.5).translate(offset + 2, 0, 0),
+  ];
+  const fourParts = mergeGeometries([
+    ...twoBodyPair(0),
+    ...twoBodyPair(40),
+    new BoxGeometry(1.5, 1.5, 1.5).translate(0, 40, 0),
+    new BoxGeometry(1.5, 1.5, 1.5).translate(0, 0, 40),
+  ])!;
   const material = new MeshBasicMaterial();
   const meshes: Mesh[] = [];
 
   for (const [index, spec] of SYNTHETIC_MESHES.entries()) {
-    const mesh = new Mesh(geometry, material);
+    const mesh = new Mesh(spec.name === 'Nulo__Material.025_0' ? fourParts : geometry, material);
 
     mesh.name = spec.name;
     mesh.position.set(...spec.position);
@@ -174,7 +195,7 @@ describe('the model mount', () => {
     expect(parentOf('Nulo__Material.007_0')).toBe(byRecord.get('mitochondrion'));
     expect(parentOf('Nulo__Material.008_0')).toBe(byRecord.get('mitochondrion'));
     expect(parentOf('Nulo__Material.013_0')).toBe(byRecord.get('cytoskeleton'));
-    expect(parentOf('Nulo__Material.003_0')).toBe(byRecord.get('centriole'));
+    expect(parentOf('Nulo__Material.003_0')).toBe(byRecord.get('nuclear-envelope'));
     expect(parentOf('Nulo__Material.026_0')).toBe(byRecord.get('smooth-endoplasmic-reticulum'));
     expect(parentOf('Nulo__Material.005_0')).toBe(byRecord.get('endoplasmic-reticulum'));
 
@@ -192,12 +213,96 @@ describe('the model mount', () => {
     const ribosome = byRecord.get('ribosome');
     expect(meshes.filter((mesh) => mesh.parent === ribosome)).toHaveLength(3);
 
-    // Every mesh is mapped now: none is left behind under the model's own node.
-    expect(meshes.some((mesh) => mesh.parent?.name === 'Nulo_')).toBe(false);
+    // Every visible mesh is mapped: none is left behind under the model's own node. The split's
+    // source is hidden on purpose, and it is the one mesh that legitimately sits outside a host.
+    expect(meshes.some((mesh) => mesh.visible && mesh.parent?.name === 'Nulo_')).toBe(false);
+  });
+
+  it('divides one node into the parts it draws, without moving a thing', () => {
+    /*
+     * The split's contract, in one test: a node that draws several anatomical parts becomes one mesh
+     * per part, each under its own record's host, sharing the source attributes — and the parts are
+     * exactly where the original was, with every triangle accounted for.
+     */
+    const { root, meshes } = syntheticRoot();
+    const source = meshes.find((mesh) => mesh.name === 'Nulo__Material.025_0')!;
+    const built = buildModel('animal', root);
+    // Measured **after** the mount, so the model's frame is applied on both sides of the comparison.
+    const reference = worldPosition(source);
+    const hosts = new Map(built.records.map((record) => [record.recordId, record.host]));
+
+    const partsOf = (recordId: string): Mesh[] =>
+      (hosts.get(recordId)?.children.filter((child) => (child as Mesh).isMesh) as Mesh[]) ?? [];
+
+    const centrioles = partsOf('centriole');
+    const lysosomes = partsOf('lysosome');
+
+    // Four groups come out of the fixture — two pairs of bodies and two lone boxes — and the manifest
+    // sends the first two to the centrioles, leaving the remainder to the lysosomes.
+    expect(centrioles).toHaveLength(2);
+    expect(lysosomes).toHaveLength(2);
+
+    // Each part is its own geometry, sharing the source's attributes: the split costs indices, and
+    // nothing else — and no part moved, because each inherits the source mesh's own transform.
+    for (const part of [...centrioles, ...lysosomes]) {
+      expect(part.geometry.getAttribute('position')).toBe(
+        centrioles[0]!.geometry.getAttribute('position'),
+      );
+      expect(worldPosition(part).distanceTo(reference)).toBeLessThan(1e-9);
+    }
+
+    // Every triangle landed in exactly one part. Six boxes of 12 triangles, three corners each.
+    const corners = [...centrioles, ...lysosomes].reduce(
+      (total, part) => total + part.geometry.getIndex()!.count,
+      0,
+    );
+
+    expect(corners).toBe(216);
+  });
+
+  it('keeps every mesh under its host across a mount/unmount/mount effect cycle', () => {
+    /*
+     * The development-only trap this pins, and the reason the exploded view "did nothing" while the
+     * model still rendered perfectly.
+     *
+     * React StrictMode runs an effect, its cleanup, and the effect again on mount. The cleanup used
+     * to re-attach every mesh to the node it came from — and that node is not the host, so the call
+     * **detached the mesh from its host**. The second run only re-registered the anchors, so the
+     * hosts stayed empty: the model kept rendering (its meshes were back where the file put them),
+     * and the disassembly loop moved empty groups.
+     *
+     * `buildModel` runs on a per-mount clone, so there is nothing outside the mount to restore and
+     * `releaseMount` must not touch the graph.
+     */
+    const { root, meshes } = syntheticRoot();
+    const built = buildModel('animal', root);
+    const byRecord = new Map(built.records.map((record) => [record.recordId, record.host]));
+
+    attachMount(built);
+    releaseMount(built);
+    attachMount(built);
+
+    for (const mesh of meshes) {
+      // The split hides the mesh it divided; its parts carry the geometry from there.
+      if (!mesh.visible) {
+        continue;
+      }
+
+      expect(
+        built.records.some((record) => record.host === mesh.parent),
+        `${mesh.name} is not under a host after the effect cycle`,
+      ).toBe(true);
+    }
+
+    expect(meshes.find((mesh) => mesh.name === 'Nulo__Material.006_0')?.parent).toBe(
+      byRecord.get('golgi'),
+    );
+
+    clearOrganelleAnchors();
   });
 
   it('puts each host on the centre of the part it pivots', () => {
-    const { root, meshes } = syntheticRoot();
+    const { root } = syntheticRoot();
     const built = buildModel('animal', root);
 
     built.frameGroup.updateWorldMatrix(true, true);
@@ -205,7 +310,8 @@ describe('the model mount', () => {
     let checked = 0;
 
     for (const record of built.records) {
-      const owned = meshes.filter((mesh) => mesh.parent === record.host);
+      // Read the host's own children: a split's parts are meshes this fixture never built.
+      const owned = record.host.children.filter((child) => (child as Mesh).isMesh) as Mesh[];
 
       expect(owned.length, `${record.recordId} has no meshes under its host`).toBeGreaterThan(0);
 

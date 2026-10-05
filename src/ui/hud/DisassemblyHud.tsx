@@ -18,15 +18,21 @@ import { disassemblyStateKey, formatDisassemblyPercent } from './disassemblyCopy
  * vital process.
  */
 export interface DisassemblyHudProps {
-  /** The discrete target, so the slider's position is React-controlled. */
-  value: number;
   target: MutableRefObject<DisassemblyHudTarget>;
   /** True under a fixture: the value is pinned and the control must not accept input. */
   frozen: boolean;
 }
 
-export function DisassemblyHud({ value, target, frozen }: DisassemblyHudProps) {
+export function DisassemblyHud({ target, frozen }: DisassemblyHudProps) {
   const t = useT();
+  /*
+   * The slider subscribes to the discrete target **here**, not in `CellViewer`.
+   *
+   * The control has to re-render per step to stay controlled, but this component is a DOM sibling of
+   * the canvas — outside it. Keeping the subscription local means a slider step re-renders a handful
+   * of DOM nodes instead of the whole `<Canvas>` subtree, which is the measured interaction cost.
+   */
+  const value = useAppStore((state) => state.disassemblyTarget);
 
   return (
     <div className="view-control" data-view-control="disassembly">

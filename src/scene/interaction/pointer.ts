@@ -15,10 +15,10 @@
  */
 
 /*
- * Named "slop", not "travel": `catalog/vectors.test.ts` scans the tree for constants that use
+ * Named "slop", not "travel": `catalog/bounds.test.ts` scans the tree for constants that use
  * displacement vocabulary, so that no hard-coded scene-unit displacement can hide outside
- * `vectors.ts`. This number is pixels of pointer movement, not a displacement, and renaming it
- * keeps the scan meaningful instead of teaching everyone to ignore it.
+ * `catalog/separation.ts`. This number is pixels of pointer movement, not a displacement, and
+ * renaming it keeps the scan meaningful instead of teaching everyone to ignore it.
  */
 export const CLICK_SLOP_PX = 5;
 

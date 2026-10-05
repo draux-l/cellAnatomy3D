@@ -1,10 +1,11 @@
 import { useEffect, useLayoutEffect, useMemo } from 'react';
+import { useThree } from '@react-three/fiber';
 import { Box3, Group, Matrix4, Vector3, type Material, type Mesh, type Object3D } from 'three';
 import { useAppStore } from '../app/store';
 import { getRecord } from '../catalog/cells';
 import { MODEL_MANIFEST, modelFor } from '../catalog/models';
 import type { CellId } from '../catalog/types';
-import type { Bounds3 } from '../catalog/vectors';
+import type { Bounds3 } from '../catalog/bounds';
 import { registerOrganelleAnchor, unregisterOrganelleAnchor } from './anchors';
 import { isOuterEnvelope, PickTargets } from './interaction/Picking';
 import { applyEmphasis, emphasisFor, prepareEmphasis } from './highlight';
@@ -73,8 +74,6 @@ interface BuiltModel {
   framePosition: [number, number, number];
   records: BuiltRecord[];
   materialsByRecord: Map<string, Material[]>;
-  /** Where each mesh came from, so unmounting restores the cached model graph. */
-  origins: Map<Mesh, Object3D | null>;
 }
 
 /** The top-centre of a box: where a leader line can leave the part without crossing it. */
@@ -120,7 +119,6 @@ export function buildModel(cell: CellId, root: Object3D): BuiltModel {
    * frame's space — which `scene/disassembly.ts` does, in one place, from the manifest's scale.
    */
   const partition = partitionRecordMeshes(root, cell, MODEL_MANIFEST);
-  const origins = new Map<Mesh, Object3D | null>();
 
   const frameGroup = new Group();
 
@@ -159,6 +157,16 @@ export function buildModel(cell: CellId, root: Object3D): BuiltModel {
 
   const records: BuiltRecord[] = [];
   const materialsByRecord = new Map<string, Material[]>();
+  /*
+   * One material instance per record.
+   *
+   * A record's meshes share their material on purpose — the emphasis rule writes to the record's own
+   * instances, so two meshes of one record must share one to light up together. **Two records must
+   * not**, or hovering one would light the other. That is exactly what a split produces: the
+   * lysosomes and the centrioles come from one node and therefore from one material, so the second
+   * owner gets a clone. The appearance is identical; the identity is not.
+   */
+  const claimedMaterials = new Set<Material>();
 
   for (const group of partition.groups) {
     const record = getRecord(group.recordId);
@@ -182,18 +190,23 @@ export function buildModel(cell: CellId, root: Object3D): BuiltModel {
      * host has been moved, is what makes the reparenting genuinely world-preserving — and therefore
      * what makes 0 % disassembly the file unmodified.
      */
-    for (const mesh of group.meshes) {
-      origins.set(mesh, mesh.parent);
-    }
-
     const materials: Material[] = [];
 
     for (const mesh of group.meshes) {
-      const material = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+      const source = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
 
-      if (material && !materials.includes(material)) {
-        materials.push(material);
+      if (!source || materials.includes(source)) {
+        continue;
       }
+
+      const material = claimedMaterials.has(source) ? source.clone() : source;
+
+      if (material !== source) {
+        mesh.material = material;
+      }
+
+      claimedMaterials.add(material);
+      materials.push(material);
     }
 
     for (const material of materials) {
@@ -240,7 +253,7 @@ export function buildModel(cell: CellId, root: Object3D): BuiltModel {
      * The host becomes a **pivot at the part's own centre**: it moves to that centre and each mesh
      * moves back by the same amount, so the assembly renders exactly where the file put it.
      *
-     * This is what makes `disassemblyOffset` mean "away from this part's own centre" rather than
+     * This is what makes a slot mean "away from this part's own centre" rather than
      * "away from the cell's centre". Without it every part travels from the origin along a
      * cell-radial direction, and a 1.5-unit travel throws the whole cell's contents out of frame —
      * measured: at 100% only the membrane and cytoplasm survived, at 9 draw calls.
@@ -293,8 +306,41 @@ export function buildModel(cell: CellId, root: Object3D): BuiltModel {
     ],
     records,
     materialsByRecord,
-    origins,
   };
+}
+
+/**
+ * Publishes the mount's anchors, one per record.
+ *
+ * Extracted from the effect so the mount/unmount/mount cycle is testable without React — that cycle
+ * is where the bug below lived, and it is invisible in a component test that never unmounts.
+ */
+export function attachMount(built: BuiltModel): void {
+  for (const record of built.records) {
+    registerOrganelleAnchor(record.recordId, record.host, anchorOffsetFor(record.bounds));
+  }
+}
+
+/**
+ * Releases the mount's registrations, and **deliberately does not touch the model graph**.
+ *
+ * A cleanup that "restores" the graph is not a cleanup here: `buildModel` runs on a **per-mount
+ * clone** of the loader's cached root (`MeshCellGroup`), so nothing outside the mount was ever
+ * mutated and there is nothing to restore. Worse, restoring *is* destructive — the node a mesh came
+ * from is not its host, so `origin.attach(mesh)` **detaches the mesh from its host**.
+ *
+ * React StrictMode runs effects, their cleanups, and the effects again. The previous cleanup
+ * re-attached every mesh, and the second run only re-registered the anchors: the hosts were left
+ * empty, the model still rendered (its meshes were back where the file put them), and the
+ * disassembly loop moved **empty groups**. That read as "the explosion does nothing", and it was
+ * development-only, because production never double-invokes an effect.
+ *
+ * `MeshCellGroup.test.ts` runs this exact cycle and asserts every mesh still sits under a host.
+ */
+export function releaseMount(built: BuiltModel): void {
+  for (const record of built.records) {
+    unregisterOrganelleAnchor(record.recordId);
+  }
 }
 
 /** The hover/isolate emphasis, written to each record's own materials on a store change. */
@@ -360,29 +406,44 @@ export function MeshCellGroup({ cell, model }: MeshCellGroupProps) {
    * clone shares geometries and materials, so the model still renders exactly as authored.
    */
   const built = useMemo(() => buildModel(cell, model.root.clone()), [cell, model.root]);
+  const gl = useThree((state) => state.gl);
+  const scene = useThree((state) => state.scene);
+  const camera = useThree((state) => state.camera);
 
-  useLayoutEffect(() => {
-    for (const record of built.records) {
-      registerOrganelleAnchor(record.recordId, record.host, anchorOffsetFor(record.bounds));
+  /*
+   * Pre-warm the de-emphasis shader variant.
+   *
+   * `applyEmphasis` flips `material.transparent`, and three keys its compiled programs on that flag —
+   * so the **first** isolate recompiles every other record's material, and that hitch lands on the
+   * user's click. Compiling the variant here, while nothing is moving, moves the cost to load time;
+   * after this, both variants are in three's program cache and switching between them is free.
+   *
+   * The materials are left in the emphasis they are **actually** in, not in `base`: under a fixture
+   * that names a selection this effect runs after the one that wrote the real emphasis, and restoring
+   * `base` would silently undo it. three caches by program, so the revert is a cache hit.
+   */
+  useEffect(() => {
+    const materials = [...built.materialsByRecord.values()].flat();
+
+    for (const material of materials) {
+      applyEmphasis(material, 'dimmed');
     }
 
-    return () => {
-      // Restore the model graph the loader cached: a second mount must find its meshes where the
-      // file put them. Restoring through `attach` also rewrites the original world matrices exactly,
-      // because the origin's own matrix has not changed.
-      for (const [mesh, origin] of built.origins) {
-        if (origin) {
-          origin.updateWorldMatrix(true, false);
-          origin.attach(mesh);
-        } else {
-          mesh.removeFromParent();
-        }
-      }
+    gl.compile(scene, camera);
 
-      for (const record of built.records) {
-        unregisterOrganelleAnchor(record.recordId);
+    const { hoveredId, selectedId } = useAppStore.getState();
+
+    for (const [recordId, list] of built.materialsByRecord) {
+      for (const material of list) {
+        applyEmphasis(material, emphasisFor(recordId, hoveredId, selectedId));
       }
-    };
+    }
+  }, [built, gl, scene, camera]);
+
+  useLayoutEffect(() => {
+    attachMount(built);
+
+    return () => releaseMount(built);
   }, [built]);
 
   return (

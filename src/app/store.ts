@@ -110,13 +110,16 @@ export const LOCALE_PRESERVED_KEYS = [
 export const PER_FRAME_KEY_PATTERN = /time|elapsed|frame|delta|progress|clock|fps|rotation|drag/i;
 
 /**
- * Disassembly and isolation are mutually exclusive, and the handoff lives here as a precondition
- * on the two actions that exist — no new state machine (design D13).
+ * How the two study controls hand off, and the one direction they still do.
  *
- * The reason is the accuracy tie-break: a detached organelle floating inside a displaced cell
- * teaches a false spatial relationship. Whichever control the user reaches for wins, and the other
- * one resets, so the two questions ("what is this part?" and "how do the parts fit together?")
- * never render at once.
+ * **Raising the disassembly clears the isolate.** Moving the control is a request to leave the
+ * single part and look at the arrangement, so the inspection closes.
+ *
+ * **Selecting a part keeps the disassembly.** The guard that used to zero it was there to stop "a
+ * detached organelle floating inside a displaced cell" from teaching a false spatial relationship —
+ * but the inspection now **hides every other part**, so there is no cell around the isolate to
+ * misread. Keeping the value is also what lets the user return to the arrangement they built instead
+ * of losing it.
  */
 export const useAppStore = create<AppState>()((set) => ({
   activeView: 'animal',
@@ -130,13 +133,14 @@ export const useAppStore = create<AppState>()((set) => ({
 
   setActiveView: (activeView) => set({ activeView }),
 
-  setSelected: (selectedId) =>
-    set((state) =>
-      // Isolating hands off from disassembly: the cell reassembles before the camera moves.
-      selectedId !== null && state.disassemblyTarget > DISASSEMBLY_MIN
-        ? { selectedId, disassemblyTarget: DISASSEMBLY_MIN }
-        : { selectedId },
-    ),
+  /**
+   * Opens or closes the inspection of one part.
+   *
+   * Setting an id **keeps** the disassembly value (see the handoff note above); the driver hides
+   * every other part and takes the chosen one to its orbit slot, and the framing hook flies to it.
+   * Clearing the id returns to whatever the arrangement was.
+   */
+  setSelected: (selectedId) => set({ selectedId }),
 
   setHovered: (hoveredId) => set({ hoveredId }),
 

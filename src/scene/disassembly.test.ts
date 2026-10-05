@@ -1,33 +1,28 @@
-import { Vector3 } from 'three';
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { CellId, OrganelleRecord } from '../catalog/types';
-import { positionForRecord } from '../catalog/params';
-import { travelDistanceFor } from '../catalog/vectors';
 import { DISASSEMBLY_MAX, DISASSEMBLY_MIN } from '../app/store';
+import { positionForRecord } from '../catalog/params';
+import type { OrganelleRecord } from '../catalog/types';
 import {
   DISASSEMBLY_SNAP_EPSILON,
   dampDisassembly,
-  disassembledPosition,
-  disassemblyOffset,
   disassemblyState,
+  scatterPosition,
 } from './disassembly';
 
 /**
- * The disassembly transform (task 4.10, design D13).
+ * The scatter transform.
  *
- * The load-bearing assertion is stated in the task as *"each organelle sits along its record
- * vector"*, and the emphasis is on **record**: every expectation below is computed from the record
- * data, not from a literal copied into the test. The committed catalog is empty while the cell models
- * are reset, so a synthetic roster stands in — the transform is a pure function of the record and the
- * progress, which is exactly what keeps it testable without a model.
+ * The load-bearing assertion is that a part travels a **straight line** from where the model file
+ * puts it to the slot the running layout chose, and that 0 % is the file unmodified. Every
+ * expectation below is computed from the record and the slot, never from a literal copied in.
+ *
+ * The transform does not know which layout it is serving, and that is the point: the layout's whole
+ * job is to produce the slot. `catalog/separation.test.ts` owns the geometry; this owns the motion.
  */
 
 function record(overrides: Partial<OrganelleRecord> & Pick<OrganelleRecord, 'id'>): OrganelleRecord {
   return {
     name: { es: overrides.id, en: overrides.id },
-    func: { es: 'función', en: 'function' },
-    size: { value: 1, unit: 'µm' },
-    funFact: { es: 'dato', en: 'fact' },
     paletteRole: 'organelles',
     position: [0, 0, 0],
     geometry: {
@@ -36,7 +31,7 @@ function record(overrides: Partial<OrganelleRecord> & Pick<OrganelleRecord, 'id'
       params: { size: 0.3, detail: 1, count: 0 },
       seed: `${overrides.id}/v1`,
     },
-    disassembly: { direction: [0, 0, 0], distance: 0 },
+    separates: true,
     cells: ['animal', 'plant'],
     pickable: true,
     ...overrides,
@@ -44,169 +39,107 @@ function record(overrides: Partial<OrganelleRecord> & Pick<OrganelleRecord, 'id'
 }
 
 const RECORDS: readonly OrganelleRecord[] = [
-  record({
-    id: 'nucleus',
-    position: [-0.1, 0.14, 0.04],
-    disassembly: { direction: [-0.5661, 0.7926, 0.2265], distance: 0.9 },
-    perCell: { plant: { position: [-0.36, 0.52, 0.15] } },
-  }),
-  record({
-    id: 'mitochondrion',
-    position: [-0.52, -0.3, 0.26],
-    disassembly: { direction: [-0.72, -0.38, 0.58], distance: 0.75 },
-  }),
-  // The envelope and the volume it encloses never separate: an explicit zero vector with zero
-  // distance.
-  record({ id: 'membrane' }),
-  record({ id: 'cell-wall', cells: ['plant'] }),
+  record({ id: 'nucleus', position: [-0.1, 0.14, 0.04] }),
+  record({ id: 'mitochondrion', position: [-0.52, -0.3, 0.26] }),
+  record({ id: 'membrane', position: [0, 0, 0], separates: false }),
 ];
 
-function rosterFor(cell: CellId): readonly OrganelleRecord[] {
-  return RECORDS.filter((entry) => entry.cells.includes(cell));
+const SLOT: readonly [number, number, number] = [3, -1.5, 2];
+const SAFE_SLOT: readonly [number, number, number] = [1, 1, 0];
+
+function recordById(id: string): OrganelleRecord {
+  return RECORDS.find((candidate) => candidate.id === id)!;
 }
 
-/** The position the record says an organelle starts from, in a cell. */
-function startOf(id: string, cell: CellId): Vector3 {
-  const entry = RECORDS.find((candidate) => candidate.id === id)!;
+describe('scatterPosition', () => {
+  it('is a pure function of the record, the progress and the slot', () => {
+    const entry = recordById('nucleus');
 
-  return new Vector3(...positionForRecord(entry, cell));
-}
+    expect(scatterPosition(entry, 'animal', 57, SLOT)).toEqual(scatterPosition(entry, 'animal', 57, SLOT));
+  });
 
-/** The offset the record's own vector implies at a given progress, computed independently. */
-function expectedOffset(id: string, progress: number): Vector3 {
-  const entry = RECORDS.find((candidate) => candidate.id === id)!;
-  const travel = (progress / DISASSEMBLY_MAX) * travelDistanceFor(entry);
-
-  return new Vector3(...entry.disassembly.direction).multiplyScalar(travel);
-}
-
-describe('disassemblyOffset', () => {
-  it('is a pure function of the record and the progress', () => {
+  it('leaves a part exactly where the file put it at 0 %', () => {
     for (const entry of RECORDS) {
-      const first = disassemblyOffset(entry, 57);
-      const second = disassemblyOffset(entry, 57);
-
-      expect(first).toEqual(second);
+      // The slot is deliberately non-trivial: at zero progress it must not matter at all.
+      expect(scatterPosition(entry, 'animal', DISASSEMBLY_MIN, SLOT)).toEqual([
+        ...positionForRecord(entry, 'animal'),
+      ]);
     }
   });
 
-  it('travels exactly the record\'s own direction times the record\'s own distance at 100%', () => {
+  it('lands exactly on the slot at 100 %', () => {
     for (const entry of RECORDS) {
-      const offset = new Vector3(...disassemblyOffset(entry, DISASSEMBLY_MAX));
-      const expected = expectedOffset(entry.id, DISASSEMBLY_MAX);
+      const [x, y, z] = scatterPosition(entry, 'animal', DISASSEMBLY_MAX, SLOT);
 
-      // Component-wise this is exact, because both sides are the same record data.
-      expect(offset.x).toBeCloseTo(expected.x, 12);
-      expect(offset.y).toBeCloseTo(expected.y, 12);
-      expect(offset.z).toBeCloseTo(expected.z, 12);
-      if (travelDistanceFor(entry) > 0) {
-        // The travel length matches the declared distance to the *authored* precision of the
-        // direction. The component-wise checks above are exact; this one states the length.
-        expect(offset.length() / travelDistanceFor(entry)).toBeCloseTo(1, 2);
-
-        // And the travel is collinear with the record's direction at every progress, exactly.
-        const half = new Vector3(...disassemblyOffset(entry, 50));
-
-        if (half.lengthSq() > 0) {
-          expect(half.normalize().angleTo(expected.normalize())).toBeLessThan(1e-9);
-        }
-      }
+      expect(x).toBeCloseTo(SLOT[0], 12);
+      expect(y).toBeCloseTo(SLOT[1], 12);
+      expect(z).toBeCloseTo(SLOT[2], 12);
     }
   });
 
-  it('keeps a part that never separates exactly where it is', () => {
-    const anchored = RECORDS.filter((entry) => entry.disassembly.distance === 0);
+  it('travels a straight line, not a curve', () => {
+    const entry = recordById('mitochondrion');
+    const start = positionForRecord(entry, 'animal');
+    const middle = scatterPosition(entry, 'animal', 50, SAFE_SLOT);
 
-    expect(anchored.map((entry) => entry.id).sort()).toEqual(['cell-wall', 'membrane']);
-
-    for (const entry of anchored) {
-      for (const progress of [0, 25, 57, 100]) {
-        expect(disassemblyOffset(entry, progress)).toEqual([0, 0, 0]);
-      }
-    }
-  });
-
-  it('scales monotonically with the progress', () => {
-    for (const entry of RECORDS) {
-      if (entry.disassembly.distance === 0) {
-        continue;
-      }
-
-      const lengths = [0, 25, 50, 75, 100].map(
-        (progress) => new Vector3(...disassemblyOffset(entry, progress)).length(),
-      );
-
-      for (let index = 1; index < lengths.length; index += 1) {
-        expect(lengths[index]!, `${entry.id} at step ${index}`).toBeGreaterThan(lengths[index - 1]!);
-      }
+    for (let axis = 0; axis < 3; axis += 1) {
+      expect(middle[axis], `axis ${axis}`).toBeCloseTo((start[axis]! + SAFE_SLOT[axis]!) / 2, 12);
     }
   });
 
   it('rounds to whole percents, so the same value is the same arrangement', () => {
-    for (const entry of RECORDS) {
-      expect(disassemblyOffset(entry, 57.2)).toEqual(disassemblyOffset(entry, 57));
-      expect(disassemblyOffset(entry, 56.6)).toEqual(disassemblyOffset(entry, 57));
-    }
+    const entry = recordById('nucleus');
+
+    expect(scatterPosition(entry, 'animal', 57.2, SLOT)).toEqual(
+      scatterPosition(entry, 'animal', 57, SLOT),
+    );
+    expect(scatterPosition(entry, 'animal', 56.6, SLOT)).toEqual(
+      scatterPosition(entry, 'animal', 57, SLOT),
+    );
   });
 
   it('clamps outside the range instead of extrapolating', () => {
+    const entry = recordById('nucleus');
+
+    expect(scatterPosition(entry, 'animal', -40, SLOT)).toEqual(
+      scatterPosition(entry, 'animal', DISASSEMBLY_MIN, SLOT),
+    );
+    expect(scatterPosition(entry, 'animal', 400, SLOT)).toEqual(
+      scatterPosition(entry, 'animal', DISASSEMBLY_MAX, SLOT),
+    );
+  });
+
+  it('reverses losslessly: 100 % then 0 % is the file pose again', () => {
     for (const entry of RECORDS) {
-      expect(disassemblyOffset(entry, -40)).toEqual(disassemblyOffset(entry, DISASSEMBLY_MIN));
-      expect(disassemblyOffset(entry, 400)).toEqual(disassemblyOffset(entry, DISASSEMBLY_MAX));
-    }
-  });
-});
+      scatterPosition(entry, 'animal', DISASSEMBLY_MAX, SLOT);
 
-describe('disassembledPosition', () => {
-  it('puts every organelle on its record vector at 100%', () => {
-    for (const cell of ['animal', 'plant'] as const) {
-      for (const entry of rosterFor(cell)) {
-        const atHundred = new Vector3(...disassembledPosition(entry, cell, 100));
-        const expected = startOf(entry.id, cell).add(expectedOffset(entry.id, 100));
-
-        expect(atHundred.x, entry.id).toBeCloseTo(expected.x, 12);
-        expect(atHundred.y, entry.id).toBeCloseTo(expected.y, 12);
-        expect(atHundred.z, entry.id).toBeCloseTo(expected.z, 12);
-      }
+      expect(scatterPosition(entry, 'animal', DISASSEMBLY_MIN, SLOT)).toEqual([
+        ...positionForRecord(entry, 'animal'),
+      ]);
     }
   });
 
-  it('returns the exact 0% pose, so a round trip is lossless', () => {
-    for (const cell of ['animal', 'plant'] as const) {
-      for (const entry of rosterFor(cell)) {
-        const assembled = disassembledPosition(entry, cell, 0);
+  it('uses the cell own placement, not the record base one', () => {
+    const nucleus = record({
+      id: 'nucleus',
+      position: [-0.1, 0.14, 0.04],
+      perCell: { plant: { position: [-0.36, 0.52, 0.15] } },
+    });
 
-        expect(assembled).toEqual([...positionForRecord(entry, cell)]);
-
-        // 100 → 0 is a pure recomputation, so there is no accumulated drift to compare within a
-        // tolerance: the two are the same three numbers.
-        expect(disassembledPosition(entry, cell, 0)).toEqual(assembled);
-      }
-    }
+    expect(scatterPosition(nucleus, 'animal', DISASSEMBLY_MIN, SLOT)).toEqual([-0.1, 0.14, 0.04]);
+    expect(scatterPosition(nucleus, 'plant', DISASSEMBLY_MIN, SLOT)).toEqual([-0.36, 0.52, 0.15]);
   });
 
-  it('uses the cell\'s own placement, not the record\'s base one', () => {
-    const nucleus = RECORDS.find((entry) => entry.id === 'nucleus')!;
-    const animal = new Vector3(...disassembledPosition(nucleus, 'animal', 0));
-    const plant = new Vector3(...disassembledPosition(nucleus, 'plant', 0));
-
-    expect(animal.toArray()).toEqual([...nucleus.position]);
-    expect(plant.toArray()).toEqual([...nucleus.perCell!.plant!.position!]);
-    expect(animal.equals(plant)).toBe(false);
-  });
-
-  it('moves outward from the centre, never through it', () => {
-    for (const cell of ['animal', 'plant'] as const) {
-      for (const entry of rosterFor(cell)) {
-        if (entry.disassembly.distance === 0) {
-          continue;
-        }
-
-        const start = startOf(entry.id, cell);
-        const end = new Vector3(...disassembledPosition(entry, cell, 100));
-
-        expect(end.length()).toBeGreaterThan(start.length() - 1e-9);
+  it('moves a part outward at every progress above zero', () => {
+    for (const entry of RECORDS) {
+      if (!entry.separates) {
+        continue;
       }
+
+      const start = Math.hypot(...positionForRecord(entry, 'animal'));
+      const [x, y, z] = scatterPosition(entry, 'animal', DISASSEMBLY_MAX, SAFE_SLOT);
+
+      expect(Math.hypot(x, y, z)).toBeGreaterThan(start);
     }
   });
 });
@@ -254,7 +187,7 @@ describe('dampDisassembly', () => {
     expect(dampDisassembly(20, 100, Number.NaN)).toBe(20);
   });
 
-  it('snaps inside the rounding threshold, which is what makes 0% exact', () => {
+  it('snaps inside the rounding threshold, which is what makes 0 % exact', () => {
     // The rendered arrangement rounds the current to a whole percent, so a current within the snap
     // epsilon of zero *is* zero — the pose is the assembled pose, not a pose near it.
     const almost = dampDisassembly(DISASSEMBLY_SNAP_EPSILON - 1e-9, 0, 1 / 60);

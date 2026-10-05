@@ -11,6 +11,12 @@
  */
 
 import { extentFor, positionForRecord } from '../../catalog/params';
+import {
+  membraneExtentOf,
+  orderedSeparation,
+  scatterSlotFor,
+  type ScatterLayout,
+} from '../../catalog/separation';
 import type { CellId, OrganelleRecord } from '../../catalog/types';
 
 export interface CameraPose {
@@ -206,6 +212,117 @@ export function focusForRecord(record: OrganelleRecord, cell: CellId): FocusStat
   return {
     target: positionForRecord(record, cell),
     distance: isolateDistanceFor(extent),
+  };
+}
+
+/**
+ * The framing margin the plain glTF viewer used, reused here so the two poses agree.
+ *
+ * `CELL_POSE` is `membraneHalfDiagonal / tan(fov / 2) × 1.06`; this is the same 6 %.
+ */
+export const FRAMING_MARGIN = 1.06;
+
+/**
+ * The closest the camera may sit while one part is being inspected.
+ *
+ * `NAVIGATION_LIMITS.minDistance` implements "never passes inside the cell", and that rule is about
+ * the cell — it must not apply to a part the size of a nucleolus, which needs a camera at ~1.5 units
+ * to fill the frame.
+ */
+export const INSPECTION_MIN_DISTANCE = 0.3;
+
+/** The farthest the camera may sit while inspecting, with room for the largest part. */
+export const INSPECTION_MAX_DISTANCE = 12;
+
+/**
+ * How many part radii sit between the camera and a part it is inspecting.
+ *
+ * Tighter than `ISOLATE_DISTANCE_FACTOR`, and deliberately: the inspection is the one view that is
+ * *only* about the part, so the part should nearly fill the frame instead of sitting in the middle of
+ * it. At `3 × extent + 0.3` a part's bounding radius covers ~87–98 % of the frame's half-height
+ * against the isolate's ~60 %, which is the "I should not have to scroll to see it" the view is for.
+ */
+export const INSPECTION_DISTANCE_FACTOR = 3;
+/** Flat allowance so a tiny part is not framed edge-to-edge. */
+export const INSPECTION_DISTANCE_MARGIN = 0.3;
+
+/**
+ * How far the camera sits from a part that is being inspected: alone, and as close as its own size
+ * allows.
+ *
+ * This is `isolateDistanceFor`'s rule **without the ceiling**, and dropping the ceiling is the point.
+ * The ceiling was 3.2 because the isolate had to stay inside the cell's far navigation clamp — and it
+ * silently **cut the large parts off**: the endoplasmic reticulum's own half-diagonal is 1.228, while
+ * a camera at 3.2 frames a radius of only 1.01, so the part ran past the edges of its own view. With
+ * the rest of the cell hidden, the inspection owns its clamps (`INSPECTION_*`), so the distance can
+ * simply follow the part.
+ */
+export function inspectionDistanceFor(extent: number): number {
+  const radius = Number.isFinite(extent) ? Math.max(0, extent) : 0;
+
+  return radius * INSPECTION_DISTANCE_FACTOR + INSPECTION_DISTANCE_MARGIN;
+}
+
+/**
+ * The whole exploded view's bounding radius, in scene units: the farthest surface any separable part
+ * reaches at 100 %.
+ *
+ * Derived from the running layout and the catalog, never guessed, so shrinking or growing a part moves
+ * the framing with it. The distributed networks dominate this number in the `ordered` view — a
+ * reticulum whose bounding half-diagonal is 1.228 orbits at 3.73 — and in the `real` view the farthest
+ * part reaches past 7, which is the honest reason the two views cannot share one camera.
+ */
+export function dispersionSubjectRadius(cell: CellId, layout: ScatterLayout): number {
+  const ordered = orderedSeparation(cell);
+  const count = ordered.length;
+  const membraneExtent = membraneExtentOf(cell);
+
+  let radius = 0;
+
+  for (let rank = 0; rank < count; rank += 1) {
+    const record = ordered[rank]!;
+    const [sx, sy, sz] = scatterSlotFor(record, cell, layout, rank, count, membraneExtent);
+    const reach = Math.hypot(sx, sy, sz) + extentFor(record);
+
+    if (reach > radius) {
+      radius = reach;
+    }
+  }
+
+  return radius;
+}
+
+/**
+ * How far the camera must sit from the cell's centre to frame the whole exploded view.
+ *
+ * The same rule `CELL_POSE` uses, applied to the exploded subject instead of the membrane. It is
+ * deliberately **larger than `NAVIGATION_LIMITS.maxDistance`**, which is why the orbit clamp has to
+ * open while the dispersion is active: at 100 % the parts reach a radius of ~5.5 scene units against
+ * the cell's 2.0, and the settled pose would clip them.
+ */
+export function dispersionFramingDistance(cell: CellId, layout: ScatterLayout): number {
+  const subject = dispersionSubjectRadius(cell, layout);
+
+  return (subject / Math.tan(((CELL_POSE.fov / 2) * Math.PI) / 180)) * FRAMING_MARGIN;
+}
+
+/**
+ * The framed view of the exploded cell at one control value.
+ *
+ * The distance grows with the control from the composed pose to the full exploded framing, while the
+ * target stays the cell's centre and the orbit **angle** is never touched — `placeCamera` moves along
+ * whatever ray the user has chosen. A control that also swung the view would make dragging the slider
+ * feel like losing the camera.
+ */
+export function dispersionFocus(percent: number, cell: CellId, layout: ScatterLayout): FocusState {
+  const finite = Number.isFinite(percent) ? percent : 0;
+  const t = Math.min(1, Math.max(0, finite / 100));
+  const settled = Math.hypot(...CELL_POSE.position);
+  const wide = dispersionFramingDistance(cell, layout);
+
+  return {
+    target: [...CELL_POSE.target],
+    distance: settled + (wide - settled) * t,
   };
 }
 

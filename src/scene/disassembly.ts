@@ -4,25 +4,33 @@ import { DISASSEMBLY_MAX, DISASSEMBLY_MIN, clampDisassembly, useAppStore } from 
 import { rosterFor } from '../catalog/cells';
 import { modelFor } from '../catalog/models';
 import { positionForRecord } from '../catalog/params';
+import {
+  isSeparable,
+  membraneExtentOf,
+  orderedSeparation,
+  scatterSlotFor,
+  separationProgress,
+  type ScatterLayout,
+} from '../catalog/separation';
 import { isMeshGeometry, type CellId, type OrganelleRecord } from '../catalog/types';
-import { travelDistanceFor } from '../catalog/vectors';
 import { t } from '../ui/i18n';
 import { disassemblyStateKey, formatDisassemblyPercent } from '../ui/hud/disassemblyCopy';
 import { registeredOrganelleRoot } from './anchors';
 
 /**
- * Disassembly: one progress value, a damped transient current, per-frame transform writes.
+ * The exploded view: one progress value, one damped transient current, per-frame transform writes.
  *
- * Design D13 chose transform-driven over a GSAP timeline per organelle and over a shader offset,
- * and the reason is that every consumer already follows the organelle's `Object3D`: the pick
- * volumes are its children, the annotation anchors read its `matrixWorld`, and the contact shadows
- * are drawn from where it actually is. Writing `position` therefore keeps all three correct with
- * no synchronisation, and reversibility is structural — the arrangement is a pure function of
- * `(progress, catalog vector)`.
+ * Design D13 chose transform-driven over a GSAP timeline per organelle and over a shader offset, and
+ * the reason is that every consumer already follows the organelle's `Object3D`: the pick volumes are
+ * its children, the annotation anchors read its `matrixWorld`, and the contact shadows are drawn from
+ * where it actually is. Writing `position` therefore keeps all three correct with no synchronisation,
+ * and reversibility is structural — the arrangement is a pure function of
+ * `(local progress, layout, catalog vector)`, where the layout decides *where* a part goes and the
+ * rank only decides *when* it travels.
  *
- * **Nothing here re-renders React.** The discrete target lives in the store and changes on a
- * control step; the current value lives in this module and is written to `Object3D.position` from
- * one `useFrame`.
+ * **Nothing here re-renders React.** The discrete target lives in the store and changes on a control
+ * step; the current value lives in this module and is written to `Object3D.position` from one
+ * `useFrame`.
  */
 
 /** Damping rate, in inverse seconds. Fast enough to read as motion, slow enough to read as motion. */
@@ -34,6 +42,15 @@ export const DISASSEMBLY_DAMPING_PER_SECOND = 8;
  * percent at every frame — which is what makes 0% after a round trip the same pose as 0% at load.
  */
 export const DISASSEMBLY_SNAP_EPSILON = 0.5;
+
+/**
+ * The layout the control is currently showing.
+ *
+ * A module constant for now, and that is the deliberate order of work: the whole engine can be
+ * reviewed against **both** layouts, with tests, before any of it is reachable from the UI. The
+ * control that switches it is the next change.
+ */
+export const SCATTER_LAYOUT: ScatterLayout = 'ordered';
 
 /** The transient side of the split. Never in React state, never in the store. */
 export interface DisassemblyState {
@@ -47,64 +64,51 @@ export function createDisassemblyState(): DisassemblyState {
 /** The one transient current value the loop reads and writes. */
 export const disassemblyState = createDisassemblyState();
 
-/**
- * How far one organelle has moved at a given progress, in scene units.
- *
- * The distance is the record's own declared travel, resolved through `travelDistanceFor` — the
- * viewer never carries a displacement constant, and the integrity gate has already proved the
- * direction is outward and normalizable.
- */
-export function disassemblyOffset(
-  record: OrganelleRecord,
-  progress: number,
-): [number, number, number] {
-  const percent = clampDisassembly(progress);
-  const travel = (percent / DISASSEMBLY_MAX) * travelDistanceFor(record);
-  const [dx, dy, dz] = record.disassembly.direction;
-
-  return [dx * travel, dy * travel, dz * travel];
-}
+/** A slot every part is already sitting on: used for the records that never separate. */
+const HOME_SLOT: readonly [number, number, number] = [0, 0, 0];
 
 /**
- * Where one organelle's root sits at a given progress.
+ * Where one organelle's root sits, given how far along it is and the slot it is travelling to.
  *
- * Two mountings, one rule: the offset is always `direction × travel`, and only the base differs.
+ * One straight line from where the model file puts the part to its slot, which is what makes the
+ * arrangement a pure function of the control value: the same percent is the same pose every time,
+ * and 0 % is the file unmodified.
+ *
+ * Two mountings, one rule, and only the base differs:
  *
  * - **A procedural record** starts at its own catalog placement, in scene units.
  * - **A mesh record** starts at its part's centre *inside the model's frame*, which carries a uniform
- *   scale. Its offset therefore has to be expressed in the same units — the disassembly distance is
- *   authored in scene units, so it is divided by the model's scale before being written. Nothing
- *   about the model's own transform changes; only the magnitude of the displacement is reconciled.
- *
- * A record that never separates (a zero vector with zero distance) returns its own base at every
- * value, which is why the membrane and the cytoplasm stay exactly where the file put them.
+ *   scale. Its displacement therefore has to be expressed in the same units — the slot is authored in
+ *   scene units, so the delta is divided by the frame's scale before being written. Nothing about the
+ *   model's own transform changes; only the magnitude is reconciled.
  */
-export function disassembledPosition(
+export function scatterPosition(
   record: OrganelleRecord,
   cell: CellId,
-  progress: number,
+  localPercent: number,
+  slot: readonly [number, number, number],
 ): [number, number, number] {
+  const t = clampDisassembly(localPercent) / DISASSEMBLY_MAX;
   const [px, py, pz] = positionForRecord(record, cell);
-  const [ox, oy, oz] = disassemblyOffset(record, progress);
+  const dx = (slot[0] - px) * t;
+  const dy = (slot[1] - py) * t;
+  const dz = (slot[2] - pz) * t;
 
   if (isMeshGeometry(record.geometry)) {
     /*
      * A mesh host lives **inside** the model's frame group, so its `position` is expressed in the
-     * frame's own units — scene units divided by the frame's scale. Both the authored base and the
-     * travel are converted here, which is the one place the frame's scale is reconciled with the
-     * scene-unit numbers the catalog authors.
+     * frame's own units — scene units divided by the frame's scale. The host's authored base is
+     * published by its mount, so this stays a pure function of the record, the progress and one
+     * number the mount already knows.
      */
     const scale = modelFor(cell)?.frame.scale ?? 1;
     const base = registeredOrganelleRoot(record.id)?.userData.basePosition;
-
-    // The host's authored base is published by its mount, so this function stays a pure function of
-    // the record and the progress plus one number the mount already knows.
     const [bx, by, bz] = Array.isArray(base) ? base : [0, 0, 0];
 
-    return [bx + ox / scale, by + oy / scale, bz + oz / scale];
+    return [bx + dx / scale, by + dy / scale, bz + dz / scale];
   }
 
-  return [px + ox, py + oy, pz + oz];
+  return [px + dx, py + dy, pz + dz];
 }
 
 /** One step of the damped approach. Frame-rate independent, and it lands on the target exactly. */
@@ -137,10 +141,27 @@ export interface DisassemblyDriverProps {
 
 /**
  * The loop. One `useFrame` for the whole cell: the damping is stepped once, then every organelle
- * root is positioned from the catalog.
+ * root is positioned from the catalog and the running layout.
  */
 export function DisassemblyDriver({ cell, frozenValue, hudTarget }: DisassemblyDriverProps) {
   const roster = useMemo(() => rosterFor(cell), [cell]);
+  const ordered = useMemo(() => orderedSeparation(cell), [cell]);
+  const membraneExtent = useMemo(() => membraneExtentOf(cell), [cell]);
+
+  /*
+   * Where an inspected part is taken: the cell's own centre, in the frame's local units.
+   *
+   * The frame group carries `position = −center × scale` and `scale`, so a host at local `center`
+   * lands on the world origin — which is where the membrane record already puts the cell's centre.
+   * Taking the part there rather than leaving it on its orbit slot is what makes "bring that part to
+   * the camera" a fixed, known place: the framing is the same for every part, and the camera never
+   * has to know which slot the part happened to occupy.
+   */
+  const inspectionPoint = useMemo(() => {
+    const centre = modelFor(cell)?.frame.center;
+
+    return (centre ? [centre[0], centre[1], centre[2]] : [0, 0, 0]) as [number, number, number];
+  }, [cell]);
 
   useFrame((_state, delta) => {
     const target = frozenValue ?? useAppStore.getState().disassemblyTarget;
@@ -151,18 +172,64 @@ export function DisassemblyDriver({ cell, frozenValue, hudTarget }: DisassemblyD
         : dampDisassembly(disassemblyState.current, target, delta);
 
     const progress = clampDisassembly(disassemblyState.current);
+    const selectedId = useAppStore.getState().selectedId;
 
-    for (const record of roster) {
+    /*
+     * Ordered separation. `ordered` is the cell's separable records in exit order, and each part
+     * travels inside **its own window** of the global control — so dragging the slider emits the
+     * parts one order at a time instead of all at once, while 100 % still ends with every part fully
+     * out. `separationProgress` owns the arithmetic; the driver only supplies the rank.
+     *
+     * One part may also be **inspected**, and that overrides the arrangement entirely: the chosen
+     * part travels to the cell's centre so the camera can hold it still and close, and every other
+     * part stops being drawn. Hiding the rest is what makes "look at this organelle alone, and turn
+     * it" possible in this canvas — no second scene, no second model, no second WebGL context.
+     */
+    const count = ordered.length;
+
+    for (let rank = 0; rank < count; rank += 1) {
+      const record = ordered[rank]!;
       const object = registeredOrganelleRoot(record.id);
 
       if (!object) {
         continue;
       }
 
-      const [x, y, z] = disassembledPosition(record, cell, progress);
+      const selected = selectedId === record.id;
+
+      if (selected) {
+        object.position.set(inspectionPoint[0], inspectionPoint[1], inspectionPoint[2]);
+      } else {
+        const local = separationProgress(progress, rank, count) * DISASSEMBLY_MAX;
+        const slot = scatterSlotFor(record, cell, SCATTER_LAYOUT, rank, count, membraneExtent);
+        const [x, y, z] = scatterPosition(record, cell, local, slot);
+
+        object.position.set(x, y, z);
+      }
+
+      object.visible = selectedId === null || selected;
+    }
+
+    /*
+     * The records that never separate — the envelope and the scaffold — are pinned at their own base
+     * from the same zero progress the driver has always used: no travel, so `scatterPosition` returns
+     * the mount's own position rather than an animation.
+     */
+    for (const record of roster) {
+      if (isSeparable(record)) {
+        continue;
+      }
+
+      const object = registeredOrganelleRoot(record.id);
+
+      if (!object) {
+        continue;
+      }
+
+      const [x, y, z] = scatterPosition(record, cell, DISASSEMBLY_MIN, HOME_SLOT);
 
       object.position.set(x, y, z);
-
+      object.visible = selectedId === null || selectedId === record.id;
     }
 
     const hud = hudTarget.current;

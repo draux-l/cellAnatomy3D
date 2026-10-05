@@ -27,7 +27,7 @@ const MEMBRANE: OrganelleRecord = {
   },
   // The plant override gives the membrane the wall's silhouette; the animal default stays round.
   perCell: { plant: { geometryParams: { sides: 8, cornerRounding: 0.4 } } },
-  disassembly: { direction: [0, 0, 0], distance: 0 },
+  separates: false,
   cells: ['animal', 'plant'],
   pickable: true,
 };

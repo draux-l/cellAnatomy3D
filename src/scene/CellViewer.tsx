@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { AdaptiveDpr } from '@react-three/drei';
 import type { FixtureConfig } from '../app/fixture';
-import { useAppStore } from '../app/store';
-import { STRUCTURE_TOOLS_ENABLED } from '../app/structureTools';
+import { useAppStore, type AppState } from '../app/store';
+import { ANNOTATIONS_ENABLED, DISPERSION_ENABLED } from '../app/structureTools';
 import type { CellId } from '../catalog/types';
 import {
   AnnotationOverlay,
@@ -12,6 +12,7 @@ import {
 } from '../ui/annotations/AnnotationLayer';
 import { FpsReadout } from '../ui/hud/FpsReadout';
 import { HoverLabel } from '../ui/HoverLabel';
+import { InspectorNav } from '../ui/InspectorNav';
 import { DisassemblyHud } from '../ui/hud/DisassemblyHud';
 import { CellStage } from './CellStage';
 import type { DisassemblyHudTarget } from './disassembly';
@@ -41,11 +42,9 @@ function cellForFixture(fixture: FixtureConfig, activeView: string): CellId {
 
 export function CellViewer({ fixture }: { fixture: FixtureConfig }) {
   const activeView = useAppStore((state) => state.activeView);
-  const hoveredId = useAppStore((state) => state.hoveredId);
-  const selectedId = useAppStore((state) => state.selectedId);
-  const disassemblyTarget = useAppStore((state) => state.disassemblyTarget);
   const tier = useQualityTier(fixture.name);
   const cell = cellForFixture(fixture, activeView);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   // React never renders the readout text; the frame loop owns it. React owns the slider position.
   const hudTarget = useRef<DisassemblyHudTarget>({ percent: null, state: null, lastWritten: -1 });
   /**
@@ -59,20 +58,70 @@ export function CellViewer({ fixture }: { fixture: FixtureConfig }) {
   /**
    * Whether the annotation layer is mounted at all.
    *
-   * Two independent gates, because they answer different questions: `STRUCTURE_TOOLS_ENABLED` is
-   * the product decision (the part-identification layer is hidden while the part definitions are
-   * rebuilt), and `fixture.showAnnotations` is the URL's capture override
-   * (`?annotations=off`). The flag is the outer one, so the layer cannot come back through a URL.
+   * Two independent gates, because they answer different questions: `ANNOTATIONS_ENABLED` is the
+   * product decision (the leader-line layer stays hidden while the part definitions are rebuilt),
+   * and `fixture.showAnnotations` is the URL's capture override (`?annotations=off`). The flag is
+   * the outer one, so the layer cannot come back through a URL.
    */
-  const annotationsMounted = STRUCTURE_TOOLS_ENABLED && fixture.showAnnotations;
+  const annotationsMounted = ANNOTATIONS_ENABLED && fixture.showAnnotations;
+
+  /**
+   * The `data-*` mirror of the discrete state, written **outside React**.
+   *
+   * These three attributes are styling hooks and a harness contract, not scene inputs — but they
+   * used to be subscribed with `useAppStore(...)`, so every hover transition and every slider step
+   * re-rendered this component and, with it, the whole `<Canvas>` subtree. The `<Environment>` and
+   * the contact-shadow pass live down there, and re-rendering them on each interaction is the
+   * measured ~450 ms stall. Subscribing imperatively keeps the scene completely out of that render:
+   * hover and the dispersion slider no longer touch React here at all.
+   *
+   * The writes are compared first because the store notifies on *any* key (locale, palette), and an
+   * unchanged attribute should not dirty the DOM.
+   */
+  useEffect(() => {
+    const node = containerRef.current;
+
+    if (!node) {
+      return;
+    }
+
+    let hovered = '';
+    let selected = '';
+    let disassembly = Number.NaN;
+
+    const apply = (state: AppState): void => {
+      const nextHovered = state.hoveredId ?? '';
+      const nextSelected = state.selectedId ?? '';
+
+      if (nextHovered !== hovered) {
+        node.dataset.hovered = nextHovered;
+        hovered = nextHovered;
+      }
+
+      if (nextSelected !== selected) {
+        node.dataset.selected = nextSelected;
+        selected = nextSelected;
+      }
+
+      if (state.disassemblyTarget !== disassembly) {
+        node.dataset.disassembly = String(state.disassemblyTarget);
+        disassembly = state.disassemblyTarget;
+      }
+    };
+
+    apply(useAppStore.getState());
+
+    return useAppStore.subscribe(apply);
+  }, []);
 
   useEffect(() => {
     // A fixture names its disassembly state in the URL. Setting it once, rather than animating into
     // it, is what makes the screenshot a function of the URL.
     //
-    // Order matters: the two controls hand off to each other in the store (each clears the other), so
-    // a fixture that names both pins the selection — a per-organelle capture is about the part, and
-    // an exploded cell would move it out of its own frame.
+    // Order matters, though the handoff is now one-directional: raising the disassembly clears the
+    // isolate, so a fixture that names both must set the dispersion FIRST and the selection SECOND.
+    // The capture then shows the chosen part alone — the driver hides every other part and the camera
+    // frames where the part travelled to — which is what a per-organelle capture is about.
     useAppStore.getState().setDisassembly(fixture.disassemblyValue ?? 0);
 
     if (fixture.select !== null) {
@@ -101,11 +150,9 @@ export function CellViewer({ fixture }: { fixture: FixtureConfig }) {
 
   return (
     <div
+      ref={containerRef}
       className="cell-view"
       data-cell={cell}
-      data-hovered={hoveredId ?? ''}
-      data-selected={selectedId ?? ''}
-      data-disassembly={disassemblyTarget}
     >
       <Canvas
         dpr={[1, tier.dpr]}
@@ -131,7 +178,7 @@ export function CellViewer({ fixture }: { fixture: FixtureConfig }) {
           fixture={fixture}
           tier={tier}
           hudTarget={hudTarget}
-          structureToolsEnabled={STRUCTURE_TOOLS_ENABLED}
+          dispersionEnabled={DISPERSION_ENABLED}
           annotationTarget={annotationsMounted ? annotationTarget : null}
         />
         {/* Drei's adaptive pass only in the real app: it changes resolution in response to load,
@@ -150,19 +197,22 @@ export function CellViewer({ fixture }: { fixture: FixtureConfig }) {
       */}
       <HoverLabel />
 
+      {/*
+        The step control of the inspection view. It renders nothing without a selection, and it is
+        mounted unconditionally so its hooks keep a stable position in the tree.
+      */}
+      <InspectorNav cell={cell} />
+
       {fixture.showFps ? <FpsReadout /> : null}
 
       {/*
-        The exploded-view control. Hidden with the rest of the structure-study layer (see
-        `app/structureTools.ts`): the model is presented as the GLB authors it, so nothing on screen
-        offers to take it apart. The component is untouched and comes back with the flag.
+        The dispersion control: the ordered exploded view. Gated by its own flag (see
+        `app/structureTools.ts`) and independent of the annotation layer, so the model can be taken
+        apart without also being labelled. At 0 % the driver writes every part's own base, so the
+        resting view is the model exactly as the GLB authors it.
       */}
-      {STRUCTURE_TOOLS_ENABLED ? (
-        <DisassemblyHud
-          value={disassemblyTarget}
-          target={hudTarget}
-          frozen={fixture.disassemblyValue !== null}
-        />
+      {DISPERSION_ENABLED ? (
+        <DisassemblyHud target={hudTarget} frozen={fixture.disassemblyValue !== null} />
       ) : null}
     </div>
   );

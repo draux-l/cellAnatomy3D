@@ -71,9 +71,6 @@ export interface BuilderResolutionOptions {
   manifest?: ModelManifest;
 }
 
-/** `‖direction‖` below this is a zero vector: "never separates" only when `distance` is also 0. */
-export const DIRECTION_EPSILON = 1e-6;
-
 /**
  * The canonical animal-cell roster (spec: Canonical Animal Cell Roster). Declared here rather
  * than derived from the catalog on purpose: if a record is deleted from `cells.ts`, the gate has
@@ -148,10 +145,6 @@ function isFiniteNumber(value: unknown): value is number {
 
 function isVector3(value: unknown): value is [number, number, number] {
   return Array.isArray(value) && value.length === 3 && value.every(isFiniteNumber);
-}
-
-function magnitude(vector: readonly [number, number, number]): number {
-  return Math.hypot(vector[0], vector[1], vector[2]);
 }
 
 function labelOf(record: unknown, index: number): string {
@@ -313,13 +306,37 @@ function validateMeshGeometry(
         return;
       }
 
-      if (row.policy !== 'map') {
+      if (row.policy !== 'map' && row.policy !== 'split') {
         // A record may only own a mesh the manifest maps to it; an `omit`/`unmapped` row that a
         // record claims is a mapping mistake, not a rendering choice.
         add(
           `${path}.node`,
           `is "${ref.node}", which the manifest marks "${row.policy}" and does not map to a record`,
         );
+        return;
+      }
+
+      if (row.policy === 'split') {
+        /*
+         * A node several records share. The ref is valid when this record is one of the declared
+         * groups — the group order and the radius are the row's business, and the *geometry* is
+         * resolved at mount time (`scene/models/bodyClusters.ts`), which a data gate cannot see.
+         */
+        const declared = row.split?.records ?? [];
+
+        if (row.split === undefined || declared.length === 0) {
+          add(`${path}.node`, 'is marked "split" in the manifest but declares no records to split into');
+          return;
+        }
+
+        if (!declared.includes(String(record.id))) {
+          add(
+            `${path}.node`,
+            `is split in the manifest into ${declared.join(', ')}, and this record is "${String(record.id)}"`,
+          );
+        }
+
+        // The row carries no palette key of its own: each part's record names its own role.
         return;
       }
 
@@ -559,100 +576,24 @@ export function validateRecord(
     }
   }
 
-  const disassembly = record.disassembly;
-
-  if (!isPlainObject(disassembly)) {
-    // D16: the field is required. A part that never separates declares a zero vector instead,
-    // which is a deliberate authoring choice rather than an omission.
-    add('disassembly', 'is required — declare { direction, distance }, use [0,0,0] with 0 to keep a part in place');
-  } else {
-    const direction = disassembly.direction;
-    const distance = disassembly.distance;
-    const directionOk = isVector3(direction);
-
-    if (!directionOk) {
-      add('disassembly.direction', 'is required and must be three finite numbers');
-    }
-
-    if (!isFiniteNumber(distance) || distance < 0) {
-      add('disassembly.distance', 'is required and must be zero or a positive number of scene units');
-    }
-
-    if (directionOk) {
-      const length = magnitude(direction);
-
-      if (isFiniteNumber(distance) && distance > 0 && length <= DIRECTION_EPSILON) {
-        add(
-          'disassembly.direction',
-          `is not normalizable (‖direction‖ must exceed ${DIRECTION_EPSILON}) while distance is ${distance}`,
-        );
-      }
-
-      if (length > DIRECTION_EPSILON && isVector3(record.position)) {
-        const positionLength = magnitude(record.position);
-
-        // A record at the cell origin has no radial basis: every direction's radial component is
-        // zero there, which the spec allows.
-        if (positionLength > DIRECTION_EPSILON) {
-          const radial =
-            (direction[0] * record.position[0] +
-              direction[1] * record.position[1] +
-              direction[2] * record.position[2]) /
-            (length * positionLength);
-
-          if (radial < -DIRECTION_EPSILON) {
-            add(
-              'disassembly.direction',
-              `points toward the cell centre (radial component ${radial.toFixed(3)}); outward or zero is required`,
-            );
-          }
-        }
-      }
-    }
-  }
-
   /*
-   * A per-cell placement must satisfy the same outward rule the record's own position does.
+   * `separates` is the whole of a record's disassembly declaration, and that is deliberate.
    *
-   * The disassembly vector is authored per record, and the plant nucleus sits somewhere the animal
-   * nucleus does not — so checking only `record.position` would let a cell override drive an
-   * organelle inward through the centre while the gate reported a pass. The rule is the same one
-   * applied above, evaluated against whichever placement this cell actually uses.
+   * *Where* a part travels belongs to the layout (`catalog/separation.ts`), not to the record: the
+   * product has two views of the same control, and both derive the slot from data the record already
+   * carries (`position`, `geometry.extent`). Authoring a vector per record per view would be data no
+   * one could keep in sync — and it could not express a view that does not exist yet. So the gate
+   * checks the only thing the record can get wrong here: declaring it at all.
+   *
+   * The **geometric** invariant that used to live in this function moved to `separation.test.ts`,
+   * because it needs the whole catalog to evaluate. "Every slot clears the membrane by the part's own
+   * radius, in every layout" is a property of the arrangement, not of one record.
    */
-  if (
-    isPlainObject(record.perCell) &&
-    isPlainObject(record.disassembly) &&
-    isVector3(record.disassembly.direction)
-  ) {
-    const direction = record.disassembly.direction;
-    const length = magnitude(direction);
-
-    if (length > DIRECTION_EPSILON) {
-      for (const [cell, override] of Object.entries(record.perCell)) {
-        if (!isPlainObject(override) || !isVector3(override.position)) {
-          continue;
-        }
-
-        const position = override.position;
-        const positionLength = magnitude(position);
-
-        if (positionLength <= DIRECTION_EPSILON) {
-          continue;
-        }
-
-        const radial =
-          (direction[0] * position[0] + direction[1] * position[1] + direction[2] * position[2]) /
-          (length * positionLength);
-
-        if (radial < -DIRECTION_EPSILON) {
-          add(
-            `perCell.${cell}.position`,
-            `puts the organelle where its disassembly direction points toward the cell centre ` +
-              `(radial component ${radial.toFixed(3)}); outward or zero is required`,
-          );
-        }
-      }
-    }
+  if (typeof record.separates !== 'boolean') {
+    add(
+      'separates',
+      'is required and must be a boolean — `false` is the explicit "this part never separates" choice',
+    );
   }
 
   for (const colourPath of findColourLiterals(record)) {
